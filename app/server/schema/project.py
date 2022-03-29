@@ -1,11 +1,13 @@
-from dataclasses import dataclass
-from typing import Optional
+import strawberry
 
-@dataclass
+@strawberry.type
 class Project:
     id: str
     version: str
     language: str
     language_version: str
 
-    context: Optional[int]
+    context: str = None
+    environment: str = None
+
+project_schema = strawberry.Schema(query=Project)
