@@ -10,12 +10,12 @@
 """Git implementation of _version.py."""
 
 import errno
+import functools
 import os
 import re
 import subprocess
 import sys
 from typing import Callable, Dict
-import functools
 
 
 def get_keywords():
@@ -92,7 +92,7 @@ def run_command(commands, args, cwd=None, verbose=False, hide_stderr=False, env=
                 env=env,
                 stdout=subprocess.PIPE,
                 stderr=(subprocess.PIPE if hide_stderr else None),
-                **popen_kwargs
+                **popen_kwargs,
             )
             break
         except OSError:
