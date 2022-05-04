@@ -6,12 +6,11 @@ from datetime import datetime
 from enum import Enum
 from uuid import UUID
 
+# from strawberry.scalars import Base64, JSON
 import strawberry
 from graphql.utilities import value_from_ast_untyped
 from packaging.version import Version as _Version
 from packaging.version import parse as parse_version
-
-# from strawberry.scalars import Base64, JSON
 from strawberry.custom_scalar import scalar
 
 from app.server.utils import dt_to_str, str_to_dt
@@ -105,7 +104,7 @@ class Project:
     timestamp: DateTime
     # optional
     session: UUID | None = None
-    context: Context | None = None
+    context: Context = None
     process: Process = Process
 
 
