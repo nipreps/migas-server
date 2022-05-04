@@ -1,10 +1,10 @@
 import typing
-from uuid import UUID
 
 import strawberry
 from strawberry.scalars import JSON
 from strawberry.types import Info
 
+from app.server.database import collection_insert
 from app.server.fetchers import fetch_project_info
 from app.server.types import PROJECTS, Context, DateTime, Process, Project, ProjectInput
 from app.server.utils import now
@@ -47,14 +47,8 @@ class Query:
 @strawberry.type
 class Mutation:
     @strawberry.mutation
-    async def add_project(self, p: ProjectInput) -> JSON:
-        print(p)
-        print(f"Inserting in {p.owner}/{p.repo} database")
-        print(f"{p.status=}, {p.arguments=}")
-        print(type(p.arguments))
-        print(f"{p.session=}, {p.user_id=}")
+    async def add_project(self, p: ProjectInput, info: Info) -> JSON:
 
-        print(f"{p.owner=}, {p.repo=}")
         project = Project(
             owner=p.owner,
             repo=p.repo,
@@ -71,7 +65,7 @@ class Mutation:
             ),
             process=Process(status=p.status),
         )
-        PROJECTS.append(project)
+        # PROJECTS.append(project)
         fetched = await fetch_project_info(p.owner, p.repo)
 
         # we should return the
@@ -81,6 +75,8 @@ class Mutation:
         # add as FastAPI background tasks:
         # - geoloc lookup
         # - adding to database
+        info.context["background_tasks"].add_task(collection_insert, project)
+
         return {
             "success": True,
             "latest_version": fetched["version"],
@@ -90,9 +86,3 @@ class Mutation:
 
 
 SCHEMA = strawberry.Schema(query=Query, mutation=Mutation)
-
-
-def _validate_string(s, char_lim=16):
-    if len(s) > char_lim:
-        print(f"String {s} is over character limit")
-    return s[:char_lim]
