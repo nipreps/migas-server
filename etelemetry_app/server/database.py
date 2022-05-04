@@ -3,7 +3,7 @@ import os
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
 from pymongo.results import InsertOneResult
 
-from app.server.types import Project
+from etelemetry_app.server.types import Project
 
 _Client = AsyncIOMotorClient(
     os.getenv("ETELEMETRY_DB_HOSTNAME", "localhost"),
@@ -54,7 +54,7 @@ async def _serialize_to_mongo(data):
 
     from packaging.version import LegacyVersion, Version
 
-    from app.server.types import Context, Process
+    from etelemetry_app.server.types import Context, Process
 
     for k, v in data.items():
         # TODO: Is this possible with PEP636?

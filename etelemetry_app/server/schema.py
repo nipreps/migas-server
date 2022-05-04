@@ -4,10 +4,17 @@ import strawberry
 from strawberry.scalars import JSON
 from strawberry.types import Info
 
-from app.server.database import collection_insert
-from app.server.fetchers import fetch_project_info
-from app.server.types import PROJECTS, Context, DateTime, Process, Project, ProjectInput
-from app.server.utils import now
+from etelemetry_app.server.database import collection_insert
+from etelemetry_app.server.fetchers import fetch_project_info
+from etelemetry_app.server.types import (
+    PROJECTS,
+    Context,
+    DateTime,
+    Process,
+    Project,
+    ProjectInput,
+)
+from etelemetry_app.server.utils import now
 
 
 @strawberry.type

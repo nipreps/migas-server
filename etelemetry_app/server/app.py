@@ -1,13 +1,12 @@
 import asyncio
 
-import aiohttp
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from strawberry.fastapi import GraphQLRouter
 
-from app import __version__
-from app.server.database import verify_db_connection
-from app.server.schema import SCHEMA, Query
+from etelemetry_app import __version__
+from etelemetry_app.server.database import verify_db_connection
+from etelemetry_app.server.schema import SCHEMA
 
 
 def _create_app() -> FastAPI:
