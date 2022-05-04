@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from strawberry.fastapi import GraphQLRouter
 
 from app import __version__
-from app.server.database import Client, verify_db_connection
+from app.server.database import verify_db_connection
 from app.server.schema import SCHEMA, Query
 
 
@@ -31,13 +31,9 @@ app = _create_app()
 async def startup():
     # Confirm connection to Mongo
     try:
-        await asyncio.wait_for(verify_db_connection(Client), 10)
-        app.db_client = Client
+        await asyncio.wait_for(verify_db_connection(), 10)
     except asyncio.TimeoutError:
         print("Connection to MongoDB could not be made.")
-
-    # queries are expected as JSON
-    app.http_session = aiohttp.ClientSession(headers={'Content-Type': 'application/json'})
 
 
 @app.get("/")
@@ -45,10 +41,5 @@ async def root():
     return {
         "package": "etelemetry",
         "version": __version__,
-        "message": "Append 'docs/' to the URL to visit our documentation",
+        "message": "Visit /graphql for GraphiQL interface",
     }
-
-
-@app.get("/project/{name}")
-async def get_project(name: Query = Depends()):
-    return {}
