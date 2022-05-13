@@ -1,27 +1,81 @@
 import os
 
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
-from pymongo.results import InsertOneResult
+# from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
+# from pymongo.results import InsertOneResult
+import asyncpg
 
 from etelemetry_app.server.types import Project
 
-_Client = AsyncIOMotorClient(
-    os.getenv("ETELEMETRY_DB_HOSTNAME", "localhost"),
-    os.getenv("ETELEMETRY_DB_PORT", 27017),
-)
-
-DB = _Client[os.getenv("ETELEMETRY_DB", "etelemetry")]
-
-# default collections
-# collections = {
-#     _Client["etelemetry"]
-# }
+Connection = None
 
 
-async def verify_db_connection() -> bool:
-    await _Client.admin.command("ping")
-    print("Connection to database established!")
-    return True
+def db_connect(func):
+    """Decorator to ensure we have a valid database connection"""
+
+    async def db_connection(fargs):
+        if Connection is None:
+            try:
+                global Connection
+                Connection = await asyncpg.connect(
+                    host=os.getenv("ETELEMETRY_DB_HOSTNAME", "localhost"),
+                    port=os.getenv("ETELEMETRY_DB_PORT", 5432),
+                    database=os.getenv("ETELEMETRY_DB", "etelemetry"),
+                    timeout=10,  # timeout for connection
+                    command_timeout=60,  # timeout for future commands
+                )
+            except Exception as e:
+                print("Could not establish connection")
+                raise (e)
+
+        await func(fargs)
+
+    return db_connection
+
+
+@db_connect
+async def create_project_table(owner, repo):
+    table = f"{owner}/{repo}"
+    await Connection.execute(
+        f'''
+        CREATE TABLE IF NOT EXISTS "{table}"(
+            id SERIAL NOT NULL PRIMARY KEY,
+            language VARCHAR(32) NOT NULL,
+            language_version VARCHAR(24) NOT NULL,
+            timestamp TIMESTAMP NOT NULL,
+            session_id UUID,
+            user_id UUID,
+        );'''
+    )
+
+
+@db_connect
+async def create_user_table(owner: str, repo: str) -> str:
+    table = f"{owner}/{repo}/users"
+    await Connection.execute(
+        f'''
+        CREATE TABLE IF NOT EXISTS "{table}"(
+            id
+        );'''
+    )
+    return table
+
+
+@db_connect
+async def add_project(project: Project, table):
+    """Add to project table, and optionally user table."""
+    await Connection.execute(
+        f'''
+        INSERT INTO "{table}" (
+            language,
+            language_version,
+            session_id,
+            user_id
+        ) VALUES ($1), ($2), ($3), ($4);''',
+        project.language,
+        project.language_version,
+        project.session,
+        project.user_id,
+    )
 
 
 # async def add_collection()
