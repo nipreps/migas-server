@@ -13,7 +13,8 @@ owner: "nipy",
 version: "22.0.0",
 language: "python",
 languageVersion: "3.10.4",
-status: error
+status: error,
+userId: "693f1268-8449-35e9-acc1-eb2315afe6f2"
 })}'''
 
 query = 'query { getProjects { name context { user } } }'

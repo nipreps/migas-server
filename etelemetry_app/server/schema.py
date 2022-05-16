@@ -4,7 +4,7 @@ import strawberry
 from strawberry.scalars import JSON
 from strawberry.types import Info
 
-from etelemetry_app.server.database import collection_insert
+from etelemetry_app.server.database import process_project
 from etelemetry_app.server.fetchers import fetch_project_info
 from etelemetry_app.server.types import (
     PROJECTS,
@@ -56,6 +56,7 @@ class Mutation:
     @strawberry.mutation
     async def add_project(self, p: ProjectInput, info: Info) -> JSON:
 
+        # convert to Project and set defaults
         project = Project(
             owner=p.owner,
             repo=p.repo,
@@ -73,6 +74,8 @@ class Mutation:
             process=Process(status=p.status),
         )
         # PROJECTS.append(project)
+        request = info.context['request']
+        print(f"Hello person at {request.client.host}!")
         fetched = await fetch_project_info(p.owner, p.repo)
 
         # we should return the
@@ -82,7 +85,9 @@ class Mutation:
         # add as FastAPI background tasks:
         # - geoloc lookup
         # - adding to database
-        info.context["background_tasks"].add_task(collection_insert, project)
+        bg_tasks = info.context["background_tasks"]
+        bg_tasks.add_task(process_project, project)
+        # info.context["background_tasks"].add_task(collection_insert, project)
 
         return {
             "success": True,
