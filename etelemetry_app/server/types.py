@@ -10,6 +10,7 @@ from uuid import UUID
 import strawberry
 from graphql.utilities import value_from_ast_untyped
 from packaging.version import Version as _Version
+from packaging.version import _BaseVersion
 from packaging.version import parse as parse_version
 from strawberry.custom_scalar import scalar
 
@@ -135,35 +136,16 @@ class ProjectInput:
     )
 
 
-## Example Data store
-
-PROJECTS = [
-    Project('mgxd', 'test', '1.0', 'python', '3.10.4', str_to_dt("2022-03-28T13:04:24Z")),
-    Project(
-        'git',
-        'hub',
-        '2.0',
-        'python',
-        '3.8.3',
-        str_to_dt("2022-04-28T13:04:24Z"),
-        Context(platform='darwin', user_type=0),
-    ),
-    Project(
-        'nipy',
-        'nipype',
-        '0.5',
-        'python',
-        '2.7.14',
-        str_to_dt("2022-04-21T13:04:24Z"),
-        Context(platform='linux', user_type=1, container=2),
-    ),
-    Project(
-        'nipreps',
-        'nibabies',
-        '22.0.2',
-        'python',
-        '3.9.10',
-        str_to_dt("2022-04-28T13:00:24Z"),
-        Context(user_type=1),
-    ),
-]
+async def serialize(data: dict) -> dict:
+    """Serialize data into database-friendly types"""
+    for k, v in data.items():
+        # TODO: Is this possible with PEP636?
+        # I gave up trying it
+        if isinstance(v, _BaseVersion):
+            data[k] = str(v)
+        elif isinstance(v, Enum):
+            data[k] = v.name
+        # datetime ok?
+        elif isinstance(v, (Context, Process)):
+            data[k] = await serialize(v.__dict__)
+    return data

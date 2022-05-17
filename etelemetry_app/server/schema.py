@@ -4,10 +4,9 @@ import strawberry
 from strawberry.scalars import JSON
 from strawberry.types import Info
 
-from etelemetry_app.server.database import process_project
+from etelemetry_app.server.database import insert_data
 from etelemetry_app.server.fetchers import fetch_project_info
 from etelemetry_app.server.types import (
-    PROJECTS,
     Context,
     DateTime,
     Process,
@@ -86,7 +85,7 @@ class Mutation:
         # - geoloc lookup
         # - adding to database
         bg_tasks = info.context["background_tasks"]
-        bg_tasks.add_task(process_project, project)
+        bg_tasks.add_task(insert_data, project)
         # info.context["background_tasks"].add_task(collection_insert, project)
 
         return {

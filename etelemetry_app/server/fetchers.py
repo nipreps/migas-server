@@ -2,6 +2,7 @@ import asyncio
 
 import aiohttp
 
+IPSTACK_API_URL = "http://api.ipstack.com/{ip}?access_key={ipstack_secret}"
 GITHUB_RELEASE_URL = "https://api.github.com/repos/{owner}/{repo}/releases/latest"
 GITHUB_TAG_URL = "https://api.github.com/repos/{owner}/{repo}/tags"
 
