@@ -1,6 +1,6 @@
 """Utility functions"""
 import json
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timezone
 
 # import aiofiles
 
@@ -11,7 +11,11 @@ DATETIME_FMT = "%Y-%m-%dT%H:%M:%SZ"
 
 def str_to_dt(timestamp) -> datetime:
     """Helper method to convert between str / datetime objects"""
-    return datetime.strptime(timestamp, DATETIME_FMT).replace(tzinfo=timezone.utc)
+    try:
+        dt = datetime.strptime(timestamp, DATETIME_FMT).replace(tzinfo=timezone.utc)
+    except ValueError:
+        dt = datetime.combine(date.fromisoformat(timestamp), time(tzinfo=timezone.utc))
+    return dt
 
 
 def dt_to_str(dt) -> str:
