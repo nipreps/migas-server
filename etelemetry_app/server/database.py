@@ -35,11 +35,12 @@ def db_connect(func):
                 print("Could not establish connection")
                 raise (e)
 
-        await func(*fargs, **kwargs)
+        return await func(*fargs, **kwargs)
 
     return db_connection
 
 
+# Table creation
 @db_connect
 async def create_project_table(table: str) -> None:
     await Connection.execute(
@@ -94,8 +95,9 @@ async def create_project_tables(owner: str, repo: str) -> None:
     await create_user_table(f"{table}/users")
 
 
+# Table insertion
 @db_connect
-async def add_project(
+async def insert_project(
     table: str,
     *,
     language: str,
@@ -126,7 +128,9 @@ async def add_project(
 
 
 @db_connect
-async def add_user(table, *, user_id: str, user_type: str, platform: str, container: str) -> None:
+async def insert_user(
+    table, *, user_id: str, user_type: str, platform: str, container: str
+) -> None:
     await Connection.execute(
         f'''INSERT INTO "{table}" (id, type, platform, container) VALUES ($1, $2, $3, $4);''',
         user_id,
@@ -196,6 +200,7 @@ async def insert_geoloc(
     )
 
 
+# Table query
 @db_connect
 async def query_or_insert_geoloc(ip: str) -> Record:
     """
@@ -232,21 +237,21 @@ async def query_or_insert_geoloc(ip: str) -> Record:
 
 
 @db_connect
-async def query_between_dates(
+async def query_project_by_datetimes(
     table: str,
-    starttime: DateTime,
-    endtime: DateTime = None,
-) -> List[Record]:
-    if endtime is None:
-        endtime = now()
-    cmd = f"""SELECT * FROM "{table}" WHERE timestamp BETWEEN '$1' AND '$2';"""
-    records = await Connection.fetch(cmd, starttime, endtime)
+    start: DateTime,
+    end: DateTime,
+) -> int:
+    cmd = f"""SELECT COUNT(*) FROM "{table}" WHERE timestamp BETWEEN $1 AND $2;"""
+    records = await Connection.fetch(cmd, start, end)
+    return records[0]['count']
 
 
 @db_connect
 async def query_total_uses(table: str) -> List[Record]:
     cmd = f"""SELECT COUNT(*) FROM "{table}";"""
     records = await Connection.fetch(f"""SELECT COUNT(*) FROM "{table}";""")
+    return records
 
 
 @db_connect
@@ -254,3 +259,13 @@ async def query_unique_users(table: str) -> List[Record]:
     """TODO: What to do with all NULLs (unique users)?"""
     cmd = f"""SELECT DISTINCT user_id FROM "{table}";"""
     records = await Connection.fetch(cmd)
+    return records
+
+
+@db_connect
+async def query_projects() -> List[str]:
+    records = await Connection.fetch(
+        """SELECT tablename FROM pg_catalog.pg_tables
+        WHERE tablename like '%/%' and tablename not like '%users';"""
+    )
+    return [r['tablename'] for r in records]
