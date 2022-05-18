@@ -1,4 +1,5 @@
 import asyncio
+import os
 
 import aiohttp
 
@@ -21,10 +22,7 @@ async def fetch_response(
     return status, res
 
 
-async def fetch_project_info(
-    owner: str,
-    repo: str,
-):
+async def fetch_project_info(owner: str, repo: str) -> dict:
     retry = 0
     version = "unknown"
     while retry < 5:
@@ -45,3 +43,16 @@ async def fetch_project_info(
                 retry += 1
 
     return {"version": version}
+
+
+async def fetch_ipstack_data(ip: str) -> dict:
+    status, res = await fetch_response(
+        IPSTACK_API_URL.format(ip=ip, ipstack_secret=os.getenv("IPSTACK_API_KEY"))
+    )
+    match status:
+        case 200:
+            # verify it is valid
+            return res
+        case _:
+            print("IPSTACK: Something went wrong.")
+            return {}

@@ -1,8 +1,10 @@
 import os
+from typing import List
 
 import asyncpg
 from asyncpg import Record
 
+from etelemetry_app.server.fetchers import fetch_ipstack_data
 from etelemetry_app.server.types import DateTime, Project, serialize
 from etelemetry_app.server.utils import now
 
@@ -79,14 +81,14 @@ async def create_geoloc_table(table: str = 'geolocs') -> None:
             country VARCHAR(56) NOT NULL,
             region VARCHAR(58) NOT NULL,
             city VARCHAR(58) NOT NULL,
-            zip VARCHAR(10) NOT NULL,
+            postal_code VARCHAR(10) NOT NULL,
             location POINT NOT NULL
         );'''
     )
 
 
 @db_connect
-async def create_tables(owner: str, repo: str) -> None:
+async def create_project_tables(owner: str, repo: str) -> None:
     table = f"{owner}/{repo}"
     await create_project_table(table)
     await create_user_table(f"{table}/users")
@@ -95,16 +97,25 @@ async def create_tables(owner: str, repo: str) -> None:
 @db_connect
 async def add_project(
     table: str,
+    *,
     language: str,
     language_version: str,
     timestamp: DateTime,
     session: str | None,
     user_id: str | None,
     status: str,
-):
+) -> None:
     """Add to project table"""
     await Connection.execute(
-        f'''INSERT INTO "{table}" (language, language_version, timestamp, session_id, user_id, status) VALUES ($1, $2, $3, $4, $5, $6);''',
+        f'''
+        INSERT INTO "{table}" (
+            language,
+            language_version,
+            timestamp,
+            session_id,
+            user_id,
+            status
+        ) VALUES ($1, $2, $3, $4, $5, $6);''',
         language,
         language_version,
         timestamp,
@@ -115,7 +126,7 @@ async def add_project(
 
 
 @db_connect
-async def add_user(table, user_id: str, user_type: str, platform: str, container: str) -> None:
+async def add_user(table, *, user_id: str, user_type: str, platform: str, container: str) -> None:
     await Connection.execute(
         f'''INSERT INTO "{table}" (id, type, platform, container) VALUES ($1, $2, $3, $4);''',
         user_id,
@@ -126,30 +137,63 @@ async def add_user(table, user_id: str, user_type: str, platform: str, container
 
 
 @db_connect
-async def insert_data(project: Project) -> bool:
+async def insert_project_data(project: Project) -> bool:
     data = await serialize(project.__dict__)
     # replace with a cache to avoid excessive db calls
-    await create_tables(project.owner, project.repo)
+    await create_project_tables(project.owner, project.repo)
     ptable = f"{project.owner}/{project.repo}"
     utable = f"{ptable}/users"
     await add_project(
         ptable,
-        data['language'],
-        data['language_version'],
-        data['timestamp'],
-        data['session'],
-        data['context']['user_id'],
-        data['process']['status'],
+        language=data['language'],
+        language_version=data['language_version'],
+        timestamp=data['timestamp'],
+        session=data['session'],
+        user_id=data['context']['user_id'],
+        status=data['process']['status'],
     )
     if data['context']['user_id'] is not None:
         await add_user(
             utable,
-            data['context']['user_id'],
-            data['context']['user_type'],
-            data['context']['platform'],
-            data['context']['container'],
+            user_id=data['context']['user_id'],
+            user_type=data['context']['user_type'],
+            platform=data['context']['platform'],
+            container=data['context']['container'],
         )
     return True
+
+
+@db_connect
+async def insert_geoloc(
+    ip: str,
+    *,
+    continent: str,
+    country: str,
+    region: str,
+    city: str,
+    postal_code: str,
+    latitude: float,
+    longitude: float,
+) -> None:
+    """ """
+    await Connection.execute(
+        f'''INSERT INTO geolocs (
+            id,
+            continent,
+            country,
+            region,
+            city,
+            postal_code,
+            location
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7 );''',
+        ip,
+        continent,
+        country,
+        region,
+        city,
+        postal_code,
+        (latitude, longitude),
+    )
 
 
 @db_connect
@@ -165,31 +209,34 @@ async def query_or_insert_geoloc(ip: str) -> Record:
     """
     from hashlib import sha256
 
+    if ip == '127.0.0.1':
+        # ignore localhost testing
+        return
+
+    await create_geoloc_table()
     hip = sha256(ip.encode()).hexdigest()
-    cmd = f"""SELECT * FROM geolocs WHERE id = $1"""
-    record = await Connection.fetchrow(cmd, hip)
+    record = await Connection.fetchrow(f'SELECT * FROM geolocs WHERE id = $1;', hip)
     if not record:
-        # query IPStack
-        # add result
-        await insert_geoloc(hip)
-
-
-async def insert_geoloc(ip):
-    """ """
-    await Connection.execute(
-        f"INSERT INTO geolocs (id, continent, country, region, city, zip, location) VALUES ('$1', '$2', '$3', '$4', '$5', '$6', '$7' );",
-        ip,
-        continent,
-        country,
-        region,
-        city,
-        zipc,
-        (latitude, longitude),
-    )
+        data = await fetch_ipstack_data(ip)
+        print(data)
+        await insert_geoloc(
+            hip,
+            continent=data['continent_name'],
+            country=data['country_name'],
+            region=data['region_name'],
+            city=data['city'],
+            postal_code=data['zip'],
+            latitude=data['latitude'],
+            longitude=data['longitude'],
+        )
 
 
 @db_connect
-async def query_between_dates(table: str, starttime: DateTime, endtime: DateTime = None) -> Record:
+async def query_between_dates(
+    table: str,
+    starttime: DateTime,
+    endtime: DateTime = None,
+) -> List[Record]:
     if endtime is None:
         endtime = now()
     cmd = f"""SELECT * FROM "{table}" WHERE timestamp BETWEEN '$1' AND '$2';"""
@@ -197,13 +244,13 @@ async def query_between_dates(table: str, starttime: DateTime, endtime: DateTime
 
 
 @db_connect
-async def query_total_uses(table: str):
+async def query_total_uses(table: str) -> List[Record]:
     cmd = f"""SELECT COUNT(*) FROM "{table}";"""
     records = await Connection.fetch(f"""SELECT COUNT(*) FROM "{table}";""")
 
 
 @db_connect
-async def query_unique_users(table: str):
+async def query_unique_users(table: str) -> List[Record]:
     """TODO: What to do with all NULLs (unique users)?"""
     cmd = f"""SELECT DISTINCT user_id FROM "{table}";"""
     records = await Connection.fetch(cmd)
