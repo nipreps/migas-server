@@ -1,10 +1,14 @@
-import typing
-
 import strawberry
 from strawberry.scalars import JSON
+from strawberry.schema.types.base_scalars import Date
 from strawberry.types import Info
 
-from etelemetry_app.server.database import insert_project_data, query_or_insert_geoloc
+from etelemetry_app.server.database import (
+    insert_project_data,
+    query_or_insert_geoloc,
+    query_project_by_datetimes,
+    query_projects,
+)
 from etelemetry_app.server.fetchers import fetch_project_info
 from etelemetry_app.server.types import (
     Context,
@@ -19,35 +23,42 @@ from etelemetry_app.server.utils import now
 @strawberry.type
 class Query:
     @strawberry.field
-    async def get_projects(self, info: Info) -> typing.List[Project]:
-        request = info.context['request']
-        print(f"Hello person at {request.client.host}!")
-        return PROJECTS
+    async def get_projects(self) -> list[str]:
+        """Return projects that are being tracked"""
+        projs = await query_projects()
+        return projs
 
-    # # This is the query we want!
+    # This is the query we want!
     # @strawberry.field
     # async def get_project_from_name(self, name: str) -> Project:
-    #     for p in PROJECTS:
-    #         if p.name == name:
-    #             return p
 
     # and this!
-    # @strawberry.field
-    # async def from_date_range(
-    #     self, date0: DateTime, date1: DateTime = None
-    # ) -> typing.List[Project]:
-    #     # date0 = Date.str_to_dt(date0)
-    #     if date1 is None:
-    #         date1 = now()
+    @strawberry.field
+    async def from_date_range(
+        self,
+        pid: str,
+        start: DateTime,
+        end: DateTime = None,
+        unique: bool = False,
+    ) -> int:
+        """
+        Query project uses.
 
-    #     # TEST: this will be replaced by a much more efficient database query
-    #     projects = []
-    #     for p in PROJECTS:
-    #         date = p.timestamp
-    #         if date0 < date < date1:
-    #             projects.append(p)
+        `start` and `end` can be in either of the following formats:
+        - `YYYY-MM-DD`
+        - `YYYY-MM-DDTHH:MM:SSZ'
 
-    #     return projects
+        If `endtime` is not provided, current time is used.
+        If `unique`, only unique users will be included.
+        """
+
+        if end is None:
+            end = now()
+        # TODO: add unique support
+        count = await query_project_by_datetimes(pid, start, end)
+        # Currently returns a count of matches.
+        # This can probably be expanded into a dedicated strawberry type
+        return count
 
 
 @strawberry.type
