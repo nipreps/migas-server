@@ -23,11 +23,11 @@ def db_connect(func):
     async def db_connection(*fargs, **kwargs):
         global Connection
         if Connection is None:
-            kwargs = {"timeout": 10, "command_timeout": 60}
+            conn_kwargs = {"timeout": 10, "command_timeout": 60}
             if (uri := os.getenv("ETELEMETRY_DB_URI")) is not None:
-                kwargs["dsn"] = uri
+                conn_kwargs["dsn"] = uri
             else:
-                kwargs.update(
+                conn_kwargs.update(
                     {
                         "host": os.getenv("ETELEMETRY_DB_HOSTNAME", "localhost"),
                         "port": os.getenv("ETELEMETRY_DB_PORT", 5432),
@@ -35,7 +35,7 @@ def db_connect(func):
                     }
                 )
             try:
-                Connection = await asyncpg.connect(**kwargs)
+                Connection = await asyncpg.connect(**conn_kwargs)
             except Exception as e:
                 print("Could not establish connection")
                 raise (e)
