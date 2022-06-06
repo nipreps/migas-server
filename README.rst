@@ -1,4 +1,5 @@
-## Etelemetry
+Etelemetry
+==========
 
 Usage tracker for your projects!
 
