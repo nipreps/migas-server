@@ -38,7 +38,7 @@ async def fetch_project_info(owner: str, repo: str) -> dict:
             case _:
                 if retry == 5:
                     raise aiohttp.web.HTTPException("Could not fetch version")
-                asyncio.sleep(5)
+                await asyncio.sleep(5)
                 print(f"Something went wrong while fetching ({status})...retrying")
                 retry += 1
 
