@@ -23,14 +23,19 @@ def db_connect(func):
     async def db_connection(*fargs, **kwargs):
         global Connection
         if Connection is None:
-            try:
-                Connection = await asyncpg.connect(
-                    host=os.getenv("ETELEMETRY_DB_HOSTNAME", "localhost"),
-                    port=os.getenv("ETELEMETRY_DB_PORT", 5432),
-                    database=os.getenv("ETELEMETRY_DB", "etelemetry"),
-                    timeout=10,  # timeout for connection
-                    command_timeout=60,  # timeout for future commands
+            conn_kwargs = {"timeout": 10, "command_timeout": 60}
+            if (uri := os.getenv("ETELEMETRY_DB_URI")) is not None:
+                conn_kwargs["dsn"] = uri
+            else:
+                conn_kwargs.update(
+                    {
+                        "host": os.getenv("ETELEMETRY_DB_HOSTNAME", "localhost"),
+                        "port": os.getenv("ETELEMETRY_DB_PORT", 5432),
+                        "database": os.getenv("ETELEMETRY_DB", "etelemetry"),
+                    }
                 )
+            try:
+                Connection = await asyncpg.connect(**conn_kwargs)
             except Exception as e:
                 print("Could not establish connection")
                 raise (e)
@@ -147,7 +152,7 @@ async def insert_project_data(project: Project) -> bool:
     await create_project_tables(project.owner, project.repo)
     ptable = f"{project.owner}/{project.repo}"
     utable = f"{ptable}/users"
-    await add_project(
+    await insert_project(
         ptable,
         language=data['language'],
         language_version=data['language_version'],
@@ -157,7 +162,7 @@ async def insert_project_data(project: Project) -> bool:
         status=data['process']['status'],
     )
     if data['context']['user_id'] is not None:
-        await add_user(
+        await insert_user(
             utable,
             user_id=data['context']['user_id'],
             user_type=data['context']['user_type'],
