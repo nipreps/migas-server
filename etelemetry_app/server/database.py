@@ -147,7 +147,7 @@ async def insert_project_data(project: Project) -> bool:
     await create_project_tables(project.owner, project.repo)
     ptable = f"{project.owner}/{project.repo}"
     utable = f"{ptable}/users"
-    await add_project(
+    await insert_project(
         ptable,
         language=data['language'],
         language_version=data['language_version'],
@@ -157,7 +157,7 @@ async def insert_project_data(project: Project) -> bool:
         status=data['process']['status'],
     )
     if data['context']['user_id'] is not None:
-        await add_user(
+        await insert_user(
             utable,
             user_id=data['context']['user_id'],
             user_type=data['context']['user_type'],
