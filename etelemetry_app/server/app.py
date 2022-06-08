@@ -1,12 +1,13 @@
-import asyncio
-
-from fastapi import Depends, FastAPI
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from strawberry.fastapi import GraphQLRouter
 
 from etelemetry_app import __version__
-
-# from etelemetry_app.server.database import verify_db_connection
+from etelemetry_app.server.connections import (
+    get_db_connection_pool,
+    get_redis_connection,
+    get_requests_session,
+)
 from etelemetry_app.server.schema import SCHEMA
 
 
@@ -27,13 +28,22 @@ def _create_app() -> FastAPI:
 app = _create_app()
 
 
-# @app.on_event("startup")
-# async def startup():
-#     # Confirm connection to Mongo
-#     try:
-#         await asyncio.wait_for(verify_db_connection(), 10)
-#     except asyncio.TimeoutError:
-#         print("Connection to MongoDB could not be made.")
+@app.on_event("startup")
+async def startup():
+    # Connect to Redis
+    app.cache = await get_redis_connection()
+    # Connect to PostgreSQL
+    app.db = await get_db_connection_pool()
+    # Establish aiohttp session
+    app.requests = await get_requests_session()
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    # close connections
+    await app.cache.close()
+    await app.db.close()
+    await app.requests.close()
 
 
 @app.get("/")
