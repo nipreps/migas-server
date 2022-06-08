@@ -10,7 +10,7 @@ from uuid import uuid4
 def _parser():
     """Simplify testing"""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--url", default="http://0.0.0.0/graphql")
+    parser.add_argument("--url", default="http://0.0.0.0:8000/graphql")
     parser.add_argument("--project", default="nipy/nitransforms")
     parser.add_argument("--version", default="22.0.0")
     parser.add_argument("--user", default=uuid4())
