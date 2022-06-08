@@ -1,6 +1,5 @@
 import strawberry
 from strawberry.scalars import JSON
-from strawberry.schema.types.base_scalars import Date
 from strawberry.types import Info
 
 from etelemetry_app.server.database import (
@@ -83,9 +82,7 @@ class Mutation:
             ),
             process=Process(status=p.status),
         )
-        # PROJECTS.append(project)
         request = info.context['request']
-        print(f"Hello person at {request.client.host}!")
         fetched = await fetch_project_info(p.owner, p.repo)
 
         # we should return the
