@@ -20,7 +20,7 @@ async def get_redis_connection() -> aioredis.Redis:
     global MEM_CACHE
     if MEM_CACHE is None:
         print("Creating new redis connection")
-        MEM_CACHE = aioredis.from_url(os.environ["ETELEMETRY_REDIS_URI"])
+        MEM_CACHE = aioredis.from_url(os.environ["ETELEMETRY_REDIS_URI"], decode_responses=True)
         # ensure the connection is valid
         await MEM_CACHE.ping()
     return MEM_CACHE
@@ -33,8 +33,8 @@ async def get_requests_session() -> aiohttp.ClientSession:
     if REQUESTS_SESSION is None:
         print("Creating new aiohttp session")
         REQUESTS_SESSION = aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=3),  # maximum wait time for a request
             headers={'Content-Type': 'application/json'},
-            raise_for_status=True,
         )
     return REQUESTS_SESSION
 
