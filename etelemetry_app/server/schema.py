@@ -2,6 +2,7 @@ import strawberry
 from strawberry.scalars import JSON
 from strawberry.types import Info
 
+from etelemetry_app.server.connections import get_redis_connection
 from etelemetry_app.server.database import (
     insert_project_data,
     query_or_insert_geoloc,
@@ -23,7 +24,7 @@ from etelemetry_app.server.utils import now
 class Query:
     @strawberry.field
     async def get_projects(self) -> list[str]:
-        """Return projects that are being tracked"""
+        '''Return projects that are being tracked'''
         projs = await query_projects()
         return projs
 
@@ -40,7 +41,7 @@ class Query:
         end: DateTime = None,
         unique: bool = False,
     ) -> int:
-        """
+        '''
         Query project uses.
 
         `start` and `end` can be in either of the following formats:
@@ -49,7 +50,7 @@ class Query:
 
         If `endtime` is not provided, current time is used.
         If `unique`, only unique users will be included.
-        """
+        '''
 
         if end is None:
             end = now()
@@ -82,25 +83,22 @@ class Mutation:
             ),
             process=Process(status=p.status),
         )
-        request = info.context['request']
-        fetched = await fetch_project_info(p.owner, p.repo)
 
-        # we should return the
-        # most up to date version
-        # as soon as possible >>
-        # For the rest of the behavior,
-        # add as FastAPI background tasks:
-        # - geoloc lookup
-        # - adding to database
-        bg_tasks = info.context["background_tasks"]
+        project_key = f'{project.owner}/{project.repo}'
+        fetched = await fetch_project_info(project_key)
+
+        # return project info ASAP, assign data ingestion as a background task
+        request = info.context['request']
+        bg_tasks = info.context['background_tasks']
         bg_tasks.add_task(query_or_insert_geoloc, request.client.host)
         bg_tasks.add_task(insert_project_data, project)
 
         return {
-            "success": True,
-            "latest_version": fetched["version"],
-            "bad_versions": [],
-            "message": [],
+            'bad_versions': fetched['bad_versions'],
+            'cached': fetched['cached'],
+            'latest_version': fetched['version'],
+            'message': '',  # TODO: Allow message for bad_versions
+            'success': fetched['success'],
         }
 
 

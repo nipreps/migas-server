@@ -3,46 +3,73 @@ import os
 
 import aiohttp
 
-IPSTACK_API_URL = "http://api.ipstack.com/{ip}?access_key={ipstack_secret}"
-GITHUB_RELEASE_URL = "https://api.github.com/repos/{owner}/{repo}/releases/latest"
-GITHUB_TAG_URL = "https://api.github.com/repos/{owner}/{repo}/tags"
+from etelemetry_app.server.connections import get_redis_connection, get_requests_session
 
-Session = aiohttp.ClientSession(headers={'Content-Type': 'application/json'})
+IPSTACK_API_URL = "http://api.ipstack.com/{ip}?access_key={ipstack_secret}"
+GITHUB_RELEASE_URL = "https://api.github.com/repos/{project}/releases/latest"
+GITHUB_TAG_URL = "https://api.github.com/repos/{project}/tags"
+GITHUB_ET_FILE_URL = "https://raw.githubusercontent.com/{project}/{version}/.etelemetry.json"
 
 
 async def fetch_response(
     url: str, *, params: dict | None = None, content_type: str = "application/json"
 ):
-    async with Session.get(url, params=params) as response:
+    session = await get_requests_session()
+    async with session.get(url, params=params) as response:
         try:
             res = await response.json(content_type=content_type)
-        except ValueError:
+        except (aiohttp.ContentTypeError, ValueError):
             res = await response.text()
         status = response.status
     return status, res
 
 
-async def fetch_project_info(owner: str, repo: str) -> dict:
-    retry = 0
-    version = "unknown"
-    while retry < 5:
-        # TODO: Implement simple Redis cache to avoid excessive GH API calls
-        status, res = await fetch_response(GITHUB_RELEASE_URL.format(owner=owner, repo=repo))
+async def fetch_project_info(project_key: str) -> dict:
 
-        # TODO: Fallback to tag
-        # TODO: Write to cache
-        match status:
+    cache = await get_redis_connection()
+    latest_version = await cache.hget(project_key, 'latest_version') or 'unknown'
+
+    if cache_miss := latest_version == 'unknown':
+        rstatus, release = await fetch_response(GITHUB_RELEASE_URL.format(project=project_key))
+        match rstatus:
             case 200:
-                version = res.get("tag_name") or res.get("name", "Unknown").lstrip("v")
-                break
+                latest_version = release.get('tag_name')
+            case 403:
+                latest_version = 'forbidden'  # avoid excessive queries if repo is private
+            case 404:
+                # fallback to tag
+                tstatus, tag = await fetch_response(GITHUB_TAG_URL.format(project=project_key))
+                match tstatus:
+                    case 200:
+                        try:
+                            latest_version = tag[0].get('name')
+                        except IndexError:  # no tags will return empty list
+                            pass
+                    case _:
+                        pass
             case _:
-                if retry == 5:
-                    raise aiohttp.web.HTTPException("Could not fetch version")
-                await asyncio.sleep(5)
-                print(f"Something went wrong while fetching ({status})...retrying")
-                retry += 1
+                pass
+        if latest_version not in ('unknown', 'forbidden'):
+            # query for ET file
+            estatus, et = await fetch_response(
+                GITHUB_ET_FILE_URL.format(project=project_key, version=latest_version)
+            )
+            if estatus == 200:
+                for bad_version in et.get("bad_versions", set()):
+                    await cache.sadd(f'{project_key}/bad_versions', bad_version)
 
-    return {"version": version}
+        # write to cache
+        await cache.hset(project_key, 'latest_version', latest_version)
+        await cache.expire(project_key, 21600)  # force fetch every 6 hours
+
+    bad_versions = await cache.smembers(f'{project_key}/bad_versions') or set()
+
+    return {
+        "bad_versions": list(bad_versions),
+        "cached": not cache_miss,
+        "success": latest_version not in ('unknown', 'forbidden'),
+        "version": latest_version.lstrip('v'),
+    }
 
 
 async def fetch_ipstack_data(ip: str) -> dict:
