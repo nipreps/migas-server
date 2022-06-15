@@ -1,0 +1,61 @@
+services:
+  # Etelemetry API server
+  server:
+    build: .
+    container_name: "etelemetry_server"
+    ports:
+      - "8000:8000"
+    depends_on:
+      database:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+    networks:
+      - etelemetry
+    command: --proxy-headers
+    environment:
+      ETELEMETRY_REDIS_URI: "redis://cache:6379"
+      ETELEMETRY_DB_URI: "postgres://postgres:reeses@postgres:5432/etelemetry"
+
+  # Redis in-memory db
+  cache:
+    image: "redis:7.0.2-alpine3.16"
+    container_name: "redis"
+    hostname: "redis"
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - etelemetry
+    command: redis-server
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 10s
+      timeout: 10s
+      retries: 1
+
+  # Postgres persistent db
+  database:
+    image: "postgres:14.3-alpine3.16"
+    container_name: "postgres"
+    hostname: "postgres"
+    restart: always
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./mounts/db:/var/lib/postgresql/data/
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "reeses"
+      POSTGRES_DB: "etelemetry"
+    networks:
+      - etelemetry
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -h postgres"]
+      interval: 10s
+      timeout: 10s
+      retries: 2
+
+# Network to link all services
+networks:
+  etelemetry:

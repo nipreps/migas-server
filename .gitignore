@@ -7,3 +7,4 @@ data/
 logs/
 .pytest_cache/
 dump.rdb
+mounts/
