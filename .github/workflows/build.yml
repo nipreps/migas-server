@@ -1,0 +1,29 @@
+name: build-test
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - '*'
+  pull_request:
+    branches:
+      - master
+  schedule:
+    # 7am EST / 8am EDT Mondays
+    - cron: '0 12 * * 1'
+
+jobs:
+  build-test:
+    if: |
+      github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+      || ! contains(github.event.head_commit.message, '[skip ci]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Start all the things
+        run: docker compose up -d
+      - name: Test the things
+        run: docker exec etelemetry_server bash -c "cd /opt/etelemetry && pytest etelemetry_app"
+      - name: Stop all the things
+        run: docker compose down
