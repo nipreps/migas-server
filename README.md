@@ -1,4 +1,4 @@
-# Etelemetry
+# eTelemetry
 
 Usage tracker for your projects!
 
@@ -10,13 +10,22 @@ To play around in the sandbox, visit https://etelemetry2.herokuapp.com/graphql i
 
 ## Usage
 
-To run the server, first install* the package
+### Container
+Everything needed to run the eTelemetry service is bundled and usable with `docker compose`.
+
+To start up the server:
+1) Clone this repository
+2) Travel to the root of the repository
+3) Run `docker compose up`
+
+### Local
+If you want to install and run the server locally, first install the package
 
 ```
 $ pip install https://github.com/mgxd/fastapi-telemetry/archive/refs/heads/master.zip
 ```
 
-* Python 3.10 or higher is required.
+* Note: Python 3.10 or higher is required.
 
 Once installed, start the server with `etelemetry-up`.
 
