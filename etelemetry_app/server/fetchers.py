@@ -1,4 +1,3 @@
-import asyncio
 import os
 
 import aiohttp
@@ -24,13 +23,13 @@ async def fetch_response(
     return status, res
 
 
-async def fetch_project_info(project_key: str) -> dict:
+async def fetch_project_info(project: str) -> dict:
 
     cache = await get_redis_connection()
-    latest_version = await cache.hget(project_key, 'latest_version') or 'unknown'
+    latest_version = await cache.hget(project, 'latest_version') or 'unknown'
 
     if cache_miss := latest_version == 'unknown':
-        rstatus, release = await fetch_response(GITHUB_RELEASE_URL.format(project=project_key))
+        rstatus, release = await fetch_response(GITHUB_RELEASE_URL.format(project=project))
         match rstatus:
             case 200:
                 latest_version = release.get('tag_name')
@@ -38,7 +37,7 @@ async def fetch_project_info(project_key: str) -> dict:
                 latest_version = 'forbidden'  # avoid excessive queries if repo is private
             case 404:
                 # fallback to tag
-                tstatus, tag = await fetch_response(GITHUB_TAG_URL.format(project=project_key))
+                tstatus, tag = await fetch_response(GITHUB_TAG_URL.format(project=project))
                 match tstatus:
                     case 200:
                         try:
@@ -52,17 +51,17 @@ async def fetch_project_info(project_key: str) -> dict:
         if latest_version not in ('unknown', 'forbidden'):
             # query for ET file
             estatus, et = await fetch_response(
-                GITHUB_ET_FILE_URL.format(project=project_key, version=latest_version)
+                GITHUB_ET_FILE_URL.format(project=project, version=latest_version)
             )
             if estatus == 200:
                 for bad_version in et.get("bad_versions", set()):
-                    await cache.sadd(f'{project_key}/bad_versions', bad_version)
+                    await cache.sadd(f'{project}/bad_versions', bad_version)
 
         # write to cache
-        await cache.hset(project_key, 'latest_version', latest_version)
-        await cache.expire(project_key, 21600)  # force fetch every 6 hours
+        await cache.hset(project, 'latest_version', latest_version)
+        await cache.expire(project, 21600)  # force fetch every 6 hours
 
-    bad_versions = await cache.smembers(f'{project_key}/bad_versions') or set()
+    bad_versions = await cache.smembers(f'{project}/bad_versions') or set()
 
     return {
         "bad_versions": list(bad_versions),

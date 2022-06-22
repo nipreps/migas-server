@@ -2,7 +2,6 @@ import strawberry
 from strawberry.scalars import JSON
 from strawberry.types import Info
 
-from etelemetry_app.server.connections import get_redis_connection
 from etelemetry_app.server.database import (
     insert_project_data,
     query_or_insert_geoloc,
@@ -28,11 +27,7 @@ class Query:
         projs = await query_projects()
         return projs
 
-    # This is the query we want!
-    # @strawberry.field
-    # async def get_project_from_name(self, name: str) -> Project:
 
-    # and this!
     @strawberry.field
     async def from_date_range(
         self,
@@ -68,9 +63,8 @@ class Mutation:
 
         # convert to Project and set defaults
         project = Project(
-            owner=p.owner,
-            repo=p.repo,
-            version=p.version,
+            project=p.project,
+            project_version=p.project_version,
             language=p.language,
             language_version=p.language_version,
             session=p.session,
@@ -84,8 +78,7 @@ class Mutation:
             process=Process(status=p.status),
         )
 
-        project_key = f'{project.owner}/{project.repo}'
-        fetched = await fetch_project_info(project_key)
+        fetched = await fetch_project_info(p.project)
 
         # return project info ASAP, assign data ingestion as a background task
         request = info.context['request']

@@ -10,7 +10,10 @@ def get_parser():
     parser.add_argument("--workers", default=1, help="worker processes")
     parser.add_argument("--reload", action="store_true", help="Reload app on change (dev only)")
     parser.add_argument(
-        "--proxy-headers", action="store_true", help="Accept incoming proxy headers"
+        "--proxy-headers", action="store_true", help="Accept incoming proxy headers",
+    )
+    parser.add_argument(
+        "--headers", nargs='*', help="Custom HTTP response headers as 'Name:Value' pairs",
     )
     return parser
 
