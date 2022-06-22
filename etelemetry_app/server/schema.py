@@ -95,4 +95,4 @@ class Mutation:
         }
 
 
-SCHEMA = strawberry.Schema(query=Query, mutation=Mutation)
+SCHEMA = strawberry.Schema(query=Query, mutation=Mutation, auto_camel_case=False)
