@@ -1,5 +1,8 @@
+from graphql import ExecutionResult as GraphQLExecutionResult, GraphQLError
 import strawberry
+from strawberry.extensions import Extension
 from strawberry.scalars import JSON
+from strawberry.schema.config import StrawberryConfig
 from strawberry.types import Info
 
 from etelemetry_app.server.database import (
@@ -95,4 +98,71 @@ class Mutation:
         }
 
 
-SCHEMA = strawberry.Schema(query=Query, mutation=Mutation, auto_camel_case=False)
+class Watchdog(Extension):
+    """
+    An extension to the GraphQL schema.
+
+    This class has fine-grain control of the GraphQL execution stack.
+
+
+    Order of operations:
+
+    GraphQL request start  # set max length for request body
+    GraphQL parsing start
+    GraphQL parsing end
+    GraphQL validation start
+    GraphQL validation end
+    GraphQL execution start
+    GraphQL resolve
+    GraphQL execution end
+    GraphQL request end
+    """
+
+    LOG = {}
+    MAX_REQUEST_BYTES = 300  # TODO: Revisit this as testing goes on
+
+    async def on_request_start(self):
+        """
+        Ensure requests are:
+        - decently sized
+        - not from the same user
+        """
+        print('GraphQL request start')
+        request = self.execution_context.context['request']
+        # rate limit first
+        # this PoC uses a python dictionary to track # of times a users visited this endpoint
+        # TODO: Implement leaky bucket rate limiter with redis
+        rip = request.client.host
+        if rip in self.users:
+            self.users[rip] += 1
+            if self.users[rip] > 3:
+                error = GraphQLError(
+                    f'Too many requests'
+                )
+                self.execution_context.result = GraphQLExecutionResult(
+                    data=None,
+                    errors=[error],
+                )
+                return
+        else:
+            self.users[rip] = 1
+
+        # check request size
+        body = await request.body()
+        if len(body) > self.MAX_REQUEST_BYTES:
+            error = GraphQLError(
+                f'Request body ({len(body)}) exceeds maximum size ({self.MAX_REQUEST_BYTES})'
+            )
+            self.execution_context.result = GraphQLExecutionResult(
+                data=None,
+                errors=[error],
+            )
+            return
+
+
+SCHEMA = strawberry.Schema(
+    query=Query,
+    mutation=Mutation,
+    extensions=[Watchdog],
+    config=StrawberryConfig(auto_camel_case=False),
+)
