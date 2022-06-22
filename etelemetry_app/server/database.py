@@ -64,10 +64,9 @@ async def create_geoloc_table(table: str = 'geolocs') -> None:
         )
 
 
-async def create_project_tables(owner: str, repo: str) -> None:
-    table = f"{owner}/{repo}"
-    await create_project_table(table)
-    await create_user_table(f"{table}/users")
+async def create_project_tables(project) -> None:
+    await create_project_table(project)
+    await create_user_table(f"{project}/users")
 
 
 # Table insertion
@@ -120,11 +119,10 @@ async def insert_user(
 async def insert_project_data(project: Project) -> bool:
     data = await serialize(project.__dict__)
     # replace with a cache to avoid excessive db calls
-    await create_project_tables(project.owner, project.repo)
-    ptable = f"{project.owner}/{project.repo}"
-    utable = f"{ptable}/users"
+    await create_project_tables(project.project)
+    utable = f"{project.project}/users"
     await insert_project(
-        ptable,
+        project.project,
         language=data['language'],
         language_version=data['language_version'],
         timestamp=data['timestamp'],

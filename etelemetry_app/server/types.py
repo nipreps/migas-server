@@ -97,9 +97,8 @@ class Context:
 
 @strawberry.type
 class Project:
-    owner: str
-    repo: str
-    version: Version
+    project: str
+    project_version: Version
     language: str
     language_version: Version
     timestamp: DateTime
@@ -111,9 +110,8 @@ class Project:
 
 @strawberry.input
 class ProjectInput:
-    owner: str = strawberry.field(description="GitHub name that owns the project")
-    repo: str = strawberry.field(description="GitHub repository name of the project")
-    version: Version = strawberry.field(description="Project version being used")
+    project: str = strawberry.field(description="GitHub project in the form of 'owner/repo'")
+    project_version: Version = strawberry.field(description="Project version being used")
     language: str = strawberry.field(description="Programming language of project")
     language_version: Version = strawberry.field(description="Programming language version")
     # optional

@@ -22,23 +22,20 @@ def _parser():
 
 def main(pargs=None):
     pargs = _parser().parse_args(pargs)
-    owner, repo = pargs.project.split('/')
 
     mutation = '''
         mutation {
         addProject(
         p: {
-        repo: "%s",
-        owner: "%s",
-        version: "%s",
+        project: "%s",
+        projectVersion: "%s",
         language: "python",
         languageVersion: "3.10.4",
         status: %s,
         userId: "%s",
         session: "%s",
         })}''' % (
-        repo,
-        owner,
+        pargs.project,
         pargs.version,
         pargs.status,
         pargs.user,
