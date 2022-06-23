@@ -127,35 +127,32 @@ class Watchdog(Extension):
         - decently sized
         - not from the same user
         """
-        print('GraphQL request start')
         request = self.execution_context.context['request']
         # rate limit first
-        # this PoC uses a python dictionary to track # of times a users visited this endpoint
+        # this PoC uses a python dictionary to track # of times a user visited this endpoint
         # TODO: Implement leaky bucket rate limiter with redis
         rip = request.client.host
-        if rip in self.users:
-            self.users[rip] += 1
-            if self.users[rip] > 3:
-                error = GraphQLError(
-                    f'Too many requests'
-                )
+        if rip in self.LOG:
+            self.LOG[rip] += 1
+            if self.LOG[rip] > 3:
+                self.execution_context.context['response'].status_code = 429  # Too many requests
                 self.execution_context.result = GraphQLExecutionResult(
                     data=None,
-                    errors=[error],
+                    errors=[GraphQLError('Too many requests')],
                 )
                 return
         else:
-            self.users[rip] = 1
+            self.LOG[rip] = 1
 
         # check request size
         body = await request.body()
         if len(body) > self.MAX_REQUEST_BYTES:
-            error = GraphQLError(
-                f'Request body ({len(body)}) exceeds maximum size ({self.MAX_REQUEST_BYTES})'
-            )
+            self.execution_context.context['response'].status_code = 413
             self.execution_context.result = GraphQLExecutionResult(
                 data=None,
-                errors=[error],
+                errors=[GraphQLError(
+                    f'Request body ({len(body)}) exceeds maximum size ({self.MAX_REQUEST_BYTES})'
+                )],
             )
             return
 
