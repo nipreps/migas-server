@@ -1,10 +1,12 @@
 from graphql import ExecutionResult as GraphQLExecutionResult, GraphQLError
+from fastapi import Request, Response
 import strawberry
 from strawberry.extensions import Extension
 from strawberry.scalars import JSON
 from strawberry.schema.config import StrawberryConfig
 from strawberry.types import Info
 
+from etelemetry_app.server.connections import get_redis_connection
 from etelemetry_app.server.database import (
     insert_project_data,
     query_or_insert_geoloc,
@@ -103,51 +105,26 @@ class Watchdog(Extension):
     An extension to the GraphQL schema.
 
     This class has fine-grain control of the GraphQL execution stack.
-
-
-    Order of operations:
-
-    GraphQL request start  # set max length for request body
-    GraphQL parsing start
-    GraphQL parsing end
-    GraphQL validation start
-    GraphQL validation end
-    GraphQL execution start
-    GraphQL resolve
-    GraphQL execution end
-    GraphQL request end
+    This extension verifies that incoming requests:
+    - Have a reasonable sized request body
+    - Are not clobbering the GQL endpoint
     """
 
-    LOG = {}
+    REQUEST_WINDOW = 60
+    MAX_REQUESTS_MINUTE = 5
     MAX_REQUEST_BYTES = 300  # TODO: Revisit this as testing goes on
 
     async def on_request_start(self):
         """
-        Ensure requests are:
-        - decently sized
-        - not from the same user
+        Hook into the GraphQL request stack, and validate data at the start.
         """
         request = self.execution_context.context['request']
-        # rate limit first
-        # this PoC uses a python dictionary to track # of times a user visited this endpoint
-        # TODO: Implement leaky bucket rate limiter with redis
-        rip = request.client.host
-        if rip in self.LOG:
-            self.LOG[rip] += 1
-            if self.LOG[rip] > 3:
-                self.execution_context.context['response'].status_code = 429  # Too many requests
-                self.execution_context.result = GraphQLExecutionResult(
-                    data=None,
-                    errors=[GraphQLError('Too many requests')],
-                )
-                return
-        else:
-            self.LOG[rip] = 1
-
+        response = self.execution_context.context['response']
+        await self.sliding_window_rate_limit(request, response)
         # check request size
         body = await request.body()
         if len(body) > self.MAX_REQUEST_BYTES:
-            self.execution_context.context['response'].status_code = 413
+            response.status_code = 413
             self.execution_context.result = GraphQLExecutionResult(
                 data=None,
                 errors=[GraphQLError(
@@ -155,6 +132,36 @@ class Watchdog(Extension):
                 )],
             )
             return
+
+
+    async def sliding_window_rate_limit(self, request: Request, response: Response):
+        """
+        Use a sliding window to verify incoming responses are not overloading the server.
+
+        Requests are checked to be in the range set by two attributes:
+        `self.REQUEST_WINDOW` and `self.MAX_REQUESTS_MINUTE`
+        """
+        import time
+
+        cache = await get_redis_connection()
+        # the sliding window key
+        key = f'rate-limit-{request.client.host}'
+        time_ = time.time()
+
+        async with cache.pipeline(transaction=True) as pipe:
+            pipe.zremrangebyscore(key, 0, time_ - self.REQUEST_WINDOW)
+            pipe.zrange(key, 0, -1)
+            pipe.zadd(key, {time_: time_})
+            pipe.expire(key, self.REQUEST_WINDOW)
+            res = await pipe.execute()
+
+        timestamps = res[1]
+        if len(timestamps) >= self.MAX_REQUESTS_MINUTE:
+            response.status_code = 429  # Too many requests
+            self.execution_context.result = GraphQLExecutionResult(
+                data=None,
+                errors=[GraphQLError('Too many requests, wait a minute.')],
+            )
 
 
 SCHEMA = strawberry.Schema(
