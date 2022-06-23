@@ -1,10 +1,15 @@
+import asyncio
+from typing import Iterator
 import os
 
 from fastapi.testclient import TestClient
 import pytest
+from _pytest.monkeypatch import MonkeyPatch
 
 from etelemetry_app.server.app import app
 
+if not os.getenv("ETELEMETRY_REDIS_URI"):
+    pytest.skip(allow_module_level=True)
 
 os.environ["ETELEMETRY_BYPASS_RATE_LIMIT"] = "1"
 
@@ -13,22 +18,33 @@ queries = {
 }
 
 
-client = TestClient(app)
+@pytest.fixture(scope="module")
+def event_loop() -> Iterator[asyncio.AbstractEventLoop]:
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
 
-def test_server_startup_shutdown():
+# Test client
+@pytest.fixture(scope="module")
+def client(event_loop: asyncio.BaseEventLoop) -> Iterator[TestClient]:
+    with TestClient(app) as c:
+        yield c
+
+
+def test_server_startup_shutdown(client: TestClient) -> None:
     res = client.get("/")
     assert res.status_code == 200
     assert res.json()["package"] == "etelemetry"
 
 
 @pytest.mark.parametrize(
-    'resolver_str',
+    'query',
     [
         queries['add_project'],
     ],
 )
-def test_graphql_add_project(resolver_str):
-    res = client.post("/graphql", json={'query': resolver_str})
+def test_graphql_add_project(query: str, client: TestClient) -> None:
+    res = client.post("/graphql", json={'query': query})
     assert res.status_code == 200
     output = res.json()['data']['add_project']
     assert output['success'] is True
@@ -36,7 +52,7 @@ def test_graphql_add_project(resolver_str):
         assert k in output
 
 
-def test_graphql_big_request():
+def test_graphql_big_request(client: TestClient) -> None:
     res = client.post(
         "/graphql", json={'query': queries['add_project'].replace('javascript', 'x' * 300)}
     )
@@ -45,15 +61,12 @@ def test_graphql_big_request():
     assert 'exceeds maximum size' in errors[0]['message']
 
 
-# def test_graphql_overload(monkeypatch):
-#     monkeypatch.delitem(os.environ, 'ETELEMETRY_BYPASS_RATE_LIMIT')
-#     client.post("/graphql", json={'query': queries['add_project']})
-    # with client as client_:
-    #     # 5 requests are fine
-    #     for i in range(5):
-    #         print(i)
-    #         res = client_.post("/graphql", json={'query': queries['add_project']})
-    #         res.status_code == 200
-    #     # anything more is not
-    #     res = client_.post("/graphql", json={'query': queries['add_project']})
-    #     assert res.status_code == 429
+def test_graphql_overload(client: TestClient, monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.delitem(os.environ, 'ETELEMETRY_BYPASS_RATE_LIMIT')
+    client.post("/graphql", json={'query': queries['add_project']})
+    for i in range(5):
+        res = client.post("/graphql", json={'query': queries['add_project']})
+        res.status_code == 200
+    # anything more is not
+    res = client.post("/graphql", json={'query': queries['add_project']})
+    assert res.status_code == 429
