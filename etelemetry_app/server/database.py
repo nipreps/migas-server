@@ -188,18 +188,18 @@ async def query_or_insert_geoloc(ip: str) -> Record:
     """
     from hashlib import sha256
 
-    if ip == '127.0.0.1':
-        # ignore localhost testing
-        return
-
     await create_geoloc_table()
     hip = sha256(ip.encode()).hexdigest()
     pool = await get_db_connection_pool()
     async with pool.acquire() as conn:
         record = await conn.fetchrow(f'SELECT * FROM geolocs WHERE id = $1;', hip)
+
     if not record:
         data = await fetch_ipstack_data(ip)
-        print(data)
+        if data.get("success", True) is False:
+            print(f"Unable to fetch geoloc data: {data}")
+            return
+
         await insert_geoloc(
             hip,
             continent=data['continent_name'],
