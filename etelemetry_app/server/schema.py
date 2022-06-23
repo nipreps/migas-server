@@ -1,3 +1,5 @@
+import os
+
 from graphql import ExecutionResult as GraphQLExecutionResult, GraphQLError
 from fastapi import Request, Response
 import strawberry
@@ -120,7 +122,8 @@ class Watchdog(Extension):
         """
         request = self.execution_context.context['request']
         response = self.execution_context.context['response']
-        await self.sliding_window_rate_limit(request, response)
+        if not os.getenv("ETELEMETRY_BYPASS_RATE_LIMIT", False):
+            await self.sliding_window_rate_limit(request, response)
         # check request size
         body = await request.body()
         if len(body) > self.MAX_REQUEST_BYTES:
