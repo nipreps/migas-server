@@ -3,8 +3,8 @@
 import os
 
 import aiohttp
-import aioredis
 import asyncpg
+import redis.asyncio as redis
 
 try:  # do not define unless necessary, to avoid overwriting established sessions
     MEM_CACHE
@@ -16,11 +16,11 @@ except NameError:
 
 
 # establish a redis cache connection
-async def get_redis_connection() -> aioredis.Redis:
+async def get_redis_connection() -> redis.Redis:
     global MEM_CACHE
     if MEM_CACHE is None:
         print("Creating new redis connection")
-        MEM_CACHE = aioredis.from_url(os.environ["ETELEMETRY_REDIS_URI"], decode_responses=True)
+        MEM_CACHE = redis.from_url(os.environ["ETELEMETRY_REDIS_URI"], decode_responses=True)
         # ensure the connection is valid
         await MEM_CACHE.ping()
     return MEM_CACHE
