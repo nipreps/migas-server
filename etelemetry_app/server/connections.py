@@ -17,10 +17,21 @@ except NameError:
 
 # establish a redis cache connection
 async def get_redis_connection() -> redis.Redis:
+    """
+    Establish redis connection.
+
+    If deployed on Heroku, play nice with their ssl certificates.
+    """
     global MEM_CACHE
     if MEM_CACHE is None:
         print("Creating new redis connection")
-        MEM_CACHE = redis.from_url(os.environ["ETELEMETRY_REDIS_URI"], decode_responses=True)
+        if (uri := os.getenv("ETELEMETRY_REDIS_URI")) is None:
+            raise ConnectionError("`ETELEMETRY_REDIS_URI` is not set.")
+
+        rkwargs = {'decode_responses': True}
+        if os.getenv("HEROKU_DEPLOYED") and uri.startswith('rediss://'):
+            rkwargs['ssl_cert_reqs']= None
+        MEM_CACHE = redis.from_url(uri, **rkwargs)
         # ensure the connection is valid
         await MEM_CACHE.ping()
     return MEM_CACHE
