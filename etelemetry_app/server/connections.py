@@ -5,7 +5,6 @@ import os
 import aiohttp
 import asyncpg
 import redis.asyncio as redis
-from urllib.parse import urlparse
 
 try:  # do not define unless necessary, to avoid overwriting established sessions
     MEM_CACHE
