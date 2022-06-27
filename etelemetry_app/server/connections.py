@@ -25,23 +25,13 @@ async def get_redis_connection() -> redis.Redis:
     global MEM_CACHE
     if MEM_CACHE is None:
         print("Creating new redis connection")
-        if uri := os.getenv("ETELEMETRY_REDIS_URI") is None:
+        if (uri := os.getenv("ETELEMETRY_REDIS_URI")) is None:
             raise ConnectionError("`ETELEMETRY_REDIS_URI` is not set.")
-        elif os.getenv("HEROKU_DEPLOYED"):
-            from urllib.parse import urlparse
 
-            puri = urlparse(uri)
-            MEM_CACHE = redis.Redis(
-                host=puri.hostname,
-                port=puri.port,
-                username=puri.username,
-                password=puri.password,
-                ssl=True,
-                ssl_cert_reqs=None,
-                decode_responses=True,
-            )
-        else:
-            MEM_CACHE = redis.from_url(uri, decode_responses=True)
+        rkwargs = {'decode_responses': True}
+        if os.getenv("HEROKU_DEPLOYED") and uri.startswith('rediss://'):
+            rkwargs['ssl_cert_reqs']= None
+        MEM_CACHE = redis.from_url(uri, **rkwargs)
         # ensure the connection is valid
         await MEM_CACHE.ping()
     return MEM_CACHE
