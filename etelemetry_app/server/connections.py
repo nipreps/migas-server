@@ -5,6 +5,7 @@ import os
 import aiohttp
 import asyncpg
 import redis.asyncio as redis
+from urllib.parse import urlparse
 
 try:  # do not define unless necessary, to avoid overwriting established sessions
     MEM_CACHE
@@ -17,10 +18,31 @@ except NameError:
 
 # establish a redis cache connection
 async def get_redis_connection() -> redis.Redis:
+    """
+    Establish redis connection.
+
+    If deployed on Heroku, play nice with their ssl certificates.
+    """
     global MEM_CACHE
     if MEM_CACHE is None:
         print("Creating new redis connection")
-        MEM_CACHE = redis.from_url(os.environ["ETELEMETRY_REDIS_URI"], decode_responses=True)
+        if uri := os.getenv("ETELEMETRY_REDIS_URI") is None:
+            raise ConnectionError("`ETELEMETRY_REDIS_URI` is not set.")
+        elif os.getenv("HEROKU_DEPLOYED"):
+            from urllib.parse import urlparse
+
+            puri = urlparse(uri)
+            MEM_CACHE = redis.Redis(
+                host=puri.hostname,
+                port=puri.port,
+                username=puri.username,
+                password=puri.password,
+                ssl=True,
+                ssl_cert_reqs=None,
+                decode_responses=True,
+            )
+        else:
+            MEM_CACHE = redis.from_url(uri, decode_responses=True)
         # ensure the connection is valid
         await MEM_CACHE.ping()
     return MEM_CACHE
