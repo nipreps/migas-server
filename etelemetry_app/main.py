@@ -4,6 +4,9 @@ import sys
 def get_parser():
     from argparse import ArgumentParser
 
+    def _fmt_kv_pairs(value):
+        return value.split(":", 1)
+
     parser = ArgumentParser()
     parser.add_argument("--host", default="0.0.0.0", help="hostname")
     parser.add_argument("--port", default=8000, help="server port")
@@ -13,7 +16,7 @@ def get_parser():
         "--proxy-headers", action="store_true", help="Accept incoming proxy headers",
     )
     parser.add_argument(
-        "--headers", nargs='*', help="Custom HTTP response headers as 'Name:Value' pairs",
+        "--headers", nargs='*', type=_fmt_kv_pairs, help="Custom HTTP response headers as 'Name:Value' pairs",
     )
     return parser
 
