@@ -5,6 +5,7 @@ __pycache__/
 *.ipynb
 data/
 logs/
-.pytest_cache/
 dump.rdb
 mounts/
+.pytest_cache/
+.mypy_cache/
