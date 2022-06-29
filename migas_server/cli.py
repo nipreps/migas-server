@@ -9,7 +9,7 @@ def get_parser():
 
     parser = ArgumentParser()
     parser.add_argument("--host", default="0.0.0.0", help="hostname")
-    parser.add_argument("--port", default=8000, help="server port")
+    parser.add_argument("--port", default=8000, type=int, help="server port")
     parser.add_argument("--workers", default=1, help="worker processes")
     parser.add_argument("--reload", action="store_true", help="Reload app on change (dev only)")
     parser.add_argument(
