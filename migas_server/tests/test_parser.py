@@ -1,6 +1,6 @@
 import pytest
 
-from migas_server.main import get_parser
+from migas_server.cli import get_parser
 
 
 def test_parser_defaults():
