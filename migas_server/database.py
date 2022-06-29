@@ -2,9 +2,9 @@ from typing import List
 
 from asyncpg import Record
 
-from etelemetry_app.server.connections import get_db_connection_pool
-from etelemetry_app.server.fetchers import fetch_ipstack_data
-from etelemetry_app.server.types import DateTime, Project, serialize
+from migas_server.connections import get_db_connection_pool
+from migas_server.fetchers import fetch_ipstack_data
+from migas_server.types import DateTime, Project, serialize
 
 TABLES = {
     "projects": "{repo}/{owner}",

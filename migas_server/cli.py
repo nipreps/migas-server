@@ -27,7 +27,7 @@ def main(argv=None):
     parser = get_parser()
     pargs = parser.parse_args(argv)
     print(f"Starting server with the following options: {vars(pargs)}")
-    uvicorn.run('etelemetry_app.server.app:app', **vars(pargs))
+    uvicorn.run('migas_server.app:app', **vars(pargs))
 
 
 if __name__ == "__main__":

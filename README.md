@@ -1,17 +1,17 @@
-# eTelemetry
+# Migas
 
 Usage tracker for your projects!
 
-This is the backend of the etelemetry service. The stack is FastAPI (uvicorn / starlette) + Strawberry (graphql) + PostgreSQL
+This is the backend of the migas service.
 
-To play around in the sandbox, visit https://etelemetry2.herokuapp.com/graphql in a browser.
+To play around in the sandbox, visit https://migas.herokuapp.com/graphql in a browser.
 
 
 
 ## Usage
 
 ### Container
-Everything needed to run the eTelemetry service is bundled and usable with `docker compose`.
+Everything needed to run the Migas service is bundled and usable with `docker compose`.
 
 To start up the server:
 1) Clone this repository
@@ -27,13 +27,13 @@ $ pip install https://github.com/mgxd/fastapi-telemetry/archive/refs/heads/maste
 
 * Note: Python 3.10 or higher is required.
 
-Once installed, start the server with `etelemetry-up`.
+Once installed, start the server with `migas-server`.
 
 <details>
 <summary>Expand for full options</summary>
 
 ```
-usage: etelemetry-up [-h] [--host HOST] [--port PORT] [--workers WORKERS] [--reload] [--proxy-headers]
+usage: migas-server [-h] [--host HOST] [--port PORT] [--workers WORKERS] [--reload] [--proxy-headers]
 
 options:
   -h, --help         show this help message and exit
@@ -47,9 +47,9 @@ options:
 
 ### Requirements
 
-Etelemetry is built with [FastAPI](https://fastapi.tiangolo.com/), [Strawberry](https://strawberry.rocks/), [PostgreSQL](https://www.postgresql.org/) and [Redis](https://redis.com/). Additionally, to run the server, some environmental variables must be set up - see the table below.
+Migas is built with [FastAPI](https://fastapi.tiangolo.com/), [Strawberry](https://strawberry.rocks/), [PostgreSQL](https://www.postgresql.org/) and [Redis](https://redis.com/). Additionally, to run the server, some environmental variables must be set up - see the table below.
 
 | Service | Environmental Variable | Alternatives | Required |
 | ------- | ---------------------- | -------------| -------- |
-| redis | ETELEMETRY_REDIS_URI | n/a | Yes
-| postgres | ETELEMETRY_DB_URI | ETELEMETRY_DB_HOSTNAME, ETELEMETRY_DB_PORT, ETELEMETRY_DB_NAME | Yes
+| redis | MIGAS_REDIS_URI | n/a | Yes
+| postgres | MIGAS_DB_URI | MIGAS_DB_HOSTNAME, MIGAS_DB_PORT, MIGAS_DB_NAME | Yes

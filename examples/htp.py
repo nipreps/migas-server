@@ -50,7 +50,7 @@ def main(pargs=None):
 
     conn = Connection(purl.netloc)
     headers = {
-        'User-Agent': 'etelemetry/0.0.1',
+        'User-Agent': 'migas/0.0.1',
         'Accept-Encoding': 'gzip, deflate, br',
         'Accept': '*/*',
         'Connection': 'keep-alive',

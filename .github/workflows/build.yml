@@ -24,6 +24,6 @@ jobs:
       - name: Start all the things
         run: docker compose up -d
       - name: Test the things
-        run: docker exec etelemetry_server bash -c "pytest /src/etelemetry_app"
+        run: docker exec migas_server bash -c "pytest /src/migas_server"
       - name: Stop all the things
         run: docker compose down

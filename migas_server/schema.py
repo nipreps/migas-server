@@ -8,22 +8,22 @@ from strawberry.scalars import JSON
 from strawberry.schema.config import StrawberryConfig
 from strawberry.types import Info
 
-from etelemetry_app.server.connections import get_redis_connection
-from etelemetry_app.server.database import (
+from migas_server.connections import get_redis_connection
+from migas_server.database import (
     insert_project_data,
     query_or_insert_geoloc,
     query_project_by_datetimes,
     query_projects,
 )
-from etelemetry_app.server.fetchers import fetch_project_info
-from etelemetry_app.server.types import (
+from migas_server.fetchers import fetch_project_info
+from migas_server.types import (
     Context,
     DateTime,
     Process,
     Project,
     ProjectInput,
 )
-from etelemetry_app.server.utils import now
+from migas_server.utils import now
 
 
 @strawberry.type
@@ -122,7 +122,7 @@ class Watchdog(Extension):
         """
         request = self.execution_context.context['request']
         response = self.execution_context.context['response']
-        if not os.getenv("ETELEMETRY_BYPASS_RATE_LIMIT", False):
+        if not os.getenv("MIGAS_BYPASS_RATE_LIMIT", False):
             await self.sliding_window_rate_limit(request, response)
         # check request size
         body = await request.body()
