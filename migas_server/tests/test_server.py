@@ -6,12 +6,12 @@ from fastapi.testclient import TestClient
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
-from etelemetry_app.server.app import app
+from migas_server.app import app
 
-if not os.getenv("ETELEMETRY_REDIS_URI"):
+if not os.getenv("MIGAS_REDIS_URI"):
     pytest.skip(allow_module_level=True)
 
-os.environ["ETELEMETRY_BYPASS_RATE_LIMIT"] = "1"
+os.environ["MIGAS_BYPASS_RATE_LIMIT"] = "1"
 
 queries = {
     'add_project': 'mutation{add_project(p:{project:"github/fetch",project_version:"3.6.2",language:"javascript",language_version:"1.7"})}',
@@ -34,7 +34,7 @@ def client(event_loop: asyncio.BaseEventLoop) -> Iterator[TestClient]:
 def test_server_startup_shutdown(client: TestClient) -> None:
     res = client.get("/")
     assert res.status_code == 200
-    assert res.json()["package"] == "etelemetry"
+    assert res.json()["package"] == "migas"
 
 
 @pytest.mark.parametrize(
@@ -62,7 +62,7 @@ def test_graphql_big_request(client: TestClient) -> None:
 
 
 def test_graphql_overload(client: TestClient, monkeypatch: MonkeyPatch) -> None:
-    monkeypatch.delitem(os.environ, 'ETELEMETRY_BYPASS_RATE_LIMIT')
+    monkeypatch.delitem(os.environ, 'MIGAS_BYPASS_RATE_LIMIT')
     client.post("/graphql", json={'query': queries['add_project']})
     for i in range(5):
         res = client.post("/graphql", json={'query': queries['add_project']})

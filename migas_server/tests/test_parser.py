@@ -1,6 +1,6 @@
 import pytest
 
-from etelemetry_app.main import get_parser
+from migas_server.main import get_parser
 
 
 def test_parser_defaults():
@@ -14,7 +14,7 @@ def test_parser_defaults():
     'input,output', [
         ([], None),
         (['Hello:There'], [['Hello', 'There']]),
-        (['X-Backend-Server:etelemetry', 'X-Test:1'], [['X-Backend-Server', 'etelemetry'], ['X-Test', '1']])
+        (['X-Backend-Server:migas', 'X-Test:1'], [['X-Backend-Server', 'migas'], ['X-Test', '1']])
     ]
 )
 def test_parser_headers(input, output):

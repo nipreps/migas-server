@@ -2,12 +2,12 @@ import os
 
 import aiohttp
 
-from etelemetry_app.server.connections import get_redis_connection, get_requests_session
+from migas_server.connections import get_redis_connection, get_requests_session
 
 IPSTACK_API_URL = "http://api.ipstack.com/{ip}?access_key={ipstack_secret}"
 GITHUB_RELEASE_URL = "https://api.github.com/repos/{project}/releases/latest"
 GITHUB_TAG_URL = "https://api.github.com/repos/{project}/tags"
-GITHUB_ET_FILE_URL = "https://raw.githubusercontent.com/{project}/{version}/.etelemetry.json"
+GITHUB_ET_FILE_URL = "https://raw.githubusercontent.com/{project}/{version}/.migas.json"
 
 
 async def fetch_response(

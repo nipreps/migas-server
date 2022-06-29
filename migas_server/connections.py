@@ -1,4 +1,4 @@
-"""Module to faciliate connections to etelemetry's helper services"""
+"""Module to faciliate connections to migas's helper services"""
 
 import os
 
@@ -25,8 +25,8 @@ async def get_redis_connection() -> redis.Redis:
     global MEM_CACHE
     if MEM_CACHE is None:
         print("Creating new redis connection")
-        if (uri := os.getenv("ETELEMETRY_REDIS_URI")) is None:
-            raise ConnectionError("`ETELEMETRY_REDIS_URI` is not set.")
+        if (uri := os.getenv("MIGAS_REDIS_URI")) is None:
+            raise ConnectionError("`MIGAS_REDIS_URI` is not set.")
 
         rkwargs = {'decode_responses': True}
         if os.getenv("HEROKU_DEPLOYED") and uri.startswith('rediss://'):
@@ -57,14 +57,14 @@ async def get_db_connection_pool() -> asyncpg.Pool:
     if DB_SESSION is None:
         print("Creating new database connection pool")
         conn_kwargs = {"timeout": 10, "command_timeout": 30}
-        if (uri := os.getenv("ETELEMETRY_DB_URI")) is not None:
+        if (uri := os.getenv("MIGAS_DB_URI")) is not None:
             conn_kwargs["dsn"] = uri
         else:
             conn_kwargs.update(
                 {
-                    "host": os.getenv("ETELEMETRY_DB_HOSTNAME", "localhost"),
-                    "port": os.getenv("ETELEMETRY_DB_PORT", 5432),
-                    "database": os.getenv("ETELEMETRY_DB", "etelemetry"),
+                    "host": os.getenv("MIGAS_DB_HOSTNAME", "localhost"),
+                    "port": os.getenv("MIGAS_DB_PORT", 5432),
+                    "database": os.getenv("MIGAS_DB", "migas"),
                 }
             )
         DB_SESSION = await asyncpg.create_pool(**conn_kwargs)

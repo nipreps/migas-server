@@ -4,4 +4,4 @@ COPY . /src
 
 RUN pip install --no-cache-dir /src[test]
 
-ENTRYPOINT ["etelemetry-up"]
+ENTRYPOINT ["migas-server"]

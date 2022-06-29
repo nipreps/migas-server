@@ -2,13 +2,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from strawberry.fastapi import GraphQLRouter
 
-from etelemetry_app import __version__
-from etelemetry_app.server.connections import (
+from migas_server import __version__
+from migas_server.connections import (
     get_db_connection_pool,
     get_redis_connection,
     get_requests_session,
 )
-from etelemetry_app.server.schema import SCHEMA
+from migas_server.schema import SCHEMA
 
 
 def _create_app() -> FastAPI:
@@ -49,7 +49,7 @@ async def shutdown():
 @app.get("/")
 async def root():
     return {
-        "package": "etelemetry",
+        "package": "migas",
         "version": __version__,
         "message": "Visit /graphql for GraphiQL interface",
     }

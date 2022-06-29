@@ -14,9 +14,9 @@ from packaging.version import _BaseVersion
 from packaging.version import parse as parse_version
 from strawberry.custom_scalar import scalar
 
-from etelemetry_app.server.utils import dt_to_str, str_to_dt
+from migas_server.utils import dt_to_str, str_to_dt
 
-# Strawberry has a Date object, but etelemetry's time format
+# Strawberry has a Date object, but migas's time format
 # slightly differs from datetime.datetime.isoformat()
 DateTime = scalar(
     datetime,

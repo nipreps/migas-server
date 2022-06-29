@@ -1,8 +1,8 @@
 services:
-  # Etelemetry API server
+  # Migas API server
   server:
     build: .
-    container_name: "etelemetry_server"
+    container_name: "migas_server"
     ports:
       - "8000:8000"
     depends_on:
@@ -11,11 +11,11 @@ services:
       cache:
         condition: service_healthy
     networks:
-      - etelemetry
+      - migas
     command: --proxy-headers
     environment:
-      ETELEMETRY_REDIS_URI: "redis://cache:6379"
-      ETELEMETRY_DB_URI: "postgres://postgres:reeses@postgres:5432/etelemetry"
+      MIGAS_REDIS_URI: "redis://cache:6379"
+      MIGAS_DB_URI: "postgres://postgres:crumbs@postgres:5432/migas"
 
   # Redis in-memory db
   cache:
@@ -26,7 +26,7 @@ services:
     ports:
       - "6379:6379"
     networks:
-      - etelemetry
+      - migas
     command: redis-server
     healthcheck:
       test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
@@ -46,10 +46,10 @@ services:
       - ./mounts/db:/var/lib/postgresql/data/
     environment:
       POSTGRES_USER: "postgres"
-      POSTGRES_PASSWORD: "reeses"
-      POSTGRES_DB: "etelemetry"
+      POSTGRES_PASSWORD: "crumbs"
+      POSTGRES_DB: "migas"
     networks:
-      - etelemetry
+      - migas
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -h postgres"]
       interval: 10s
@@ -58,4 +58,4 @@ services:
 
 # Network to link all services
 networks:
-  etelemetry:
+  migas:

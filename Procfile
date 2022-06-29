@@ -1,1 +1,1 @@
-web: etelemetry-up --proxy-headers --port $PORT
+web: migas-server --proxy-headers --port $PORT --headers X-Backend-Server:migas
