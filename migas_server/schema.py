@@ -36,9 +36,9 @@ class Query:
 
 
     @strawberry.field
-    async def from_date_range(
+    async def get_usage(
         self,
-        pid: str,
+        project: str,
         start: DateTime,
         end: DateTime = None,
         unique: bool = False,
@@ -57,7 +57,7 @@ class Query:
         if end is None:
             end = now()
         # TODO: add unique support
-        count = await query_project_by_datetimes(pid, start, end)
+        count = await query_project_by_datetimes(project, start, end)
         # Currently returns a count of matches.
         # This can probably be expanded into a dedicated strawberry type
         return count
@@ -87,7 +87,7 @@ class Mutation:
 
         fetched = await fetch_project_info(p.project)
 
-        # return project info ASAP, assign data ingestion as a background task
+        # return project info ASAP, assign data ingestion as background tasks
         request = info.context['request']
         bg_tasks = info.context['background_tasks']
         bg_tasks.add_task(query_or_insert_geoloc, request.client.host)

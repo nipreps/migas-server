@@ -213,11 +213,11 @@ async def query_or_insert_geoloc(ip: str) -> Record:
 
 
 async def query_project_by_datetimes(
-    table: str,
+    project: str,
     start: DateTime,
     end: DateTime,
 ) -> int:
-    cmd = f"""SELECT COUNT(*) FROM "{table}" WHERE timestamp BETWEEN $1 AND $2;"""
+    cmd = f"""SELECT COUNT(*) FROM "{project}" WHERE timestamp BETWEEN $1 AND $2;"""
     pool = await get_db_connection_pool()
     async with pool.acquire() as conn:
         records = await conn.fetch(cmd, start, end)
