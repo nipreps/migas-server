@@ -11,6 +11,7 @@ from strawberry.types import Info
 from migas_server.connections import get_redis_connection
 from migas_server.database import (
     insert_project_data,
+    project_exists,
     query_or_insert_geoloc,
     query_project_by_datetimes,
     query_projects,
@@ -57,7 +58,10 @@ class Query:
         if end is None:
             end = now()
         # TODO: add unique support
-        count = await query_project_by_datetimes(project, start, end)
+        if not await project_exists(project):
+            count = 0
+        else:
+            count = await query_project_by_datetimes(project, start, end, unique)
         # Currently returns a count of matches.
         # This can probably be expanded into a dedicated strawberry type
         return count

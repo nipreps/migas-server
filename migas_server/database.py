@@ -216,6 +216,7 @@ async def query_project_by_datetimes(
     project: str,
     start: DateTime,
     end: DateTime,
+    unique: bool,
 ) -> int:
     cmd = f"""SELECT COUNT(*) FROM "{project}" WHERE timestamp BETWEEN $1 AND $2;"""
     pool = await get_db_connection_pool()
@@ -249,3 +250,13 @@ async def query_projects() -> List[str]:
             WHERE tablename like '%/%' and tablename not like '%users';"""
         )
     return [r['tablename'] for r in records]
+
+
+async def project_exists(project: str) -> bool:
+    pool = await get_db_connection_pool()
+    async with pool.acquire() as conn:
+        exists = await conn.fetch(
+            "SELECT EXISTS (SELECT FROM pg_tables WHERE tablename = $1);",
+            project,
+        )
+    return exists
