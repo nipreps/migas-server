@@ -64,12 +64,12 @@ class Query:
         else:
             # TODO: add unique support
             count = await query_project_by_datetimes(project, start, end, unique)
-            message = ""
+            message = ''
         # Currently returns a count of matches.
         # This can probably be expanded into a dedicated strawberry type
         return {
-            "hits": count,
-            "message": message,
+            'hits': count,
+            'message': message,
         }
 
 
