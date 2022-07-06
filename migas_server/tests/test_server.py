@@ -1,10 +1,10 @@
 import asyncio
-from typing import Iterator
 import os
+from typing import Iterator
 
-from fastapi.testclient import TestClient
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
+from fastapi.testclient import TestClient
 
 from migas_server.app import app
 
@@ -23,6 +23,7 @@ def event_loop() -> Iterator[asyncio.AbstractEventLoop]:
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
+
 
 # Test client
 @pytest.fixture(scope="module")

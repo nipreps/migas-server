@@ -30,7 +30,7 @@ async def get_redis_connection() -> redis.Redis:
 
         rkwargs = {'decode_responses': True}
         if os.getenv("HEROKU_DEPLOYED") and uri.startswith('rediss://'):
-            rkwargs['ssl_cert_reqs']= None
+            rkwargs['ssl_cert_reqs'] = None
         MEM_CACHE = redis.from_url(uri, **rkwargs)
         # ensure the connection is valid
         await MEM_CACHE.ping()
