@@ -70,6 +70,7 @@ class Query:
         return {
             'hits': count,
             'message': message,
+            'unique': False,  # TODO: replace with variable once implemented
         }
 
 
