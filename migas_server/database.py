@@ -255,8 +255,8 @@ async def query_projects() -> List[str]:
 async def project_exists(project: str) -> bool:
     pool = await get_db_connection_pool()
     async with pool.acquire() as conn:
-        exists = await conn.fetch(
+        records = await conn.fetch(
             "SELECT EXISTS (SELECT FROM pg_tables WHERE tablename = $1);",
             project,
         )
-    return exists
+    return records[0]['exists']

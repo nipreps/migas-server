@@ -43,7 +43,7 @@ class Query:
         start: DateTime,
         end: DateTime = None,
         unique: bool = False,
-    ) -> int:
+    ) -> JSON:
         '''
         Query project uses.
 
@@ -57,14 +57,20 @@ class Query:
 
         if end is None:
             end = now()
-        # TODO: add unique support
-        if not await project_exists(project):
+        exists = await project_exists(project)
+        if not exists:
             count = 0
+            message = f'Project "{project}" is not being tracked'
         else:
+            # TODO: add unique support
             count = await query_project_by_datetimes(project, start, end, unique)
+            message = ""
         # Currently returns a count of matches.
         # This can probably be expanded into a dedicated strawberry type
-        return count
+        return {
+            "hits": count,
+            "message": message,
+        }
 
 
 @strawberry.type
