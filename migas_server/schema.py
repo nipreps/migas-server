@@ -11,6 +11,7 @@ from strawberry.types import Info
 from migas_server.connections import get_redis_connection
 from migas_server.database import (
     insert_project_data,
+    project_exists,
     query_or_insert_geoloc,
     query_project_by_datetimes,
     query_projects,
@@ -36,13 +37,13 @@ class Query:
 
 
     @strawberry.field
-    async def from_date_range(
+    async def get_usage(
         self,
-        pid: str,
+        project: str,
         start: DateTime,
         end: DateTime = None,
         unique: bool = False,
-    ) -> int:
+    ) -> JSON:
         '''
         Query project uses.
 
@@ -56,11 +57,21 @@ class Query:
 
         if end is None:
             end = now()
-        # TODO: add unique support
-        count = await query_project_by_datetimes(pid, start, end)
+        exists = await project_exists(project)
+        if not exists:
+            count = 0
+            message = f'Project "{project}" is not being tracked'
+        else:
+            # TODO: add unique support
+            count = await query_project_by_datetimes(project, start, end, unique)
+            message = ''
         # Currently returns a count of matches.
         # This can probably be expanded into a dedicated strawberry type
-        return count
+        return {
+            'hits': count,
+            'message': message,
+            'unique': False,  # TODO: replace with variable once implemented
+        }
 
 
 @strawberry.type
@@ -87,7 +98,7 @@ class Mutation:
 
         fetched = await fetch_project_info(p.project)
 
-        # return project info ASAP, assign data ingestion as a background task
+        # return project info ASAP, assign data ingestion as background tasks
         request = info.context['request']
         bg_tasks = info.context['background_tasks']
         bg_tasks.add_task(query_or_insert_geoloc, request.client.host)

@@ -19,7 +19,7 @@ async def create_project_table(table: str) -> None:
     async with pool.acquire() as conn:
         await conn.execute(
             f'''
-            CREATE TABLE IF NOT EXISTS "{table}"(
+            CREATE TABLE IF NOT EXISTS "{validate_table(table)}" (
                 idx SERIAL NOT NULL PRIMARY KEY,
                 language VARCHAR(32) NOT NULL,
                 language_version VARCHAR(24) NOT NULL,
@@ -27,7 +27,7 @@ async def create_project_table(table: str) -> None:
                 session_id UUID NULL,
                 user_id UUID NULL,
                 status VARCHAR(7) NOT NULL
-            );'''
+            );''',
         )
 
 
@@ -36,22 +36,22 @@ async def create_user_table(table: str) -> None:
     async with pool.acquire() as conn:
         await conn.execute(
             f'''
-            CREATE TABLE IF NOT EXISTS "{table}"(
+            CREATE TABLE IF NOT EXISTS "{validate_table(table)}" (
                 idx SERIAL NOT NULL PRIMARY KEY,
                 id UUID NOT NULL,
                 type VARCHAR(7) NOT NULL,
                 platform VARCHAR(8) NULL,
                 container VARCHAR(9) NOT NULL
-            );'''
+            );''',
         )
 
 
-async def create_geoloc_table(table: str = 'geolocs') -> None:
+async def create_geoloc_table() -> None:
     pool = await get_db_connection_pool()
     async with pool.acquire() as conn:
         await conn.execute(
             f'''
-            CREATE TABLE IF NOT EXISTS {table}(
+            CREATE TABLE IF NOT EXISTS geolocs (
                 idx SERIAL NOT NULL,
                 id CHAR(64) NOT NULL PRIMARY KEY,
                 continent VARCHAR(13) NOT NULL,
@@ -85,7 +85,7 @@ async def insert_project(
     async with pool.acquire() as conn:
         await conn.execute(
             f'''
-            INSERT INTO "{table}" (
+            INSERT INTO "{validate_table(table)}" (
                 language,
                 language_version,
                 timestamp,
@@ -108,7 +108,11 @@ async def insert_user(
     pool = await get_db_connection_pool()
     async with pool.acquire() as conn:
         await conn.execute(
-            f'''INSERT INTO "{table}" (id, type, platform, container) VALUES ($1, $2, $3, $4);''',
+            f'''
+            INSERT INTO "{validate_table(table)}" (
+                id, type, platform, container
+            ) VALUES ($1, $2, $3, $4);''',
+            table,
             user_id,
             user_type,
             platform,
@@ -156,7 +160,7 @@ async def insert_geoloc(
     pool = await get_db_connection_pool()
     async with pool.acquire() as conn:
         await conn.execute(
-            f'''INSERT INTO geolocs (
+            '''INSERT INTO geolocs (
                 id,
                 continent,
                 country,
@@ -192,7 +196,7 @@ async def query_or_insert_geoloc(ip: str) -> Record:
     hip = sha256(ip.encode()).hexdigest()
     pool = await get_db_connection_pool()
     async with pool.acquire() as conn:
-        record = await conn.fetchrow(f'SELECT * FROM geolocs WHERE id = $1;', hip)
+        record = await conn.fetchrow('SELECT * FROM geolocs WHERE id = $1;', hip)
 
     if not record:
         data = await fetch_ipstack_data(ip)
@@ -213,31 +217,33 @@ async def query_or_insert_geoloc(ip: str) -> Record:
 
 
 async def query_project_by_datetimes(
-    table: str,
+    project: str,
     start: DateTime,
     end: DateTime,
+    unique: bool,
 ) -> int:
-    cmd = f"""SELECT COUNT(*) FROM "{table}" WHERE timestamp BETWEEN $1 AND $2;"""
     pool = await get_db_connection_pool()
     async with pool.acquire() as conn:
-        records = await conn.fetch(cmd, start, end)
+        records = await conn.fetch(
+            f'SELECT COUNT(*) FROM "{validate_table(project)}" WHERE timestamp BETWEEN $1 AND $2;',
+            start,
+            end,
+        )
     return records[0]['count']
 
 
 async def query_total_uses(table: str) -> List[Record]:
-    cmd = f"""SELECT COUNT(*) FROM "{table}";"""
     pool = await get_db_connection_pool()
     async with pool.acquire() as conn:
-        records = await conn.fetch(f"""SELECT COUNT(*) FROM "{table}";""")
+        records = await conn.fetch(f'SELECT COUNT(*) FROM {validate_table(table)};')
     return records
 
 
 async def query_unique_users(table: str) -> List[Record]:
     """TODO: What to do with all NULLs (unique users)?"""
-    cmd = f"""SELECT DISTINCT user_id FROM "{table}";"""
     pool = await get_db_connection_pool()
     async with pool.acquire() as conn:
-        records = await conn.fetch(cmd)
+        records = await conn.fetch(f'SELECT DISTINCT user_id FROM {validate_table(table)};')
     return records
 
 
@@ -249,3 +255,27 @@ async def query_projects() -> List[str]:
             WHERE tablename like '%/%' and tablename not like '%users';"""
         )
     return [r['tablename'] for r in records]
+
+
+async def project_exists(project: str) -> bool:
+    pool = await get_db_connection_pool()
+    async with pool.acquire() as conn:
+        records = await conn.fetch(
+            'SELECT EXISTS (SELECT FROM pg_tables WHERE tablename = $1);',
+            project,
+        )
+    return records[0]['exists']
+
+
+def validate_table(table: str):
+    """
+    Ensure table does not include any invalid characters.
+
+    Examples
+    --------
+    >>> validate_table('git/hub')
+    'git/hub'
+    >>> validate_table('git/hub; "$;")
+    'git/hub'
+    """
+    return table.strip(' $;,"\'')
