@@ -1,8 +1,9 @@
 import os
 
-from graphql import ExecutionResult as GraphQLExecutionResult, GraphQLError
-from fastapi import Request, Response
 import strawberry
+from fastapi import Request, Response
+from graphql import ExecutionResult as GraphQLExecutionResult
+from graphql import GraphQLError
 from strawberry.extensions import Extension
 from strawberry.scalars import JSON
 from strawberry.schema.config import StrawberryConfig
@@ -17,13 +18,7 @@ from migas_server.database import (
     query_projects,
 )
 from migas_server.fetchers import fetch_project_info
-from migas_server.types import (
-    Context,
-    DateTime,
-    Process,
-    Project,
-    ProjectInput,
-)
+from migas_server.types import Context, DateTime, Process, Project, ProjectInput
 from migas_server.utils import now
 
 
@@ -34,7 +29,6 @@ class Query:
         '''Return projects that are being tracked'''
         projs = await query_projects()
         return projs
-
 
     @strawberry.field
     async def get_usage(
@@ -141,12 +135,13 @@ class Watchdog(Extension):
             response.status_code = 413
             self.execution_context.result = GraphQLExecutionResult(
                 data=None,
-                errors=[GraphQLError(
-                    f'Request body ({len(body)}) exceeds maximum size ({self.MAX_REQUEST_BYTES})'
-                )],
+                errors=[
+                    GraphQLError(
+                        f'Request body ({len(body)}) exceeds maximum size ({self.MAX_REQUEST_BYTES})'
+                    )
+                ],
             )
             return
-
 
     async def sliding_window_rate_limit(self, request: Request, response: Response):
         """
