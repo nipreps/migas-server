@@ -1,3 +1,3 @@
-from ._version import get_versions
+from importlib.metadata import version
 
-__version__ = get_versions()["version"]
+__version__ = version('migas_server')

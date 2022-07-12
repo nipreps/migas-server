@@ -1,9 +1,13 @@
+[build-system]
+requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
+
 [tool.black]
 line-length = 99
 target-version = ['py310']
 skip-string-normalization = true
-extend-exclude = '_version.py|versioneer.py'
 
 [tool.isort]
 profile = 'black'
-extend_skip = '_version.py'
+
+[tool.setuptools_scm]
+version_scheme = 'post-release'
