@@ -1,2 +1,0 @@
-include versioneer.py
-include migas_server/_version.py
