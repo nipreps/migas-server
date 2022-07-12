@@ -7,8 +7,6 @@ RUN apt-get update && \
 
 COPY . /src
 
-ARG GIT_LOCATION=".git"
-RUN --mount=source=${GIT_LOCATION},target=.git,type=bind \
-    pip install --no-cache-dir /src[test]
+RUN pip install --no-cache-dir /src[test]
 
 ENTRYPOINT ["migas-server"]
