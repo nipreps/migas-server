@@ -141,7 +141,7 @@ async def serialize(data: dict) -> dict:
     for k, v in data.items():
         # TODO: Is this possible with PEP636?
         # I gave up trying it
-        if isinstance(v, (_BaseVersion, UUID)):
+        if isinstance(v, _BaseVersion):
             data[k] = str(v)
         elif isinstance(v, Enum):
             data[k] = v.name
