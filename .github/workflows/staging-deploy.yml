@@ -26,4 +26,4 @@ jobs:
           heroku builds:create -a migas-staging --source-tar=$SOURCE
         env:
           HEROKU_EMAIL: ${{ secrets.HEROKU_EMAIL }}
-          HEROKU_TOKEN: ${{ secrets.HEROKU_TOKEN }}
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
