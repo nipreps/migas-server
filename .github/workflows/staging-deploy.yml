@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - master
-  pull_request:
-    branches:
-    - master
 
 jobs:
   deploy:
@@ -25,7 +22,7 @@ jobs:
         run: python -m build --sdist
       - name: Pass in built app to Heroku deployment
         run: |
-          SOURCE=dist/migas_server*.tar.gz
+          SOURCE=dist/$(python setup.py --fullname).tar.gz
           ls $SOURCE
           heroku builds:create -a migas-staging --source-tar=$SOURCE
         env:
