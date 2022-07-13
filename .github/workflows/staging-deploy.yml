@@ -19,10 +19,12 @@ jobs:
       - name: Install python build
         run: python -m pip install build
       - name: Package app
-        run: python -m build --sdist
+        run: python -m build --sdist -o /tmp
       - name: Pass in built app to Heroku deployment
         run: |
-          SOURCE=dist/$(python setup.py --fullname).tar.gz
+          SOURCE=/tmp/$(python setup.py --fullname).tar.gz
+          ls /tmp
+          python setup.py --fullname
           ls $SOURCE
           heroku builds:create -a migas-staging --source-tar=$SOURCE
         env:

@@ -6,5 +6,5 @@ rm -rf build/
 # rebuild app
 python -m build
 # push built app to heroku
-heroku builds:create -a migas --source-tar=dist/$(python setup.py --fullname).tar.gz
+heroku builds:create -a migas-staging --source-tar=dist/$(python setup.py --fullname).tar.gz
 popd
