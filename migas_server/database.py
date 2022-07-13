@@ -39,7 +39,7 @@ async def create_user_table(table: str) -> None:
             f'''
             CREATE TABLE IF NOT EXISTS "{validate_table(table)}" (
                 idx SERIAL NOT NULL PRIMARY KEY,
-                user_id UUID NOT NULL,
+                user_id UUID UNIQUE,
                 type VARCHAR(7) NOT NULL,
                 platform VARCHAR(8) NULL,
                 container VARCHAR(9) NOT NULL
@@ -115,7 +115,7 @@ async def insert_user(
             f'''
             INSERT INTO "{validate_table(table)}" (
                 user_id, type, platform, container
-            ) VALUES ($1, $2, $3, $4);''',
+            ) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING;''',
             user_id,
             user_type,
             platform,
