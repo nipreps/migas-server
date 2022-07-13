@@ -21,6 +21,7 @@ async def create_project_table(table: str) -> None:
             f'''
             CREATE TABLE IF NOT EXISTS "{validate_table(table)}" (
                 idx SERIAL NOT NULL PRIMARY KEY,
+                version VARCHAR(24) NOT NULL,
                 language VARCHAR(32) NOT NULL,
                 language_version VARCHAR(24) NOT NULL,
                 timestamp TIMESTAMPTZ NOT NULL,
@@ -38,7 +39,7 @@ async def create_user_table(table: str) -> None:
             f'''
             CREATE TABLE IF NOT EXISTS "{validate_table(table)}" (
                 idx SERIAL NOT NULL PRIMARY KEY,
-                id UUID NOT NULL,
+                user_id UUID UNIQUE,
                 type VARCHAR(7) NOT NULL,
                 platform VARCHAR(8) NULL,
                 container VARCHAR(9) NOT NULL
@@ -73,10 +74,11 @@ async def create_project_tables(project) -> None:
 async def insert_project(
     table: str,
     *,
+    version: str,
     language: str,
     language_version: str,
     timestamp: DateTime,
-    session: str | None,
+    session_id: str | None,
     user_id: str | None,
     status: str,
 ) -> None:
@@ -86,17 +88,19 @@ async def insert_project(
         await conn.execute(
             f'''
             INSERT INTO "{validate_table(table)}" (
+                version,
                 language,
                 language_version,
                 timestamp,
                 session_id,
                 user_id,
                 status
-            ) VALUES ($1, $2, $3, $4, $5, $6);''',
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7);''',
+            version,
             language,
             language_version,
             timestamp,
-            session,
+            session_id,
             user_id,
             status,
         )
@@ -110,9 +114,8 @@ async def insert_user(
         await conn.execute(
             f'''
             INSERT INTO "{validate_table(table)}" (
-                id, type, platform, container
-            ) VALUES ($1, $2, $3, $4);''',
-            table,
+                user_id, type, platform, container
+            ) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING;''',
             user_id,
             user_type,
             platform,
@@ -127,10 +130,11 @@ async def insert_project_data(project: Project) -> bool:
     utable = f"{project.project}/users"
     await insert_project(
         project.project,
+        version=data['project_version'],
         language=data['language'],
         language_version=data['language_version'],
         timestamp=data['timestamp'],
-        session=data['session'],
+        session_id=data['session_id'],
         user_id=data['context']['user_id'],
         status=data['process']['status'],
     )
