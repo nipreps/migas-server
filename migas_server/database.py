@@ -39,7 +39,7 @@ async def create_user_table(table: str) -> None:
             f'''
             CREATE TABLE IF NOT EXISTS "{validate_table(table)}" (
                 idx SERIAL NOT NULL PRIMARY KEY,
-                id UUID NOT NULL,
+                user_id UUID NOT NULL,
                 type VARCHAR(7) NOT NULL,
                 platform VARCHAR(8) NULL,
                 container VARCHAR(9) NOT NULL
@@ -78,7 +78,7 @@ async def insert_project(
     language: str,
     language_version: str,
     timestamp: DateTime,
-    session: str | None,
+    session_id: str | None,
     user_id: str | None,
     status: str,
 ) -> None:
@@ -100,7 +100,7 @@ async def insert_project(
             language,
             language_version,
             timestamp,
-            session,
+            session_id,
             user_id,
             status,
         )
@@ -114,9 +114,8 @@ async def insert_user(
         await conn.execute(
             f'''
             INSERT INTO "{validate_table(table)}" (
-                id, type, platform, container
+                user_id, type, platform, container
             ) VALUES ($1, $2, $3, $4);''',
-            table,
             user_id,
             user_type,
             platform,
@@ -135,7 +134,7 @@ async def insert_project_data(project: Project) -> bool:
         language=data['language'],
         language_version=data['language_version'],
         timestamp=data['timestamp'],
-        session=data['session'],
+        session_id=data['session_id'],
         user_id=data['context']['user_id'],
         status=data['process']['status'],
     )

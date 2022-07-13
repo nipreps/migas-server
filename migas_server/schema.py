@@ -79,7 +79,7 @@ class Mutation:
             project_version=p.project_version,
             language=p.language,
             language_version=p.language_version,
-            session=p.session,
+            session_id=p.session_id,
             timestamp=now(),
             context=Context(
                 user_id=p.user_id,
