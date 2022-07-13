@@ -103,7 +103,7 @@ class Project:
     language_version: Version
     timestamp: DateTime
     # optional
-    session: UUID | None = None
+    session_id: UUID | None = None
     context: Context = None
     process: Process = Process
 
@@ -115,22 +115,24 @@ class ProjectInput:
     language: str = strawberry.field(description="Programming language of project")
     language_version: Version = strawberry.field(description="Programming language version")
     # optional
-    session: str = strawberry.field(description="Unique identifier for run", default=None)
-    # context args
-    user_id: str = strawberry.field(description="GitHub repository name", default=None)
-    user_type: 'User' = strawberry.field(
-        description="GitHub repository name", default=User.general
+    session_id: str = strawberry.field(
+        description="Unique identifier for telemetry session", default=None
     )
-    platform: str = strawberry.field(description="Unique identifier for run", default=None)
+    # context args
+    user_id: str = strawberry.field(description="Unique identifier for migas client", default=None)
+    user_type: 'User' = strawberry.field(
+        description="Identifier of user role", default=User.general
+    )
+    platform: str = strawberry.field(description="Client platform type", default=None)
     container: 'Container' = strawberry.field(
-        description="Unique identifier for run", default=Container.unknown
+        description="Check if client pings from inside a container", default=Container.unknown
     )
     # process args
     status: 'Status' = strawberry.field(
-        description="Unique identifier for run", default=Status.pending
+        description="For timeseries pings, the current process status", default=Status.pending
     )
     arguments: Arguments = strawberry.field(
-        description="Unique identifier for run", default_factory=lambda: "{}"
+        description="Client side arguments used", default_factory=lambda: "{}"
     )
 
 
@@ -139,7 +141,7 @@ async def serialize(data: dict) -> dict:
     for k, v in data.items():
         # TODO: Is this possible with PEP636?
         # I gave up trying it
-        if isinstance(v, _BaseVersion):
+        if isinstance(v, (_BaseVersion, UUID)):
             data[k] = str(v)
         elif isinstance(v, Enum):
             data[k] = v.name
