@@ -21,6 +21,7 @@ async def create_project_table(table: str) -> None:
             f'''
             CREATE TABLE IF NOT EXISTS "{validate_table(table)}" (
                 idx SERIAL NOT NULL PRIMARY KEY,
+                version VARCHAR(24) NOT NULL,
                 language VARCHAR(32) NOT NULL,
                 language_version VARCHAR(24) NOT NULL,
                 timestamp TIMESTAMPTZ NOT NULL,
@@ -73,6 +74,7 @@ async def create_project_tables(project) -> None:
 async def insert_project(
     table: str,
     *,
+    version: str,
     language: str,
     language_version: str,
     timestamp: DateTime,
@@ -86,13 +88,15 @@ async def insert_project(
         await conn.execute(
             f'''
             INSERT INTO "{validate_table(table)}" (
+                version,
                 language,
                 language_version,
                 timestamp,
                 session_id,
                 user_id,
                 status
-            ) VALUES ($1, $2, $3, $4, $5, $6);''',
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7);''',
+            version,
             language,
             language_version,
             timestamp,
@@ -127,6 +131,7 @@ async def insert_project_data(project: Project) -> bool:
     utable = f"{project.project}/users"
     await insert_project(
         project.project,
+        version=data['project_version'],
         language=data['language'],
         language_version=data['language_version'],
         timestamp=data['timestamp'],
