@@ -22,9 +22,9 @@ jobs:
       - name: Install python build
         run: python -m pip install build
       - name: Package app
-        run: python -m build
+        run: python -m build --sdist
       - name: Pass in built app to Heroku deployment
-        run: heroku builds:create -a migas-staging --source-tar=dist/$(python setup.py --fullname).tar.gz
+        run: heroku builds:create -a migas-staging --source-tar=dist/migas_server*.tar.gz
         env:
           HEROKU_EMAIL: ${{ secrets.HEROKU_EMAIL }}
           HEROKU_TOKEN: ${{ secrets.HEROKU_TOKEN }}
