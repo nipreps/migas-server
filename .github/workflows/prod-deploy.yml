@@ -1,4 +1,4 @@
-name: Deploy current master to staging app
+name: Deploy tag to production
 
 on:
   push:
