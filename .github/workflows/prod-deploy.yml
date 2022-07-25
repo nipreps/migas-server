@@ -1,4 +1,4 @@
-name: Deploy tag to production
+name: Deploy tag to production and create GH release
 
 on:
   push:
@@ -27,8 +27,15 @@ jobs:
         env:
           HEROKU_EMAIL: ${{ secrets.HEROKU_EMAIL }}
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-      - name: Generate github release
-        uses: softprops/action-gh-release@v1
+
+  release:
+    runs-on: ubuntu-latest
+    needs: deploy
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
         with:
-          generate_release_notes: true
-          draft: false
+          ref: ${{ github.ref }}
+      - name: Create GitHub release from annotated tag
+        uses: spenserblack/actions-tag-to-release@v0.1.4
