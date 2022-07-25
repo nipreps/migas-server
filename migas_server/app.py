@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from strawberry.fastapi import GraphQLRouter
@@ -22,6 +24,13 @@ def _create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # only add scout monitoring if environmental variables are present
+    if all(os.getenv(x) for x in ("SCOUT_NAME", "SCOUT_MONITOR", "SCOUT_KEY")):
+        from scout_apm.async_.starlette import ScoutMiddleware
+
+        app.add_middleware(ScoutMiddleware)
+
     return app
 
 
