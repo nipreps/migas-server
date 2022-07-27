@@ -27,7 +27,8 @@ async def create_project_table(table: str) -> None:
                 timestamp TIMESTAMPTZ NOT NULL,
                 session_id UUID NULL,
                 user_id UUID NULL,
-                status VARCHAR(7) NOT NULL
+                status VARCHAR(7) NOT NULL,
+                is_ci BOOL NOT NULL
             );''',
         )
 
@@ -81,6 +82,7 @@ async def insert_project(
     session_id: str | None,
     user_id: str | None,
     status: str,
+    is_ci: bool,
 ) -> None:
     """Add to project table"""
     pool = await get_db_connection_pool()
@@ -94,8 +96,9 @@ async def insert_project(
                 timestamp,
                 session_id,
                 user_id,
-                status
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7);''',
+                status,
+                is_ci
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);''',
             version,
             language,
             language_version,
@@ -103,6 +106,7 @@ async def insert_project(
             session_id,
             user_id,
             status,
+            is_ci,
         )
 
 
@@ -137,6 +141,7 @@ async def insert_project_data(project: Project) -> bool:
         session_id=data['session_id'],
         user_id=data['context']['user_id'],
         status=data['process']['status'],
+        is_ci=data['context']['is_ci'],
     )
     if data['context']['user_id'] is not None:
         await insert_user(

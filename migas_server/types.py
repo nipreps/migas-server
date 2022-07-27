@@ -93,6 +93,7 @@ class Context:
     user_type: User = User.general
     platform: str = "unknown"
     container: Container = Container.unknown
+    is_ci: bool = False
 
 
 @strawberry.type
@@ -126,6 +127,9 @@ class ProjectInput:
     platform: str = strawberry.field(description="Client platform type", default=None)
     container: 'Container' = strawberry.field(
         description="Check if client pings from inside a container", default=Container.unknown
+    )
+    is_ci: bool = strawberry.field(
+        description="Client is pinging from continous integration", default=False
     )
     # process args
     status: 'Status' = strawberry.field(
