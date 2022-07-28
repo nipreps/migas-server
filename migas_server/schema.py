@@ -86,6 +86,7 @@ class Mutation:
                 user_type=p.user_type,
                 platform=p.platform,
                 container=p.container,
+                is_ci=p.is_ci,
             ),
             process=Process(status=p.status),
         )
