@@ -23,6 +23,11 @@ def get_parser():
         type=_fmt_kv_pairs,
         help="Custom HTTP response headers as 'Name:Value' pairs",
     )
+    parser.add_argument(
+        "--display-sql-queries",
+        action="store_true",
+        help="Display SQL queries",
+    )
     return parser
 
 
@@ -31,6 +36,10 @@ def main(argv=None):
 
     parser = get_parser()
     pargs = parser.parse_args(argv)
+    if pargs.display_sql_queries:
+        import os
+
+        os.environ['MIGAS_DISPLAY_QUERIES'] = "1"
     print(f"Starting server with the following options: {vars(pargs)}")
     uvicorn.run('migas_server.app:app', **vars(pargs))
 

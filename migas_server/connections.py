@@ -3,16 +3,17 @@
 import os
 
 import aiohttp
-import asyncpg
 import redis.asyncio as redis
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 try:  # do not define unless necessary, to avoid overwriting established sessions
     MEM_CACHE
     REQUESTS_SESSION
+    DB_ENGINE
     DB_SESSION
 except NameError:
-    print("Sessions have not yet been initialized")
-    MEM_CACHE, REQUESTS_SESSION, DB_SESSION = None, None, None
+    print("Connections and sessions have not yet been initialized")
+    MEM_CACHE, REQUESTS_SESSION, DB_ENGINE, DB_SESSION = None, None, None, None
 
 
 # establish a redis cache connection
@@ -50,22 +51,25 @@ async def get_requests_session() -> aiohttp.ClientSession:
     return REQUESTS_SESSION
 
 
-# PostgreSQL connection pool
-async def get_db_connection_pool() -> asyncpg.Pool:
+async def get_db_engine() -> AsyncEngine:
+    global DB_ENGINE
+    if DB_ENGINE is None:
+        if (db_url := os.getenv("DATABASE_URL")) is None:
+            raise ConnectionError("DATABASE_URL is not defined.")
+        from sqlalchemy.ext.asyncio import create_async_engine
+
+        DB_ENGINE = create_async_engine(
+            # Ensure the engine uses asyncpg driver
+            db_url.replace("postgres://", "postgresql+asyncpg://"),
+            echo=bool(os.getenv("MIGAS_DISPLAY_QUERIES")),
+        )
+    return DB_ENGINE
+
+
+async def get_db_session() -> AsyncSession:
     """Connection can only be initialized asynchronously"""
     global DB_SESSION
     if DB_SESSION is None:
-        print("Creating new database connection pool")
-        conn_kwargs = {"timeout": 10, "command_timeout": 30}
-        if (uri := os.getenv("MIGAS_DB_URI")) is not None:
-            conn_kwargs["dsn"] = uri
-        else:
-            conn_kwargs.update(
-                {
-                    "host": os.getenv("MIGAS_DB_HOSTNAME", "localhost"),
-                    "port": os.getenv("MIGAS_DB_PORT", 5432),
-                    "database": os.getenv("MIGAS_DB", "migas"),
-                }
-            )
-        DB_SESSION = await asyncpg.create_pool(**conn_kwargs)
+        DB_ENGINE = get_db_engine()
+        DB_SESSION = AsyncSession(DB_ENGINE, expire_on_commit=False)
     return DB_SESSION
