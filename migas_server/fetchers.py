@@ -81,4 +81,4 @@ async def fetch_ipstack_data(ip: str) -> dict:
             return res
         case _:
             print("IPSTACK: Something went wrong.")
-            return {}
+            return {"success": False}
