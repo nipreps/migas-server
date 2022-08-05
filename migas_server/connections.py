@@ -33,7 +33,10 @@ async def get_redis_connection() -> redis.Redis:
             rkwargs['ssl_cert_reqs'] = None
         MEM_CACHE = redis.from_url(uri, **rkwargs)
         # ensure the connection is valid
-        await MEM_CACHE.ping()
+        try:
+            await MEM_CACHE.ping()
+        except Exception as e:
+            raise ConnectionError("Cannot connect to Redis server") from e
     return MEM_CACHE
 
 
