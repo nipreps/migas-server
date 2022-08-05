@@ -53,7 +53,7 @@ async def startup():
 async def shutdown():
     # close connections
     await app.cache.close()
-    await app.db.close()
+    await app.db.dispose()
     await app.requests.close()
 
 
