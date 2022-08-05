@@ -13,7 +13,10 @@ from migas_server.types import DateTime, Project, serialize
 async def insert_master(project: str) -> None:
     """Add project to master table."""
     async with await db_session() as session:
-        res = await session.execute(insert(projects).on_conflict_do_nothing())
+        res = await session.execute(
+            insert(projects).on_conflict_do_nothing(),
+            {'project': project},
+        )
         await session.commit()
 
 
