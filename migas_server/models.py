@@ -1,14 +1,14 @@
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from sqlalchemy import Column, Table
+from sqlalchemy import Column, MetaData, Table
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.sql import func
 from sqlalchemy.types import BOOLEAN, FLOAT, INTEGER, TIMESTAMP, VARCHAR, String
 
-Base = declarative_base()
+Base = declarative_base(MetaData(schema="migas"))
 
 
 class Projects(Base):
@@ -120,6 +120,24 @@ async def get_project_tables(
     return project_table, users_table
 
 
+async def populate_base(conn: AsyncConnection) -> None:
+    """Populate declarative class definitions with dynamically created tables."""
+
+    def _has_master_table(conn):
+        from sqlalchemy import inspect
+
+        inspector = inspect(conn)
+        return inspector.has_table("projects")
+
+    if await conn.run_sync(_has_master_table):
+        from migas_server.database import query_projects
+
+        for project in await query_projects():
+            await get_project_tables(project)
+
+    return Base
+
+
 async def create_tables(engine: AsyncEngine) -> None:
     """Create the tables."""
     from sqlalchemy import inspect
@@ -127,15 +145,7 @@ async def create_tables(engine: AsyncEngine) -> None:
     # if project is already being monitored, create it
     async with engine.begin() as conn:
 
-        def _has_master_table(conn):
-            inspector = inspect(conn)
-            return inspector.has_table("projects")
-
-        if await conn.run_sync(_has_master_table):
-            from migas_server.database import query_projects
-
-            for project in await query_projects():
-                await get_project_tables(project)
+        await populate_base(conn)
 
         # create all tables
         await conn.run_sync(Base.metadata.create_all)
