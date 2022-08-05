@@ -5,14 +5,20 @@ from sqlalchemy import distinct, func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from migas_server.fetchers import fetch_ipstack_data
-from migas_server.models import Table, db_session, geolocs, get_project_tables, projects
+from migas_server.models import (
+    Table,
+    gen_session,
+    geolocs,
+    get_project_tables,
+    projects,
+)
 from migas_server.types import DateTime, Project, serialize
 
 
 # Table insertion
 async def insert_master(project: str) -> None:
     """Add project to master table."""
-    async with await db_session() as session:
+    async with gen_session() as session:
         res = await session.execute(
             insert(projects).on_conflict_do_nothing(),
             {'project': project},
@@ -33,7 +39,7 @@ async def insert_project(
     is_ci: bool,
 ) -> None:
     """Add to project table"""
-    async with await db_session() as session:
+    async with gen_session() as session:
         res = await session.execute(
             table.insert(),
             {
@@ -58,7 +64,7 @@ async def insert_user(
     platform: str,
     container: str,
 ) -> None:
-    async with await db_session() as session:
+    async with gen_session() as session:
         stmt = insert(users).on_conflict_do_nothing(), {
             'user_id': user_id,
             'user_type': user_type,
@@ -71,9 +77,8 @@ async def insert_user(
 async def ingest_project(project: Project) -> None:
     """Dump information into database tables."""
     data = await serialize(project.__dict__)
-    # replace with a cache to avoid excessive db calls
     await insert_master(project.project)
-    ptable, utable = get_project_tables(project.project)
+    ptable, utable = await get_project_tables(project.project)
     await insert_project(
         ptable,
         version=data['project_version'],
@@ -107,7 +112,7 @@ async def insert_geoloc(
     longitude: float,
 ) -> None:
     """Insert geolocation data to table."""
-    async with await db_session() as session:
+    async with gen_session() as session:
         res = await session.execute(
             geolocs.insert(),
             {
@@ -138,7 +143,7 @@ async def geoloc_request(ip: str) -> None:
     from hashlib import sha256
 
     hip = sha256(ip.encode()).hexdigest()
-    async with await db_session() as session:
+    async with gen_session() as session:
         res = await session.execute(geolocs.select().where(geolocs.c.id == hip))
         if res.one_or_none():
             return
@@ -168,7 +173,7 @@ async def query_usage_by_datetimes(
     end: DateTime,
     unique: bool = False,
 ) -> int:
-    async with await db_session() as session:
+    async with gen_session() as session:
         # break up into 2 SELECT calls
         subq = (
             select((project.c.timestamp, project.c.user_id))
@@ -184,25 +189,25 @@ async def query_usage_by_datetimes(
 
 
 async def query_usage(project: Table) -> int:
-    async with await db_session() as session:
+    async with gen_session() as session:
         res = await session.execute(select(func.count(project.c.idx)))
     return res.scalars().one()
 
 
 async def query_usage_unique(project: Table) -> int:
     """TODO: What to do with all NULLs (unique users)?"""
-    async with await db_session() as session:
+    async with gen_session() as session:
         res = await session.execute(select(func.count(distinct(project.c.user_id))))
     return res.scalars().one()
 
 
 async def query_projects() -> List[str]:
-    async with await db_session() as session:
+    async with gen_session() as session:
         res = await session.execute(select(projects.c.project))
-    return res.scalars.all()
+    return res.scalars().all()
 
 
 async def project_exists(project: str) -> bool:
-    async with await db_session() as session:
+    async with gen_session() as session:
         res = await session.execute(projects.select().where(projects.c.project == project))
     return bool(res.one_or_none())
