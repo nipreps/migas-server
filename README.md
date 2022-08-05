@@ -4,7 +4,7 @@ Usage tracker for your projects!
 
 This is the backend of the migas service.
 
-To play around in the sandbox, visit https://migas.herokuapp.com/graphql in a browser.
+To play around in the sandbox, visit https://migas-staging.herokuapp.com/graphql in a browser.
 
 
 
@@ -53,4 +53,5 @@ Migas is built with [FastAPI](https://fastapi.tiangolo.com/), [Strawberry](https
 | Service | Environmental Variable | Alternatives | Required |
 | ------- | ---------------------- | -------------| -------- |
 | redis | MIGAS_REDIS_URI | n/a | Yes
-| postgres | MIGAS_DB_URI | MIGAS_DB_HOSTNAME, MIGAS_DB_PORT, MIGAS_DB_NAME | Yes
+| postgres | DATABASE_URL | n/a | Yes
+| sqlalchemy | MIGAS_DEBUG | n/a | No
