@@ -6,7 +6,7 @@ from strawberry.fastapi import GraphQLRouter
 
 from migas_server import __version__
 from migas_server.connections import (
-    get_db_connection_pool,
+    get_db_engine,
     get_redis_connection,
     get_requests_session,
 )
@@ -42,7 +42,7 @@ async def startup():
     # Connect to Redis
     app.cache = await get_redis_connection()
     # Connect to PostgreSQL
-    app.db = await get_db_connection_pool()
+    app.db = await get_db_engine()
     # Establish aiohttp session
     app.requests = await get_requests_session()
 

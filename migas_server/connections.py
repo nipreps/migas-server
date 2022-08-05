@@ -4,16 +4,15 @@ import os
 
 import aiohttp
 import redis.asyncio as redis
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 try:  # do not define unless necessary, to avoid overwriting established sessions
     MEM_CACHE
     REQUESTS_SESSION
     DB_ENGINE
-    DB_SESSION
 except NameError:
     print("Connections and sessions have not yet been initialized")
-    MEM_CACHE, REQUESTS_SESSION, DB_ENGINE, DB_SESSION = None, None, None, None
+    MEM_CACHE, REQUESTS_SESSION, DB_ENGINE = None, None, None
 
 
 # establish a redis cache connection
@@ -52,6 +51,7 @@ async def get_requests_session() -> aiohttp.ClientSession:
 
 
 async def get_db_engine() -> AsyncEngine:
+    """Establish connection to SQLAlchemy engine."""
     global DB_ENGINE
     if DB_ENGINE is None:
         if (db_url := os.getenv("DATABASE_URL")) is None:
@@ -61,15 +61,6 @@ async def get_db_engine() -> AsyncEngine:
         DB_ENGINE = create_async_engine(
             # Ensure the engine uses asyncpg driver
             db_url.replace("postgres://", "postgresql+asyncpg://"),
-            echo=bool(os.getenv("MIGAS_DISPLAY_QUERIES")),
+            echo=bool(os.getenv("MIGAS_DEBUG")),
         )
     return DB_ENGINE
-
-
-async def get_db_session() -> AsyncSession:
-    """Connection can only be initialized asynchronously"""
-    global DB_SESSION
-    if DB_SESSION is None:
-        DB_ENGINE = get_db_engine()
-        DB_SESSION = AsyncSession(DB_ENGINE, expire_on_commit=False)
-    return DB_SESSION
