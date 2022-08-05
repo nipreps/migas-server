@@ -11,11 +11,11 @@ from strawberry.types import Info
 
 from migas_server.connections import get_redis_connection
 from migas_server.database import (
-    insert_project_data,
+    geoloc_request,
+    ingest_project,
     project_exists,
-    query_or_insert_geoloc,
-    query_project_by_datetimes,
     query_projects,
+    query_usage_by_datetimes,
 )
 from migas_server.fetchers import fetch_project_info
 from migas_server.types import Context, DateTime, Process, Project, ProjectInput
@@ -57,7 +57,7 @@ class Query:
             message = f'Project "{project}" is not being tracked'
         else:
             # TODO: add unique support
-            count = await query_project_by_datetimes(project, start, end, unique)
+            count = await query_usage_by_datetimes(project, start, end, unique)
             message = ''
         # Currently returns a count of matches.
         # This can probably be expanded into a dedicated strawberry type
@@ -96,8 +96,8 @@ class Mutation:
         # return project info ASAP, assign data ingestion as background tasks
         request = info.context['request']
         bg_tasks = info.context['background_tasks']
-        bg_tasks.add_task(query_or_insert_geoloc, request.client.host)
-        bg_tasks.add_task(insert_project_data, project)
+        bg_tasks.add_task(geoloc_request, request.client.host)
+        bg_tasks.add_task(ingest_project, project)
 
         return {
             'bad_versions': fetched['bad_versions'],
