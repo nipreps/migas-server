@@ -15,7 +15,7 @@ services:
     command: --proxy-headers
     environment:
       MIGAS_REDIS_URI: "redis://cache:6379"
-      MIGAS_DB_URI: "postgres://postgres:crumbs@postgres:5432/migas"
+      DATABASE_URL: "postgres://postgres:crumbs@postgres:5432/migas"
 
   # Redis in-memory db
   cache:
