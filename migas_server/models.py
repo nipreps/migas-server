@@ -1,6 +1,9 @@
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+
 from sqlalchemy import Column, Table
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.sql import func
 from sqlalchemy.types import BOOLEAN, FLOAT, INTEGER, TIMESTAMP, VARCHAR, String
@@ -58,7 +61,9 @@ geolocs = Geolocs.__table__
 projects = Projects.__table__
 
 
-def get_project_tables(project: str, create: bool = True) -> list[Table | None, Table | None]:
+async def get_project_tables(
+    project: str, create: bool = True
+) -> list[Table | None, Table | None]:
     """
     Return `Project` and `Users` tables pertaining to input `project`.
 
@@ -71,6 +76,7 @@ def get_project_tables(project: str, create: bool = True) -> list[Table | None, 
     project_class_name = f'Project_{"_".join(project.split("/"))}'
     users_class_name = f'Users_{"_".join(project.split("/"))}'
     tables = Base.metadata.tables
+    tables_to_create = []
 
     project_table = tables.get(project_tablename)
     if project_table is None and create is True:
@@ -85,6 +91,7 @@ def get_project_tables(project: str, create: bool = True) -> list[Table | None, 
             },
         )
         project_table = tables.get(project_tablename)
+        tables_to_create.append(project_table)
 
     users_table = tables.get(users_tablename)
     if users_table is None and create is True:
@@ -97,13 +104,52 @@ def get_project_tables(project: str, create: bool = True) -> list[Table | None, 
             },
         )
         users_table = tables.get(users_tablename)
+        tables_to_create.append(users_table)
+
+    if tables_to_create:
+        from .connections import get_db_engine
+
+        engine = await get_db_engine()
+
+        def _create_tables(conn) -> None:
+            return Base.metadata.create_all(conn, tables=tables_to_create)
+
+        async with engine.begin() as conn:
+            await conn.run_sync(_create_tables)
 
     return project_table, users_table
 
 
-async def db_session() -> AsyncSession:
-    """Connection can only be initialized asynchronously"""
+async def create_tables(engine: AsyncEngine) -> None:
+    """Create the tables."""
+    from sqlalchemy import inspect
+
+    # if project is already being monitored, create it
+    async with engine.begin() as conn:
+
+        def _has_master_table(conn):
+            inspector = inspect(conn)
+            return inspector.has_table("projects")
+
+        if await conn.run_sync(_has_master_table):
+            from migas_server.database import query_projects
+
+            for project in await query_projects():
+                await get_project_tables(project)
+
+        # create all tables
+        await conn.run_sync(Base.metadata.create_all)
+
+
+@asynccontextmanager
+async def gen_session() -> AsyncGenerator[AsyncSession, None]:
+    """Generate a database session, and close once finished."""
     from .connections import get_db_engine
 
     # do not expire on commit to allow use of data afterwards
-    return AsyncSession(await get_db_engine(), future=True, expire_on_commit=False)
+    session = AsyncSession(await get_db_engine(), future=True, expire_on_commit=False)
+    async with session.begin():
+        try:
+            yield session
+        finally:
+            await session.close()
