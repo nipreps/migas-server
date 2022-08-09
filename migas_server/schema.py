@@ -64,6 +64,7 @@ class Query:
             'hits': count,
             'message': message,
             'unique': unique,
+            'success': exists,
         }
 
 
