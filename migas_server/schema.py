@@ -18,6 +18,7 @@ from migas_server.database import (
     query_usage_by_datetimes,
 )
 from migas_server.fetchers import fetch_project_info
+from migas_server.models import get_project_tables
 from migas_server.types import Context, DateTime, Process, Project, ProjectInput
 from migas_server.utils import now
 
@@ -56,15 +57,13 @@ class Query:
             count = 0
             message = f'Project "{project}" is not being tracked'
         else:
-            # TODO: add unique support
-            count = await query_usage_by_datetimes(project, start, end, unique)
+            project_table, _ = await get_project_tables(project)
+            count = await query_usage_by_datetimes(project_table, start, end, unique)
             message = ''
-        # Currently returns a count of matches.
-        # This can probably be expanded into a dedicated strawberry type
         return {
             'hits': count,
             'message': message,
-            'unique': False,  # TODO: replace with variable once implemented
+            'unique': unique,
         }
 
 
