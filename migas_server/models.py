@@ -8,7 +8,9 @@ from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.sql import func
 from sqlalchemy.types import BOOLEAN, FLOAT, INTEGER, TIMESTAMP, VARCHAR, String
 
-Base = declarative_base(MetaData(schema="migas"))
+SCHEMA = 'migas'
+
+Base = declarative_base(metadata=MetaData(schema=SCHEMA))
 
 
 class Projects(Base):
@@ -72,13 +74,15 @@ async def get_project_tables(
     """
     # projects come as <owner>/<repo> strings
     project_tablename = project
+    project_fullname = f'{SCHEMA}.{project_tablename}'
     users_tablename = f'{project}/users'
+    users_fullname = f'{SCHEMA}.{users_tablename}'
     project_class_name = f'Project_{"_".join(project.split("/"))}'
     users_class_name = f'Users_{"_".join(project.split("/"))}'
     tables = Base.metadata.tables
     tables_to_create = []
 
-    project_table = tables.get(project_tablename)
+    project_table = tables.get(project_fullname)
     if project_table is None and create is True:
         # Dynamically create project and project/users table,
         # and create a relationship between them
@@ -90,10 +94,10 @@ async def get_project_tables(
                 'users': relationship(users_class_name, back_populates='project'),
             },
         )
-        project_table = tables.get(project_tablename)
+        project_table = tables[project_fullname]
         tables_to_create.append(project_table)
 
-    users_table = tables.get(users_tablename)
+    users_table = tables.get(users_fullname)
     if users_table is None and create is True:
         UsersModel = type(
             users_class_name,
@@ -103,7 +107,7 @@ async def get_project_tables(
                 'project': relationship(project_class_name, back_populates='users'),
             },
         )
-        users_table = tables.get(users_tablename)
+        users_table = tables[users_fullname]
         tables_to_create.append(users_table)
 
     if tables_to_create:
@@ -123,7 +127,7 @@ async def get_project_tables(
 async def populate_base(conn: AsyncConnection) -> None:
     """Populate declarative class definitions with dynamically created tables."""
 
-    def _has_master_table(conn):
+    def _has_master_table(conn) -> bool:
         from sqlalchemy import inspect
 
         inspector = inspect(conn)
@@ -138,13 +142,34 @@ async def populate_base(conn: AsyncConnection) -> None:
     return Base
 
 
-async def create_tables(engine: AsyncEngine) -> None:
-    """Create the tables."""
-    from sqlalchemy import inspect
+async def init_db(engine: AsyncEngine) -> None:
+    """
+    Initialize the database.
 
-    # if project is already being monitored, create it
+    This method ensure the following are created (if not already existing):
+    1) migas schema
+    2) primary tables (projects, geoloc)
+    3) If projects table exists, ensure all tracked projects have Project/ProjectUsers tables.
+    """
     async with engine.begin() as conn:
 
+        def _has_schema(conn) -> bool:
+            from sqlalchemy import inspect
+
+            inspector = inspect(conn)
+            return 'migas' in inspector.get_schema_names()
+
+        if not await conn.run_sync(_has_schema):
+            # until CreateSchema supports if not exists
+            # our best bet is to check schemas and create if not there
+            # https://github.com/sqlalchemy/sqlalchemy/issues/7354
+            # from sqlalchemy import event
+            from sqlalchemy.schema import CreateSchema
+
+            # event.listen(Base.metadata, 'before_create', CreateSchema('migas'))
+            await conn.execute(CreateSchema('migas'))
+
+        # if project is already being monitored, create it
         await populate_base(conn)
 
         # create all tables
