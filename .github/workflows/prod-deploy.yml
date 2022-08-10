@@ -38,4 +38,7 @@ jobs:
         with:
           ref: ${{ github.ref }}
       - name: Create GitHub release from annotated tag
-        uses: spenserblack/actions-tag-to-release@v0.1.4
+        uses: spenserblack/actions-tag-to-release@v1.1.0
+        with:
+          prerelease: auto
+          prerelease-pattern: '*rc*'
