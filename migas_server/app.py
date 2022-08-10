@@ -42,7 +42,7 @@ app = _create_app()
 async def startup():
     # Connect to Redis
     app.cache = await get_redis_connection()
-    # Connect to PostgreSQL
+    # Connect to PostgreSQL and initialize tables
     app.db = await get_db_engine()
     await init_db(app.db)
     # Establish aiohttp session
