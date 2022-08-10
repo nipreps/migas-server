@@ -10,7 +10,7 @@ from migas_server.connections import (
     get_redis_connection,
     get_requests_session,
 )
-from migas_server.models import create_tables
+from migas_server.models import init_db
 from migas_server.schema import SCHEMA
 
 
@@ -44,9 +44,9 @@ async def startup():
     app.cache = await get_redis_connection()
     # Connect to PostgreSQL
     app.db = await get_db_engine()
+    await init_db(app.db)
     # Establish aiohttp session
     app.requests = await get_requests_session()
-    await create_tables(app.db)
 
 
 @app.on_event("shutdown")
