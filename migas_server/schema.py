@@ -119,7 +119,7 @@ class Watchdog(Extension):
     """
 
     REQUEST_WINDOW = int(os.getenv("MIGAS_REQUEST_WINDOW", 60))
-    MAX_REQUESTS_PER_WINDOW = int(os.getenv("MIGAS_REQUESTS_PER_WINDOW", 5))
+    MAX_REQUESTS_PER_WINDOW = int(os.getenv("MIGAS_MAX_REQUESTS_PER_WINDOW", 5))
     MAX_REQUEST_SIZE = int(os.getenv("MIGAS_MAX_REQUEST_SIZE", 450))
 
     async def on_request_start(self):

@@ -55,3 +55,14 @@ Migas is built with [FastAPI](https://fastapi.tiangolo.com/), [Strawberry](https
 | redis | MIGAS_REDIS_URI | n/a | Yes
 | postgres | DATABASE_URL | n/a | Yes
 | sqlalchemy | MIGAS_DEBUG | n/a | No
+
+
+### Runtime Knobs
+
+Migas includes the following environmental variables to allow finer control when processing requests:
+
+| Environmental Variable | Description | Default |
+| ---- | ---- | ---- |
+| MIGAS_REQUEST_WINDOW | A sliding window for limiting number of queries (in seconds) | 60 |
+| MIGAS_REQUESTS_PER_WINDOW | Maximum number of requests per `MIGAS_REQUEST_WINDOW` | 5 |
+| MIGAS_MAX_REQUEST_SIZE | Maximum size of request body | 450 |
