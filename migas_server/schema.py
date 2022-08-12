@@ -138,7 +138,7 @@ class Watchdog(Extension):
                 data=None,
                 errors=[
                     GraphQLError(
-                        f'Request body ({len(body)}) exceeds maximum size ({self.MAX_REQUEST_BYTES})'
+                        f'Request body ({len(body)}) exceeds maximum size ({self.MAX_REQUEST_SIZE})'
                     )
                 ],
             )

@@ -55,7 +55,7 @@ def test_graphql_add_project(query: str, client: TestClient) -> None:
 
 def test_graphql_big_request(client: TestClient) -> None:
     res = client.post(
-        "/graphql", json={'query': queries['add_project'].replace('javascript', 'x' * 300)}
+        "/graphql", json={'query': queries['add_project'].replace('javascript', 'x' * 450)}
     )
     assert res.status_code == 413
     errors = res.json()['errors']
