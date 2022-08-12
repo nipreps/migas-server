@@ -118,9 +118,9 @@ class Watchdog(Extension):
     - Are not clobbering the GQL endpoint
     """
 
-    REQUEST_WINDOW = 60
-    MAX_REQUESTS_MINUTE = 5
-    MAX_REQUEST_BYTES = 300  # TODO: Revisit this as testing goes on
+    REQUEST_WINDOW = int(os.getenv("MIGAS_REQUEST_WINDOW", 60))
+    MAX_REQUESTS_PER_WINDOW = int(os.getenv("MIGAS_REQUESTS_PER_WINDOW", 5))
+    MAX_REQUEST_SIZE = int(os.getenv("MIGAS_MAX_REQUEST_SIZE", 450))
 
     async def on_request_start(self):
         """
@@ -132,7 +132,7 @@ class Watchdog(Extension):
             await self.sliding_window_rate_limit(request, response)
         # check request size
         body = await request.body()
-        if len(body) > self.MAX_REQUEST_BYTES:
+        if len(body) > self.MAX_REQUEST_SIZE:
             response.status_code = 413
             self.execution_context.result = GraphQLExecutionResult(
                 data=None,
@@ -166,7 +166,7 @@ class Watchdog(Extension):
             res = await pipe.execute()
 
         timestamps = res[1]
-        if len(timestamps) >= self.MAX_REQUESTS_MINUTE:
+        if len(timestamps) >= self.MAX_REQUESTS_PER_WINDOW:
             response.status_code = 429  # Too many requests
             self.execution_context.result = GraphQLExecutionResult(
                 data=None,
