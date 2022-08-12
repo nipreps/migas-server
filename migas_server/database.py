@@ -65,12 +65,15 @@ async def insert_user(
     container: str,
 ) -> None:
     async with gen_session() as session:
-        stmt = insert(users).on_conflict_do_nothing(), {
-            'user_id': user_id,
-            'user_type': user_type,
-            'platform': platform,
-            'container': container,
-        }
+        res = await session.execute(
+            insert(users).on_conflict_do_nothing(),
+            {
+                'user_id': user_id,
+                'user_type': user_type,
+                'platform': platform,
+                'container': container,
+            },
+        )
         await session.commit()
 
 
