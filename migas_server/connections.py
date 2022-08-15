@@ -25,8 +25,12 @@ async def get_redis_connection() -> redis.Redis:
     global MEM_CACHE
     if MEM_CACHE is None:
         print("Creating new redis connection")
-        if (uri := os.getenv("MIGAS_REDIS_URI")) is None:
-            raise ConnectionError("`MIGAS_REDIS_URI` is not set.")
+
+        # Check for both REDIS_TLS_URL (prioritized) and MIGAS_REDIS_URI
+        if (uri := os.getenv("REDIS_TLS_URL")) is None and (
+            uri := os.getenv("MIGAS_REDIS_URI")
+        ) is None:
+            raise ConnectionError("Redis environmental variable is not set.")
 
         rkwargs = {'decode_responses': True}
         if os.getenv("HEROKU_DEPLOYED") and uri.startswith('rediss://'):

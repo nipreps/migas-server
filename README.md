@@ -52,7 +52,7 @@ Migas is built with [FastAPI](https://fastapi.tiangolo.com/), [Strawberry](https
 
 | Service | Environmental Variable | Alternatives | Required |
 | ------- | ---------------------- | -------------| -------- |
-| redis | MIGAS_REDIS_URI | n/a | Yes
+| redis | REDIS_TLS_URI, MIGAS_REDIS_URI | n/a | At least one
 | postgres | DATABASE_URL | n/a | Yes
 | sqlalchemy | MIGAS_DEBUG | n/a | No
 
