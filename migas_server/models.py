@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 from sqlalchemy import Column, MetaData, Table
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import ENUM, UUID
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.sql import func
@@ -44,7 +44,7 @@ class Project(Base):
     timestamp = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
     session_id = Column(UUID)
     user_id = Column(UUID)  # relationship
-    status = Column(VARCHAR(7), nullable=False)
+    status = Column(ENUM('R', 'C', 'F', 'S', name='status'), nullable=False)
     is_ci = Column(BOOLEAN, nullable=False)
 
 
@@ -138,8 +138,6 @@ async def populate_base(conn: AsyncConnection) -> None:
 
         for project in await query_projects():
             await get_project_tables(project)
-
-    return Base
 
 
 async def init_db(engine: AsyncEngine) -> None:
