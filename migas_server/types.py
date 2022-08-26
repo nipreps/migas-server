@@ -66,10 +66,10 @@ class User(Enum):
 
 @strawberry.enum
 class Status(Enum):
-    running = 'R'
-    completed = 'C'
-    failed = 'F'
-    suspended = 'S'
+    R = 'running'
+    C = 'completed'
+    F = 'failed'
+    S = 'suspended'
     pending = strawberry.enum_value('R', deprecation_reason="Changed to `running`")
     success = strawberry.enum_value('C', deprecation_reason="Changed to `completed`")
     error = strawberry.enum_value('F', deprecation_reason="Changed to `failed`")
@@ -137,7 +137,7 @@ class ProjectInput:
     )
     # process args
     status: 'Status' = strawberry.field(
-        description="For timeseries pings, the current process status", default=Status.running
+        description="For timeseries pings, the current process status", default=Status.R
     )
     arguments: Arguments = strawberry.field(
         description="Client side arguments used", default_factory=lambda: "{}"
