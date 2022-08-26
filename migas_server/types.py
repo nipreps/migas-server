@@ -67,12 +67,17 @@ class User(Enum):
 @strawberry.enum
 class Status(Enum):
     R = 'running'
+    running = strawberry.enum_value('running')
     C = 'completed'
+    completed = strawberry.enum_value('completed')
     F = 'failed'
+    failed = strawberry.enum_value('failed')
     S = 'suspended'
-    pending = strawberry.enum_value('R', deprecation_reason="Changed to `running`")
-    success = strawberry.enum_value('C', deprecation_reason="Changed to `completed`")
-    error = strawberry.enum_value('F', deprecation_reason="Changed to `failed`")
+    suspended = strawberry.enum_value('suspended')
+
+    pending = strawberry.enum_value('running', deprecation_reason="Changed to `running`")
+    success = strawberry.enum_value('completed', deprecation_reason="Changed to `completed`")
+    error = strawberry.enum_value('error', deprecation_reason="Changed to `failed`")
 
 
 # @strawberry.type
