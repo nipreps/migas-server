@@ -6,7 +6,7 @@ from sqlalchemy.dialects.postgresql import ENUM, UUID
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.sql import func
-from sqlalchemy.types import BOOLEAN, FLOAT, INTEGER, TIMESTAMP, VARCHAR, String
+from sqlalchemy.types import BOOLEAN, CHAR, FLOAT, INTEGER, TIMESTAMP, String
 
 SCHEMA = 'migas'
 
@@ -16,19 +16,19 @@ Base = declarative_base(metadata=MetaData(schema=SCHEMA))
 class Projects(Base):
     __tablename__ = "projects"
 
-    project = Column(VARCHAR(140), primary_key=True)  # 39 owner + "/" + 100 repository
+    project = Column(String(140), primary_key=True)  # 39 owner + "/" + 100 repository
 
 
 class Geolocs(Base):
     __tablename__ = "geolocs"
     __mapper_args__ = {"eager_defaults": True}
 
-    id = Column(String(64), primary_key=True)
-    continent = Column(VARCHAR(13), nullable=False)
-    country = Column(VARCHAR(56), nullable=False)
-    region = Column(VARCHAR(58), nullable=False)
-    city = Column(VARCHAR(58), nullable=False)
-    postal_code = Column(VARCHAR(10), nullable=False)
+    id = Column(CHAR(length=64), primary_key=True)
+    continent = Column(String(length=13), nullable=False)
+    country = Column(String(length=56), nullable=False)
+    region = Column(String(length=58), nullable=False)
+    city = Column(String(length=58), nullable=False)
+    postal_code = Column(String(length=10), nullable=False)
     latitude = Column(FLOAT(), nullable=False)
     longitude = Column(FLOAT(), nullable=False)
 
@@ -38,9 +38,9 @@ class Project(Base):
     __mapper_args__ = {"eager_defaults": True}
 
     idx = Column(INTEGER, primary_key=True)
-    version = Column(VARCHAR(24), nullable=False)
-    language = Column(VARCHAR(32), nullable=False)
-    language_version = Column(VARCHAR(24), nullable=False)
+    version = Column(String(length=24), nullable=False)
+    language = Column(String(length=32), nullable=False)
+    language_version = Column(String(length=24), nullable=False)
     timestamp = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
     session_id = Column(UUID)
     user_id = Column(UUID)  # relationship
@@ -54,9 +54,9 @@ class ProjectUsers(Base):
 
     idx = Column(INTEGER, primary_key=True)
     user_id = Column(UUID, unique=True)
-    user_type = Column(VARCHAR(7), nullable=False)
-    platform = Column(VARCHAR(8))
-    container = Column(VARCHAR(9), nullable=False)
+    user_type = Column(String(length=7), nullable=False)
+    platform = Column(String(length=8))
+    container = Column(String(length=9), nullable=False)
 
 
 geolocs = Geolocs.__table__
