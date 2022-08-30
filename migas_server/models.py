@@ -45,6 +45,9 @@ class Project(Base):
     session_id = Column(UUID)
     user_id = Column(UUID)  # relationship
     status = Column(ENUM('R', 'C', 'F', 'S', name='status'), nullable=False)
+    status_desc = Column(String)
+    error_type = Column(String)
+    error_desc = Column(String)
     is_ci = Column(BOOLEAN, nullable=False)
 
 
