@@ -73,6 +73,10 @@ class Mutation:
     @strawberry.mutation
     async def add_project(self, p: ProjectInput, info: Info) -> JSON:
 
+        # validate project
+        if not p.project or '/' not in p.project:
+            raise Exception("Invalid project specified.")
+
         # convert to Project and set defaults
         project = Project(
             project=p.project,
