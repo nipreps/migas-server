@@ -22,7 +22,7 @@ To start up the server:
 If you want to install and run the server locally, first install the package
 
 ```
-$ pip install https://github.com/mgxd/migas-server/archive/refs/heads/master.zip
+$ pip install https://github.com/nipreps/migas-server/archive/refs/heads/master.zip
 ```
 
 * Note: Python 3.10 or higher is required.
