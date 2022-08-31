@@ -15,6 +15,7 @@ revision = '93c95bbf67a3'
 down_revision = '6d01a9e7093b'
 branch_labels = None
 depends_on = None
+schema = 'migas'
 
 
 def upgrade() -> None:
@@ -23,7 +24,11 @@ def upgrade() -> None:
         # alter status column to use enum over varchar
         status_type = psg.ENUM('R', 'C', 'F', 'S', name='status')
         pt = create_adhoc_project_table(project, status_type)
-        op.alter_column(f'migas."{project}"', 'status', existing_typetype_=status_type)
+        op.alter_column(project, 'status', existing_typetype_=status_type, schema=schema)
+
+        op.add_column(project, sa.Column('status_desc', sa.String()), schema=schema)
+        op.add_column(project, sa.Column('error_type', sa.String()), schema=schema)
+        op.add_column(project, sa.Column('error_desc', sa.String()), schema=schema)
         conn.execute(pt.update().where(pt.c.status == 'success').values(status='C'))
         conn.execute(pt.update().where(pt.c.status == 'pending').values(status='R'))
         conn.execute(pt.update().where(pt.c.status == 'error').values(status='F'))
@@ -34,7 +39,11 @@ def downgrade() -> None:
     projects = get_tracked_projects()
     for project in projects:
         status_type = psg.VARCHAR(7)
-        op.alter_column(project, 'status', type_=status_type)
+        op.alter_column(project, 'status', type_=status_type, schema=schema)
+
+        op.drop_column(project, 'status_desc', schema=schema)
+        op.add_column(project, 'error_type', schema=schema)
+        op.add_column(project, 'error_desc', schema=schema)
 
 
 def get_tracked_projects() -> list[str]:
