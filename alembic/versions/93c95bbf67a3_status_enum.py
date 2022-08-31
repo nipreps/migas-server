@@ -25,7 +25,6 @@ def upgrade() -> None:
         status_type = psg.ENUM('R', 'C', 'F', 'S', name='status')
         pt = create_adhoc_project_table(project, status_type)
         op.alter_column(project, 'status', existing_typetype_=status_type, schema=schema)
-
         op.add_column(project, sa.Column('status_desc', sa.String()), schema=schema)
         op.add_column(project, sa.Column('error_type', sa.String()), schema=schema)
         op.add_column(project, sa.Column('error_desc', sa.String()), schema=schema)
@@ -40,10 +39,9 @@ def downgrade() -> None:
     for project in projects:
         status_type = psg.VARCHAR(7)
         op.alter_column(project, 'status', type_=status_type, schema=schema)
-
         op.drop_column(project, 'status_desc', schema=schema)
-        op.add_column(project, 'error_type', schema=schema)
-        op.add_column(project, 'error_desc', schema=schema)
+        op.drop_column(project, 'error_type', schema=schema)
+        op.drop_column(project, 'error_desc', schema=schema)
 
 
 def get_tracked_projects() -> list[str]:
