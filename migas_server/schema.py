@@ -92,7 +92,12 @@ class Mutation:
                 container=p.container,
                 is_ci=p.is_ci,
             ),
-            process=Process(status=p.status),
+            process=Process(
+                status=p.status,
+                status_desc=p.status_desc,
+                error_type=p.error_type,
+                error_desc=p.error_desc,
+            ),
         )
 
         fetched = await fetch_project_info(p.project)
