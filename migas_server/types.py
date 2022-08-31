@@ -66,9 +66,18 @@ class User(Enum):
 
 @strawberry.enum
 class Status(Enum):
-    pending = 2
-    success = 0
-    error = 1
+    R = 'running'
+    running = strawberry.enum_value('running')
+    C = 'completed'
+    completed = strawberry.enum_value('completed')
+    F = 'failed'
+    failed = strawberry.enum_value('failed')
+    S = 'suspended'
+    suspended = strawberry.enum_value('suspended')
+
+    pending = strawberry.enum_value('running', deprecation_reason="Changed to `running`")
+    success = strawberry.enum_value('completed', deprecation_reason="Changed to `completed`")
+    error = strawberry.enum_value('error', deprecation_reason="Changed to `failed`")
 
 
 # @strawberry.type
@@ -84,6 +93,9 @@ class Status(Enum):
 @strawberry.type
 class Process:
     status: Status = Status.pending
+    status_desc: str | None = None
+    error_type: str | None = None
+    error_desc: str | None = None
     # args: Arguments = "{}"
 
 
@@ -133,11 +145,14 @@ class ProjectInput:
     )
     # process args
     status: 'Status' = strawberry.field(
-        description="For timeseries pings, the current process status", default=Status.pending
+        description="For timeseries pings, the current process status", default=Status.R
     )
-    arguments: Arguments = strawberry.field(
-        description="Client side arguments used", default_factory=lambda: "{}"
-    )
+    status_desc: str = strawberry.field(description="Description of status ping", default=None)
+    error_type: str = strawberry.field(description="Type of error encountered", default=None)
+    error_desc: str = strawberry.field(description="Description of error", default=None)
+    # arguments: Arguments = strawberry.field(
+    #     description="Client side arguments used", default_factory=lambda: "{}"
+    # )
 
 
 async def serialize(data: dict) -> dict:
