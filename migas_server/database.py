@@ -36,6 +36,9 @@ async def insert_project(
     session_id: str | None,
     user_id: str | None,
     status: str,
+    status_desc: str | None,
+    error_type: str | None,
+    error_desc: str | None,
     is_ci: bool,
 ) -> None:
     """Add to project table"""
@@ -50,6 +53,9 @@ async def insert_project(
                 'session_id': session_id,
                 'user_id': user_id,
                 'status': status,
+                'status_desc': status_desc,
+                'error_type': error_type,
+                'error_desc': error_desc,
                 'is_ci': is_ci,
             },
         )
@@ -91,6 +97,9 @@ async def ingest_project(project: Project) -> None:
         session_id=data['session_id'],
         user_id=data['context']['user_id'],
         status=data['process']['status'],
+        status_desc=data['process']['status_desc'],
+        error_type=data['process']['error_type'],
+        error_desc=data['process']['error_desc'],
         is_ci=data['context']['is_ci'],
     )
     if data['context']['user_id'] is not None:
