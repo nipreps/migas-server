@@ -61,13 +61,21 @@ async def get_db_engine() -> AsyncEngine:
     """Establish connection to SQLAlchemy engine."""
     global DB_ENGINE
     if DB_ENGINE is None:
-        if (db_url := os.getenv("DATABASE_URL")) is None:
-            raise ConnectionError("DATABASE_URL is not defined.")
         from sqlalchemy.ext.asyncio import create_async_engine
 
-        DB_ENGINE = create_async_engine(
-            # Ensure the engine uses asyncpg driver
-            db_url.replace("postgres://", "postgresql+asyncpg://"),
-            echo=bool(os.getenv("MIGAS_DEBUG")),
-        )
+        if (db_url := os.getenv("DATABASE_URL")) is None:
+            # Create URL from environmental variables
+            from sqlalchemy.engine import URL
+
+            db_components = {
+                "drivername": "postgres+asyncpg",
+                "username": os.getenv("DATABASE_USER"),
+                "password": os.getenv("DATABASE_PASSWORD"),
+                "host": os.getenv("DATABASE_PORT"),
+                "database": os.getenv("DATABASE_NAME"),
+            }
+            if gcp_conn := os.getenv("GCP_SQL_CONNECTION"):
+                db_components['query'] = {"unix_sock": f"/cloudsql/{gcp_conn}/.s.PGSQL.5432"}
+            db_url = URL.create(**db_components)
+        DB_ENGINE = create_async_engine(db_url, echo=bool(os.getenv("MIGAS_DEBUG")))
     return DB_ENGINE
