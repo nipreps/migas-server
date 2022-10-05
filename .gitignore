@@ -10,3 +10,4 @@ dump.rdb
 mounts/
 .pytest_cache/
 .mypy_cache/
+**/.env
