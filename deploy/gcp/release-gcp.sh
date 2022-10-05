@@ -33,6 +33,9 @@ if [[ -z $SQL_EXISTS ]]; then
         --region=$GCP_REGION \
         --root-password=$SQL_INSTANCE_PASSWORD \
         --insights-config-query-insights-enabled
+
+    # create migas database
+    gcloud sql databases create migas --instance=migas-postgres
 fi
 
 # # Build the service distribution
