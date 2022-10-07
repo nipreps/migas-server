@@ -5,18 +5,27 @@
 # - Create required resources if necessary (optional)
 # - Deploy the application
 
-set -eux
+# In addition to `gcloud` commands, this deploymentleverages Redis Cloud (https://app.redislabs.com/)
+# to create a small (but free) fully-managed Redis instance (potential hosts: AWS/GCP/Azure)
+# A URI of this connection should be defined as MIGAS_REDIS_URI in the service instance
 
-# Set default ENVVARS
-PROJECT="migas"
-PROJECT_ID="migas-362318"
-GCP_REGION="us-central1"
-SQL_INSTANCE_NAME="migas-postgres"
-SQL_INSTANCE_PASSWORD="foobar"
-GCP_SERVICE_NAME="migas-server"
+# See `example.env` for an example expected .env file
+
+set -eux
 
 HERE=$(dirname $(realpath $0))
 ROOT=$(dirname $(dirname $HERE))
+
+# These should be available, but will be account specific
+# PROJECT_ID=
+# SQL_INSTANCE_PASSWORD=
+
+# Defaults
+GCP_REGION="us-central1"
+SQL_INSTANCE_NAME="migas-postgres"
+SQL_INSTANCE_TIER="db-g1-small"
+CLOUD_RUN_SERVICE_NAME="migas-server"
+CLOUD_RUN_ENV_FILE="$HERE/.env"
 
 # Step 0: Install SDK
 # https://github.com/google-github-actions/setup-gcloud
@@ -28,31 +37,22 @@ if [[ -z $SQL_EXISTS ]]; then
     # Step 1.5: If not, create it
     gcloud sql instances create $SQL_INSTANCE_NAME \
         --database-version=POSTGRES_14 \
-        --cpu=2 \
-        --memory=8GiB \
         --region=$GCP_REGION \
         --root-password=$SQL_INSTANCE_PASSWORD \
-        --insights-config-query-insights-enabled
+        --insights-config-query-insights-enabled \
+        --tier=$SQL_INSTANCE_TIER
 
     # create migas database
     gcloud sql databases create migas --instance=migas-postgres
 fi
 
-# # Build the service distribution
-# if [ -d $ROOT/dist ]; then
-#     echo "Remove previous build"
-#     rm -rf $ROOT/dist
-# fi
-# python -m build -o $ROOT/dist
-# src=$(ls $ROOT/dist/*tar.gz)
-
 # Step 2: Build the service image
-GCR_TAG=gcr.io/$PROJECT_ID/$GCP_SERVICE_NAME
+GCR_TAG=gcr.io/$PROJECT_ID/$CLOUD_RUN_SERVICE_NAME
 gcloud builds submit \
     --tag $GCR_TAG
 
 # Step 3: Deploy the service
-gcloud run deploy $GCP_SERVICE_NAME \
+gcloud run deploy $CLOUD_RUN_SERVICE_NAME \
     --region=$GCP_REGION \
     --image=$GCR_TAG \
     --platform=managed \
@@ -64,10 +64,15 @@ gcloud run deploy $GCP_SERVICE_NAME \
     --memory=512Mi \
     --cpu=2 \
     --args=--port,8080,--proxy-headers,--headers,X-Backend-Server:migas \
-    --env-vars-file="$HERE/.env"
+    --env-vars-file=$CLOUD_RUN_ENV_FILE \
+    --cpu-throttling
 
-# # Step ??: Map service to custom domain
-# gcloud domains verify nipreps.org
-# gcloud beta run domain-mappings create --service $SERVICE_NAME --domain migas.nipreps.org
+
+# # Step 4: Map service to custom domain (only needs to be done once)
+ROOT_DOMAIN=nipreps.org  # The root domain name
+TARGET_DOMAIN=migas.nipreps.org  # The target domain, including any subdomains
+
+# gcloud domains verify $ROOT_DOMAIN
+# gcloud beta run domain-mappings create --service $CLOUD_RUN_SERVICE_NAME --domain $TARGET_DOMAIN
 # # Generate DNS record
-# gcloud beta run domain-mappings describe --domain migas.nipreps.org
+# gcloud beta run domain-mappings describe --domain $TARGET_DOMAIN
