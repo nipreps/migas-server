@@ -6,7 +6,7 @@ GCP_REGION="us-central1"
 SQL_EXISTS=$(gcloud sql instances list --filter name=$SQL_INSTANCE_NAME --uri)
 if [[ -n $SQL_EXISTS ]]; then
     echo "Delete database"
-    gcloud sql instances delete $SQL_INSTANCE_NAME --async
+    gcloud sql instances delete $SQL_INSTANCE_NAME --async --quiet
 fi
 
 SERVICE_EXISTS=$(gcloud run services list --filter=SERVICE:$SERVICE_INSTANCE_NAME)
