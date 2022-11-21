@@ -23,7 +23,7 @@ ROOT=$(dirname $(dirname $HERE))
 # Defaults
 GCP_REGION="us-central1"
 SQL_INSTANCE_NAME="migas-postgres"
-SQL_INSTANCE_TIER="db-g1-small"
+SQL_INSTANCE_TIER="db-g1-micro"
 CLOUD_RUN_SERVICE_NAME="migas-server"
 CLOUD_RUN_ENV_FILE="$HERE/.env"
 
