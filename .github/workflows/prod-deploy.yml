@@ -7,26 +7,26 @@ on:
 
 jobs:
   deploy:
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Install Heroku CLI
-        run: curl https://cli-assets.heroku.com/install.sh | sh
-      - name: Install builds buildpack
-        run: heroku plugins:install heroku-builds
-      - name: Install python build
-        run: python -m pip install build
-      - name: Package app
-        run: python -m build --sdist
-      - name: Pass in built app to Heroku deployment
-        run: |
-          SOURCE=$(ls dist/migas_server*.tar.gz)
-          heroku builds:create -a migas --source-tar=$SOURCE
-        env:
-          HEROKU_EMAIL: ${{ secrets.HEROKU_EMAIL }}
-          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+      # Authenticate and setup SDK
+      - id: 'auth'
+        uses: 'google-github-actions/auth@v1'
+        with:
+          workload_identity_provider: 'projects/783007238857/locations/global/workloadIdentityPools/migas-gha/providers/github-actions'
+          service_account: 'gh-actions@migas-362318.iam.gserviceaccount.com'
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v1'
+      # Use provided deployment script
+      - name: Run deployment script
+        run: ./deploy/gcp/release-gcp.sh
 
   release:
     runs-on: ubuntu-latest
