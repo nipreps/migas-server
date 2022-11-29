@@ -5,7 +5,7 @@
 # - Create required resources if necessary (optional)
 # - Deploy the application
 
-# In addition to `gcloud` commands, this deploymentleverages Redis Cloud (https://app.redislabs.com/)
+# In addition to `gcloud` commands, this deployment leverages Redis Cloud (https://app.redislabs.com/)
 # to create a small (but free) fully-managed Redis instance (potential hosts: AWS/GCP/Azure)
 # A URI of this connection should be defined as MIGAS_REDIS_URI in the service instance
 
@@ -15,6 +15,11 @@ set -eux
 
 HERE=$(dirname $(realpath $0))
 ROOT=$(dirname $(dirname $HERE))
+
+VERSION="unknown"
+if [-f ${ROOT}/get_version.py ]; then
+    VERSION=$(python ${ROOT}/get_version.py)
+fi
 
 # These should be available, but will be account specific
 # PROJECT_ID=
@@ -47,7 +52,7 @@ if [[ -z $SQL_EXISTS ]]; then
 fi
 
 # Step 2: Build the service image
-GCR_TAG=gcr.io/$PROJECT_ID/$CLOUD_RUN_SERVICE_NAME
+GCR_TAG=gcr.io/$PROJECT_ID/$CLOUD_RUN_SERVICE_NAME:$VERSION
 gcloud builds submit \
     --tag $GCR_TAG
 
@@ -69,8 +74,8 @@ gcloud run deploy $CLOUD_RUN_SERVICE_NAME \
 
 
 # # Step 4: Map service to custom domain (only needs to be done once)
-ROOT_DOMAIN=nipreps.org  # The root domain name
-TARGET_DOMAIN=migas.nipreps.org  # The target domain, including any subdomains
+# ROOT_DOMAIN=nipreps.org  # The root domain name
+# TARGET_DOMAIN=migas.nipreps.org  # The target domain, including any subdomains
 
 # gcloud domains verify $ROOT_DOMAIN
 # gcloud beta run domain-mappings create --service $CLOUD_RUN_SERVICE_NAME --domain $TARGET_DOMAIN
