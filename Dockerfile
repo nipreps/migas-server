@@ -1,12 +1,14 @@
-FROM python:3.10.5-slim-bullseye
-
+FROM python:slim AS src
+RUN pip install build
 RUN apt-get update && \
-    apt-get install --no-install-recommends -y git && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends git
+COPY . /src/migas-server
+RUN python -m build /src/migas-server
 
-COPY . /src
-
-RUN pip install --no-cache-dir /src[test]
+FROM python:slim
+COPY --from=src /src/migas-server/dist/*.whl .
+ENV YARL_NO_EXTENSIONS=1 \
+    MULTIDICT_NO_EXTENSIONS=1
+RUN python -m pip install --no-cache-dir $( ls *.whl )[test]
 
 ENTRYPOINT ["migas-server"]
