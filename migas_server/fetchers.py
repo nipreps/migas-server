@@ -4,7 +4,6 @@ import aiohttp
 
 from migas_server.connections import get_redis_connection, get_requests_session
 
-IPSTACK_API_URL = "http://api.ipstack.com/{ip}?access_key={ipstack_secret}"
 GITHUB_RELEASE_URL = "https://api.github.com/repos/{project}/releases/latest"
 GITHUB_TAG_URL = "https://api.github.com/repos/{project}/tags"
 GITHUB_ET_FILE_URL = "https://raw.githubusercontent.com/{project}/{version}/.migas.json"
@@ -69,16 +68,3 @@ async def fetch_project_info(project: str) -> dict:
         "success": latest_version not in ('unknown', 'forbidden'),
         "version": latest_version.lstrip('v'),
     }
-
-
-async def fetch_ipstack_data(ip: str) -> dict:
-    status, res = await fetch_response(
-        IPSTACK_API_URL.format(ip=ip, ipstack_secret=os.getenv("IPSTACK_API_KEY"))
-    )
-    match status:
-        case 200:
-            # verify it is valid
-            return res
-        case _:
-            print("IPSTACK: Something went wrong.")
-            return {"success": False}

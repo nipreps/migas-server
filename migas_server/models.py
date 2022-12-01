@@ -19,20 +19,6 @@ class Projects(Base):
     project = Column(String(140), primary_key=True)  # 39 owner + "/" + 100 repository
 
 
-class Geolocs(Base):
-    __tablename__ = "geolocs"
-    __mapper_args__ = {"eager_defaults": True}
-
-    id = Column(CHAR(length=64), primary_key=True)
-    continent = Column(String(length=13), nullable=False)
-    country = Column(String(length=56), nullable=False)
-    region = Column(String(length=58), nullable=False)
-    city = Column(String(length=58), nullable=False)
-    postal_code = Column(String(length=10), nullable=False)
-    latitude = Column(FLOAT(), nullable=False)
-    longitude = Column(FLOAT(), nullable=False)
-
-
 class Project(Base):
     __abstract__ = True
     __mapper_args__ = {"eager_defaults": True}
@@ -62,7 +48,6 @@ class ProjectUsers(Base):
     container = Column(String(length=9), nullable=False)
 
 
-geolocs = Geolocs.__table__
 projects = Projects.__table__
 
 
@@ -149,7 +134,7 @@ async def init_db(engine: AsyncEngine) -> None:
 
     This method ensure the following are created (if not already existing):
     1) migas schema
-    2) primary tables (projects, geoloc)
+    2) project tables
     3) If projects table exists, ensure all tracked projects have Project/ProjectUsers tables.
     """
     async with engine.begin() as conn:

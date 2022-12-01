@@ -44,7 +44,7 @@ async def get_redis_connection() -> redis.Redis:
     return MEM_CACHE
 
 
-# GH / IPStack requests
+# GH requests
 async def get_requests_session() -> aiohttp.ClientSession:
     """Initialize within an async function, since sync initialization is deprecated."""
     global REQUESTS_SESSION

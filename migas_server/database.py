@@ -4,11 +4,9 @@ from typing import List
 from sqlalchemy import distinct, func, select
 from sqlalchemy.dialects.postgresql import insert
 
-from migas_server.fetchers import fetch_ipstack_data
 from migas_server.models import (
     Table,
     gen_session,
-    geolocs,
     get_project_tables,
     projects,
 )
@@ -110,73 +108,6 @@ async def ingest_project(project: Project) -> None:
             platform=data['context']['platform'],
             container=data['context']['container'],
         )
-
-
-async def insert_geoloc(
-    ip: str,
-    *,
-    continent: str,
-    country: str,
-    region: str,
-    city: str,
-    postal_code: str,
-    latitude: float,
-    longitude: float,
-) -> None:
-    """Insert geolocation data to table."""
-    async with gen_session() as session:
-        res = await session.execute(
-            geolocs.insert(),
-            {
-                "id": ip,
-                "continent": continent,
-                "country": country,
-                "region": region,
-                "city": city,
-                "postal_code": postal_code,
-                "latitude": latitude,
-                "longitude": longitude,
-            },
-        )
-        await session.commit()
-
-
-# Table query
-async def geoloc_request(ip: str) -> None:
-    """
-    Check to see if the address has already been geolocated.
-
-    If so, nothing to do.
-    If not, spend an `ipstack` API call and store the resulting data.
-
-    We store geolocation information to avoid overloading our limited
-    IPStack API calls, since we are using the free tier.
-    """
-    from hashlib import sha256
-
-    hip = sha256(ip.encode()).hexdigest()
-    async with gen_session() as session:
-        res = await session.execute(geolocs.select().where(geolocs.c.id == hip))
-        if res.one_or_none():
-            return
-
-    # No user data found
-    data = await fetch_ipstack_data(ip)
-    # Do not add to DB if IPStack call failed
-    if data.get("success", True) is False:
-        print(f"Unable to fetch geoloc data: {data}")
-        return
-
-    await insert_geoloc(
-        hip,
-        continent=data['continent_name'],
-        country=data['country_name'],
-        region=data['region_name'],
-        city=data['city'],
-        postal_code=data['zip'],
-        latitude=data['latitude'],
-        longitude=data['longitude'],
-    )
 
 
 async def query_usage_by_datetimes(

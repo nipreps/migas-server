@@ -11,7 +11,6 @@ from strawberry.types import Info
 
 from migas_server.connections import get_redis_connection
 from migas_server.database import (
-    geoloc_request,
     ingest_project,
     project_exists,
     query_projects,
@@ -105,7 +104,6 @@ class Mutation:
         # return project info ASAP, assign data ingestion as background tasks
         request = info.context['request']
         bg_tasks = info.context['background_tasks']
-        bg_tasks.add_task(geoloc_request, request.client.host)
         bg_tasks.add_task(ingest_project, project)
 
         return {
