@@ -3,13 +3,12 @@ requires = ["flit_scm"]
 build-backend = "flit_scm:buildapi"
 
 [project]
-name = "migas_server"
+name = "migas-server"
 description = "Migas telemetry server"
-description-file = "README.md"
 readme = "README.md"
 license = {file = "LICENSE"}
 maintainers = [
-    {name = "Nipreps developers", email = "nipreps.org"}
+    {name = "Nipreps developers", email = "nipreps@gmail.com"},
 ]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
@@ -23,12 +22,12 @@ classifiers = [
 requires-python = ">3.10"
 dependencies = [
     "aiohttp",
-    "redis >=4.2.0"
+    "redis >=4.2.0",
     "asyncpg",
     "fastapi[all]",
     "packaging",
     "strawberry-graphql[fastapi]",
-    "sqlalchemy[async]"
+    "sqlalchemy[async]",
 ]
 dynamic = ["version"]
 
@@ -52,9 +51,6 @@ test = [
 
 [project.scripts]
 migas-server = "migas_server.cli:main"
-
-[tool.flit.module]
-name = "migas_server"
 
 [tool.flit.sdist]
 exclude = [".gitignore"]
