@@ -16,10 +16,7 @@ set -eux
 HERE=$(dirname $(realpath $0))
 ROOT=$(dirname $(dirname $HERE))
 
-VERSION="unknown"
-if [-f ${ROOT}/get_version.py ]; then
-    VERSION=$(python ${ROOT}/get_version.py)
-fi
+VERSION=${1-"unknown"}
 
 # These should be available, but will be account specific
 # PROJECT_ID=
@@ -57,7 +54,18 @@ gcloud builds submit \
     --tag $GCR_TAG
 
 # Step 3: Deploy the service
-gcloud run deploy $CLOUD_RUN_SERVICE_NAME \
+CLOUD_SQL_INSTANCE_ID="$PROJECT_ID:$GCP_REGION:$SQL_INSTANCE_NAME"
+if [[ -f $CLOUD_RUN_ENV_FILE ]]; then
+    ENV_VARS="--env-vars-file=$CLOUD_RUN_ENV_FILE"
+else
+    ENV_VARS='--set-env-vars MIGAS_REDIS_URI='$REDIS_URI' \
+    --set-env-vars DATABASE_USER=postgres \
+    --set-env-vars '"^||^DATABASE_PASSWORD=$SQL_INSTANCE_PASSWORD"' \
+    --set-env-vars DATABASE_NAME=migas \
+    --set-env-vars GCP_SQL_CONNECTION='"$CLOUD_SQL_INSTANCE_ID"
+fi
+
+DEPLOY_CMD="gcloud run deploy $CLOUD_RUN_SERVICE_NAME \
     --region=$GCP_REGION \
     --image=$GCR_TAG \
     --platform=managed \
@@ -65,13 +73,14 @@ gcloud run deploy $CLOUD_RUN_SERVICE_NAME \
     --max-instances=3 \
     --ingress=all \
     --allow-unauthenticated \
-    --set-cloudsql-instances="$PROJECT_ID:$GCP_REGION:$SQL_INSTANCE_NAME" \
+    --set-cloudsql-instances=$CLOUD_SQL_INSTANCE_ID \
     --memory=512Mi \
     --cpu=2 \
     --args=--port,8080,--proxy-headers,--headers,X-Backend-Server:migas \
-    --env-vars-file=$CLOUD_RUN_ENV_FILE \
-    --cpu-throttling
+    --cpu-throttling \
+    $ENV_VARS"
 
+$DEPLOY_CMD
 
 # # Step 4: Map service to custom domain (only needs to be done once)
 # ROOT_DOMAIN=nipreps.org  # The root domain name
