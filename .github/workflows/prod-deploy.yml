@@ -26,7 +26,7 @@ jobs:
         uses: 'google-github-actions/setup-gcloud@v1'
       # Use provided deployment script
       - name: Run deployment script
-        run: ./deploy/gcp/release-gcp.sh
+        run: ./deploy/gcp/release-gcp.sh ${{ github.ref }}
 
   release:
     runs-on: ubuntu-latest
