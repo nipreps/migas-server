@@ -13,7 +13,7 @@ def test_parser_defaults():
 @pytest.mark.parametrize(
     'input,output',
     [
-        ([], None),
+        ([], [['X-Backend-Server', 'migas']]),
         (['Hello:There'], [['Hello', 'There']]),
         (['X-Backend-Server:migas', 'X-Test:1'], [['X-Backend-Server', 'migas'], ['X-Test', '1']]),
     ],
