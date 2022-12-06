@@ -64,5 +64,6 @@ Migas includes the following environmental variables to allow finer control when
 | Environmental Variable | Description | Default |
 | ---- | ---- | ---- |
 | MIGAS_REQUEST_WINDOW | A sliding window for limiting number of queries (in seconds) | 60 |
-| MIGAS_REQUESTS_PER_WINDOW | Maximum number of requests per `MIGAS_REQUEST_WINDOW` | 5 |
+| MIGAS_MAX_REQUESTS_PER_WINDOW | Maximum number of requests per `MIGAS_REQUEST_WINDOW` | 5 |
 | MIGAS_MAX_REQUEST_SIZE | Maximum size of request body | 450 |
+| MIGAS_BYPASS_RATE_LIMIT | Avoid requests cap | 0 |
