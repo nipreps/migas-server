@@ -16,6 +16,11 @@ services:
     environment:
       MIGAS_REDIS_URI: "redis://cache:6379"
       DATABASE_URL: "postgresql+asyncpg://postgres:crumbs@postgres:5432/migas"
+      MIGAS_REQUEST_WINDOW:
+      MIGAS_MAX_REQUESTS_PER_WINDOW:
+      MIGAS_MAX_REQUEST_SIZE:
+      MIGAS_BYPASS_RATE_LIMIT:
+      MIGAS_DEBUG:
 
   # Redis in-memory db
   cache:
