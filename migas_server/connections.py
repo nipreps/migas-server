@@ -68,13 +68,19 @@ async def get_db_engine() -> AsyncEngine:
             from sqlalchemy.engine import URL
 
             db_url = URL.create(
-                drivername="postgresql+asyncpg",
                 username=os.getenv("DATABASE_USER"),
                 password=os.getenv("DATABASE_PASSWORD"),
                 database=os.getenv("DATABASE_NAME"),
             )
-            if gcp_conn := os.getenv("GCP_SQL_CONNECTION"):
-                # db_url.set(query={"unix_sock": f"/cloudsql/{gcp_conn}/.s.PGSQL.5432"})
+
+        else:
+            # Convert string to sqlalchemy URL
+            from sqlalchemy.engine import make_url
+
+            db_url = make_url(db_url)
+
+        db_url = db_url.set(drivername="postgresql+asyncpg")
+        if gcp_conn := os.getenv("GCP_SQL_CONNECTION"):
                 db_url = db_url.set(query={"host": f"/cloudsql/{gcp_conn}/.s.PGSQL.5432"})
 
         DB_ENGINE = create_async_engine(

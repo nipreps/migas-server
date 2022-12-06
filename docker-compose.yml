@@ -2,7 +2,7 @@ services:
   # Migas API server
   server:
     build: .
-    container_name: "migas_server"
+    container_name: "migas-server"
     ports:
       - "8000:8000"
     depends_on:
@@ -59,3 +59,4 @@ services:
 # Network to link all services
 networks:
   migas:
+    name: migas
