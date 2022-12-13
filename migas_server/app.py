@@ -57,7 +57,7 @@ async def shutdown():
     await app.requests.close()
 
 
-@app.get("/")
+@app.get("/info")
 async def root():
     return {
         "package": "migas",
