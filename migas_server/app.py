@@ -1,6 +1,8 @@
 import os
 
+from pkg_resources import resource_filename
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from strawberry.fastapi import GraphQLRouter
 
@@ -57,10 +59,15 @@ async def shutdown():
     await app.requests.close()
 
 
-@app.get("/")
-async def root():
+@app.get("/info")
+async def info():
     return {
         "package": "migas",
         "version": __version__,
         "message": "Visit /graphql for GraphiQL interface",
     }
+
+@app.get("/")
+async def home():
+    index = resource_filename("migas_server", "frontend/index.html")
+    return FileResponse(index)
