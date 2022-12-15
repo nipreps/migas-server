@@ -1,5 +1,6 @@
 import os
 
+from pkg_resources import resource_filename
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -68,4 +69,5 @@ async def info():
 
 @app.get("/")
 async def home():
-    return FileResponse('migas_server/frontend/index.html')
+    index = resource_filename("migas_server", "frontend/index.html")
+    return FileResponse(index)
