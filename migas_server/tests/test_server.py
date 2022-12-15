@@ -32,8 +32,14 @@ def client(event_loop: asyncio.BaseEventLoop) -> Iterator[TestClient]:
         yield c
 
 
-def test_server_startup_shutdown(client: TestClient) -> None:
+def test_server_landing(client: TestClient) -> None:
     res = client.get("/")
+    assert res.status_code == 200
+    assert 'html' in res.headers.get("Content-Type")
+
+
+def test_server_info(client: TestClient) -> None:
+    res = client.get("/info")
     assert res.status_code == 200
     assert res.json()["package"] == "migas"
 
