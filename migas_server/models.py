@@ -6,7 +6,7 @@ from sqlalchemy.dialects.postgresql import ENUM, UUID
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.sql import func
-from sqlalchemy.types import BOOLEAN, CHAR, FLOAT, INTEGER, TIMESTAMP, String
+from sqlalchemy.types import BOOLEAN, INTEGER, TIMESTAMP, String
 
 SCHEMA = 'migas'
 
@@ -146,18 +146,14 @@ async def init_db(engine: AsyncEngine) -> None:
             return 'migas' in inspector.get_schema_names()
 
         if not await conn.run_sync(_has_schema):
-            # until CreateSchema supports if not exists
-            # our best bet is to check schemas and create if not there
+            # upgrade: sqlalchemy 2
             # https://github.com/sqlalchemy/sqlalchemy/issues/7354
-            # from sqlalchemy import event
             from sqlalchemy.schema import CreateSchema
 
-            # event.listen(Base.metadata, 'before_create', CreateSchema('migas'))
             await conn.execute(CreateSchema('migas'))
 
         # if project is already being monitored, create it
         await populate_base(conn)
-
         # create all tables
         await conn.run_sync(Base.metadata.create_all)
 
