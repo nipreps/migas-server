@@ -68,6 +68,7 @@ async def get_db_engine() -> AsyncEngine:
             from sqlalchemy.engine import URL
 
             db_url = URL.create(
+                drivername="postgresql+asyncpg",
                 username=os.getenv("DATABASE_USER"),
                 password=os.getenv("DATABASE_PASSWORD"),
                 database=os.getenv("DATABASE_NAME"),
