@@ -52,32 +52,33 @@ Arguments = scalar(
 
 @strawberry.enum
 class Container(Enum):
-    unknown = 0
-    docker = 1
-    apptainer = 2
+    unknown = 'unknown'
+    docker = 'docker'
+    apptainer = 'apptainer'
 
 
 @strawberry.enum
 class User(Enum):
-    general = 0
-    dev = 1
-    ci = 2
+    general = 'general'
+    dev = 'dev'
+    ci = 'ci'
 
 
 @strawberry.enum
 class Status(Enum):
-    R = 'running'
-    running = strawberry.enum_value('running')
-    C = 'completed'
-    completed = strawberry.enum_value('completed')
-    F = 'failed'
-    failed = strawberry.enum_value('failed')
-    S = 'suspended'
-    suspended = strawberry.enum_value('suspended')
+    R = 'R'
+    running = strawberry.enum_value('R')
+    C = 'C'
+    completed = strawberry.enum_value('C')
+    F = 'F'
+    failed = strawberry.enum_value('F')
+    S = 'S'
+    suspended = strawberry.enum_value('S')
 
-    pending = strawberry.enum_value('running', deprecation_reason="Changed to `running`")
-    success = strawberry.enum_value('completed', deprecation_reason="Changed to `completed`")
-    error = strawberry.enum_value('error', deprecation_reason="Changed to `failed`")
+    # Deprecations, to be removed in 0.4.0
+    pending = strawberry.enum_value('R', deprecation_reason="Pending is now running")
+    success = strawberry.enum_value('C', deprecation_reason="Success is now completed")
+    error = strawberry.enum_value('F', deprecation_reason="Error is now failed")
 
 
 # @strawberry.type
@@ -92,7 +93,7 @@ class Status(Enum):
 
 @strawberry.type
 class Process:
-    status: Status = Status.pending
+    status: Status = Status.running
     status_desc: str | None = None
     error_type: str | None = None
     error_desc: str | None = None
@@ -163,7 +164,7 @@ async def serialize(data: dict) -> dict:
         if isinstance(v, _BaseVersion):
             data[k] = str(v)
         elif isinstance(v, Enum):
-            data[k] = v.name
+            data[k] = v.value
         # datetime ok?
         elif isinstance(v, (Context, Process)):
             data[k] = await serialize(v.__dict__)
