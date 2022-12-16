@@ -7,6 +7,7 @@ from _pytest.monkeypatch import MonkeyPatch
 from fastapi.testclient import TestClient
 
 from migas_server.app import app
+from .utils import form_add_project_query
 
 if not os.getenv("MIGAS_REDIS_URI"):
     pytest.skip(allow_module_level=True)
@@ -39,13 +40,23 @@ def test_server_startup_shutdown(client: TestClient) -> None:
 
 
 @pytest.mark.parametrize(
-    'query',
-    [
-        queries['add_project'],
-    ],
+    'query_args', [
+        {
+            "project": '"nipreps/migas-server"',
+            "project_version": '"0.0.1"',
+            "language": '"python"',
+            "language_version": '"3.10.4"',
+            "is_ci": "false",
+            "status": "running",
+            "status_desc": '"workflow start"',
+            "container": "docker",
+            "platform": '"linux"',
+        }
+    ]
 )
-def test_graphql_add_project(query: str, client: TestClient) -> None:
-    res = client.post("/graphql", json={'query': query})
+def test_graphql_add_project(query_args: dict, client: TestClient) -> None:
+    query = {'query': form_add_project_query(query_args)}
+    res = client.post("/graphql", json=query)
     assert res.status_code == 200
     output = res.json()['data']['add_project']
     assert output['success'] is True
