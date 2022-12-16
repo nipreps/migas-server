@@ -73,7 +73,7 @@ class Status(Enum):
     F = 'F'
     failed = strawberry.enum_value('F')
     S = 'S'
-    suspended = strawberry.enum_value('suspended')
+    suspended = strawberry.enum_value('S')
 
     # Deprecations, to be removed in 0.4.0
     pending = strawberry.enum_value('R', deprecation_reason="Pending is now running")

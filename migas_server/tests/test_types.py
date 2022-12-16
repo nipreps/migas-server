@@ -2,7 +2,7 @@ import pytest
 
 from migas_server import types
 
-@pytest.mark.parametrize('names', 'val', [
+@pytest.mark.parametrize('names,val', [
     (['running', 'R'], 'R'),
     (['completed', 'C'], 'C'),
     (['failed', 'F'], 'F'),
