@@ -8,10 +8,29 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from alembic import context
 
+
+def get_db_url() -> str:
+    """Generate the database connection url"""
+    from sqlalchemy.engine import make_url, URL
+
+    if db_url := os.getenv("DATABASE_URL"):
+        db_url = make_url(db_url).set(drivername="postgresql+asyncpg")
+    else:
+        db_url = URL.create(
+            drivername="postgresql+asyncpg",
+            username=os.getenv("DATABASE_USER"),
+            password=os.getenv("DATABASE_PASSWORD"),
+            database=os.getenv("DATABASE_NAME")
+        )
+
+    if gcp_conn := os.getenv("GCP_SQL_CONNECTION"):
+        db_url = db_url.set(query={"host": f"/cloudsql/{gcp_conn}/.s.PGSQL.5432"})
+    return db_url
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
-URL = os.environ["DATABASE_URL"].replace("postgres://", "postgresql+asyncpg://")
+URL = get_db_url()
 config.set_main_option("sqlalchemy.url", URL)
 
 # Interpret the config file for Python logging.
