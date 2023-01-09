@@ -154,3 +154,17 @@ async def project_exists(project: str) -> bool:
     async with gen_session() as session:
         res = await session.execute(projects.select().where(projects.c.project == project))
     return bool(res.one_or_none())
+
+
+async def query_project_usage(project: str) -> list:
+    ptable, _ = await get_project_tables(project)
+    async with gen_session() as session:
+
+        # we want to return a table with:
+        # version | total_runs (unique session_id) | sucessful_runs | users (unique user_id)
+        # TODO: index should be applied to version, session_id, user_id columns
+        # TODO: this should be done within a single query
+
+        # first grab all different versions
+        res = await session.execute(select(ptable))
+    return res.all()
