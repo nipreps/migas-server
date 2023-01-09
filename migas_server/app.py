@@ -12,6 +12,7 @@ from migas_server.connections import (
     get_redis_connection,
     get_requests_session,
 )
+from migas_server.database import query_project_usage
 from migas_server.models import init_db
 from migas_server.schema import SCHEMA
 
@@ -67,7 +68,14 @@ async def info():
         "message": "Visit /graphql for GraphiQL interface",
     }
 
+
 @app.get("/")
 async def home():
     index = resource_filename("migas_server", "frontend/index.html")
     return FileResponse(index)
+
+
+@app.get("/charts")
+async def charts():
+    res = await query_project_usage('nipreps/fmriprep')
+    breakpoint()
