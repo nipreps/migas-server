@@ -3,7 +3,7 @@ requires = ["flit_scm"]
 build-backend = "flit_scm:buildapi"
 
 [project]
-name = "migas-server"
+name = "migas_server"
 description = "Migas telemetry server"
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -27,7 +27,7 @@ dependencies = [
     "fastapi[all]",
     "packaging",
     "strawberry-graphql[fastapi]",
-    "sqlalchemy[async]",
+    "sqlalchemy[asyncio]",
 ]
 dynamic = ["version"]
 
