@@ -44,6 +44,7 @@ dev = [
     "black",
     "isort",
     "pre-commit",
+    "pip-tools",
 ]
 test = [
     "pytest",
