@@ -115,9 +115,9 @@ class Mutation:
         }
 
 
-class Watchdog(Extension):
+class RateLimiter(Extension):
     """
-    An extension to the GraphQL schema.
+    A GraphQL schema extension to implement sliding window rate limiting.
 
     This class has fine-grain control of the GraphQL execution stack.
     This extension verifies that incoming requests:
@@ -184,6 +184,6 @@ class Watchdog(Extension):
 SCHEMA = strawberry.Schema(
     query=Query,
     mutation=Mutation,
-    extensions=[Watchdog],
+    extensions=[RateLimiter],
     config=StrawberryConfig(auto_camel_case=False),
 )
