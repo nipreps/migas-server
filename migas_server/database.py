@@ -1,7 +1,7 @@
 from typing import List
 
 # from asyncpg import Record
-from sqlalchemy import distinct, func, select
+from sqlalchemy import distinct, func, select, text
 from sqlalchemy.dialects.postgresql import insert
 
 from migas_server.models import (
@@ -156,15 +156,48 @@ async def project_exists(project: str) -> bool:
     return bool(res.one_or_none())
 
 
-async def query_project_usage(project: str) -> list:
-    ptable, _ = await get_project_tables(project)
-    async with gen_session() as session:
+async def get_viz_data(project: str) -> list:
+    p, _ = await get_project_tables(project)
 
+    async with gen_session() as session:
         # we want to return a table with:
         # version | total_runs (unique session_id) | sucessful_runs | users (unique user_id)
         # TODO: index should be applied to version, session_id, user_id columns
         # TODO: this should be done within a single query
 
         # first grab all different versions
-        res = await session.execute(select(ptable))
-    return res.all()
+        versions = await session.execute(
+            select(distinct(p.c.version)).where(p.c.version.not_like('%+%'))
+        )
+        data = {v: {} for v in versions.scalars().all()}
+
+        for vers in data.keys():
+            total = await session.execute(
+                select(func.count(distinct(p.c.session_id)))\
+                    .where(p.c.is_ci == False)\
+                    .where(p.c.version == vers)\
+            )
+            data[vers]['total'] = total.scalar()
+            success = await session.execute(
+                select(func.count(distinct(p.c.session_id)))\
+                    .where(p.c.is_ci == False)\
+                    .where(p.c.version == vers)\
+                    .where(text("status='C'"))
+            )
+            data[vers]['success'] = success.scalar()
+            uusers = await session.execute(
+                select(func.count(distinct(p.c.user_id)))\
+                    .where(p.c.is_ci == False)\
+                    .where(p.c.version == vers)
+            )
+            data[vers]['unique_users'] = uusers.scalar()
+    return data
+
+
+# notes
+# select distinct version from <project> where version not like '%+%';
+# for vers in ^:
+# select count(distinct session_id) from <project> where is_ci = false and version = ver;
+# select count(distinct session_id) from <project> where is_ci = false and version = ver and status = 'C';
+# select count(distinct user_id) from <project> where is_ci = false and version = ver;
+# select count(*), date_part('isoyear', timestamp) as year, date_part('week', timestamp) as week from <project> where status = 'C' group by year, week order by year, week;
