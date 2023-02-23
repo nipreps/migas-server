@@ -177,14 +177,14 @@ async def get_viz_data(project: str) -> list:
                     .where(p.c.is_ci == False)\
                     .where(p.c.version == vers)\
             )
-            data[vers]['total'] = total.scalar()
+            data[vers]['total_runs'] = total.scalar()
             success = await session.execute(
                 select(func.count(distinct(p.c.session_id)))\
                     .where(p.c.is_ci == False)\
                     .where(p.c.version == vers)\
                     .where(text("status='C'"))
             )
-            data[vers]['success'] = success.scalar()
+            data[vers]['successful_runs'] = success.scalar()
             uusers = await session.execute(
                 select(func.count(distinct(p.c.user_id)))\
                     .where(p.c.is_ci == False)\
