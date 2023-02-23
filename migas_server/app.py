@@ -85,4 +85,4 @@ async def usage(project: str):
 
 @app.get("/viz", response_class=HTMLResponse)
 async def viz():
-    return FileResponse(resource_filename("migas_server", "frontend/stackedbar.html"))
+    return FileResponse(resource_filename("migas_server", "frontend/chart.html"))
