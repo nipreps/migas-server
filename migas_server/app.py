@@ -2,7 +2,8 @@ import os
 
 from pkg_resources import resource_filename
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi.requests import Request
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from strawberry.fastapi import GraphQLRouter
 
@@ -69,14 +70,19 @@ async def info():
     }
 
 
-@app.get("/")
-async def home():
+@app.get("/", response_class=HTMLResponse)
+async def home(request: Request):
     index = resource_filename("migas_server", "frontend/index.html")
     return FileResponse(index)
 
 
-@app.get("/viz/")
-async def viz(project: str):
+@app.get("/usage")
+async def usage(project: str):
     data = await get_viz_data(project)
     # TODO: Send data to static HTML page
     return data
+
+
+@app.get("/viz", response_class=HTMLResponse)
+async def viz():
+    return FileResponse(resource_filename("migas_server", "frontend/stackedbar.html"))
