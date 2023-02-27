@@ -51,6 +51,12 @@ class ProjectUsers(Base):
 projects = Projects.__table__
 
 
+class Authentication(Base):
+    __tablename__ = "auth"
+    project = Column(String(length=140), primary_key=True)
+    token = Column(String)
+
+
 async def get_project_tables(
     project: str, create: bool = True
 ) -> list[Table | None, Table | None]:
@@ -170,3 +176,15 @@ async def gen_session() -> AsyncGenerator[AsyncSession, None]:
             yield session
         finally:
             await session.close()
+
+
+async def verify_token(token: str):
+    '''Query table for usage access'''
+    from sqlalchemy import select
+
+    # verify token pertains to project
+    async with gen_session() as session:
+        res = await session.execute(
+            select(Authentication.project).where(Authentication.token == token)
+        )
+    return bool(res.one_or_none())

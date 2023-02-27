@@ -15,9 +15,10 @@ from migas_server.database import (
     project_exists,
     query_projects,
     query_usage_by_datetimes,
+    get_viz_data,
 )
 from migas_server.fetchers import fetch_project_info
-from migas_server.models import get_project_tables
+from migas_server.models import get_project_tables, verify_token
 from migas_server.types import Context, DateTime, Process, Project, ProjectInput
 from migas_server.utils import now
 
@@ -65,6 +66,13 @@ class Query:
             'unique': unique,
             'success': exists,
         }
+
+    @strawberry.field
+    async def usage_stats(self, project: str, token: str) -> JSON:
+        'Generate different usage information'
+        if not await verify_token(token):
+            raise Exception(f'Token "{token}" is either invalid or expired.')
+        return await get_viz_data(project)
 
 
 @strawberry.type
