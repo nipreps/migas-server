@@ -1,0 +1,22 @@
+.nav {
+    width: 200px;
+    height: auto;
+    margin: auto;
+}
+
+#project-label {
+    font-size: 1.5em;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+#populate-chart-btn {
+    width: 100%;
+    margin-top: 5px;
+    /* margin: 0 auto; */
+    display: block;
+}
+
+.card {
+    margin-top: 50px;
+}
