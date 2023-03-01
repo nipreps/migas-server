@@ -155,6 +155,12 @@ class ProjectInput:
     #     description="Client side arguments used", default_factory=lambda: "{}"
     # )
 
+@strawberry.type
+class AuthenticationResult:
+    token: str
+    projects: typing.List[str]
+    message: str
+
 
 async def serialize(data: dict) -> dict:
     """Serialize data into database-friendly types"""
