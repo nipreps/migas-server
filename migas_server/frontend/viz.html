@@ -55,7 +55,6 @@
                     // valid since at least one project was specified
                     redirectURL = "/frontend/charts.html?projects=" + encodeURIComponent(auth.projects)
                                   + "&token=" + encodeURIComponent(token);
-                    console.log("Redirecting to" + redirectURL);
                     window.location.href = redirectURL;
                 })
             };
