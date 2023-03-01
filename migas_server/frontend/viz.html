@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="eng">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width"/>
+        <title>Project Usage Visualizations</title>
+        <link rel="stylesheet" href="/frontend/css/viz.css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" crossorigin="anonymous" referrerpolicy="no-referrer"/>
+    </head>
+    <body>
+        <div class="block">
+        <p>Please enter your access token to view usage.</p>
+        <div class="input-group mb-3">
+            <div class="input-group-prepend">
+                <div class="input-group-text">
+                  <input type="checkbox" id="toggle" onclick="toggleView()">
+                  <label id="checkbox-label" for="toggle">Show</label>
+                </div>
+              </div>
+            <input type="password" class="form-control" placeholder="Access Token" aria-label="Access Token" aria-describedby="basic-addon2" id="token">
+            <div class="input-group-append">
+                <button class="btn btn-outline-secondary" id="submit" type="button" onclick="submitToken()">Login</button>
+            </div>
+        </div>
+        </div>
+        <script>
+            function toggleView() {
+                checked = document.getElementById("toggle").checked
+                input = document.getElementById("token")
+                if (checked == true) {
+                    input.type = 'text'
+                }
+                else {
+                    input.type = 'password'
+                }
+            }
+            function submitToken() {
+                let token = document.getElementById("token").value;
+                fetch('/graphql', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        query: `{ login(token: "${token}") { token projects message } }`
+                    })
+                })
+                .then((res) => res.json())
+                .then((res) => {
+                    auth = res.data.login
+                    if (auth.projects.length == 0) {
+                        alert(auth.message)
+                        return
+                    }
+                    // valid since at least one project was specified
+                    redirectURL = "/frontend/charts.html?token=" + encodeURIComponent(token)
+                                    + "&projects=" + encodeURIComponent(auth.projects);
+                    console.log("Redirecting to" + redirectURL);
+                    window.location.href = redirectURL;
+                })
+            };
+        </script>
+    </body>
+</html>
