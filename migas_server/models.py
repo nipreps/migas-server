@@ -178,13 +178,21 @@ async def gen_session() -> AsyncGenerator[AsyncSession, None]:
             await session.close()
 
 
-async def verify_token(token: str):
+async def verify_token(token: str) -> tuple[bool, list[str]]:
     '''Query table for usage access'''
     from sqlalchemy import select
 
     # verify token pertains to project
+    projects = []
     async with gen_session() as session:
         res = await session.execute(
             select(Authentication.project).where(Authentication.token == token)
         )
-    return bool(res.one_or_none())
+        if (project := res.one_or_none()):
+            if project[0] == 'master':
+                from migas_server.database import query_projects
+
+                projects = await query_projects()
+            else:
+                projects = [project[0]]
+    return bool(project), projects

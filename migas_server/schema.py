@@ -19,7 +19,9 @@ from migas_server.database import (
 )
 from migas_server.fetchers import fetch_project_info
 from migas_server.models import get_project_tables, verify_token
-from migas_server.types import Context, DateTime, Process, Project, ProjectInput
+from migas_server.types import (
+    Context, DateTime, Process, Project, ProjectInput, AuthenticationResult
+)
 from migas_server.utils import now
 
 
@@ -68,18 +70,31 @@ class Query:
         }
 
     @strawberry.field
+    async def login(token: str) -> AuthenticationResult:
+        valid, projects = await verify_token(token)
+        if not valid:
+            msg = 'Authentication Error: token is either invalid or expired.'
+        else:
+            msg = 'Authentication successful.'
+        return AuthenticationResult(
+            token=token,
+            projects=projects,
+            message=msg,
+        )
+
+    @strawberry.field
     async def usage_stats(self, project: str, token: str) -> JSON:
         'Generate different usage information'
-        if not await verify_token(token):
-            raise Exception(f'Token "{token}" is either invalid or expired.')
+        _, projects = await verify_token(token)
+        if project not in projects:
+            raise Exception('Invalid token.')
         return await get_viz_data(project)
 
 
 @strawberry.type
 class Mutation:
-    @strawberry.mutation
+    @strawberry.field
     async def add_project(self, p: ProjectInput, info: Info) -> JSON:
-
         # validate project
         if not p.project or '/' not in p.project:
             raise Exception("Invalid project specified.")
