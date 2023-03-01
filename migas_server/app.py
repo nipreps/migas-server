@@ -1,9 +1,12 @@
 import os
 
 from pkg_resources import resource_filename
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.requests import Request
 from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from strawberry.fastapi import GraphQLRouter
 
@@ -13,13 +16,12 @@ from migas_server.connections import (
     get_redis_connection,
     get_requests_session,
 )
-from migas_server.database import get_viz_data
-from migas_server.models import init_db
+from migas_server.models import init_db, verify_token
 from migas_server.schema import SCHEMA
 
 
 def _create_app() -> FastAPI:
-    app = FastAPI(version=__version__)
+    app = FastAPI(title="migas", version=__version__)
     graphql_app = GraphQLRouter(SCHEMA)
     app.include_router(graphql_app, prefix="/graphql")
 
@@ -40,6 +42,9 @@ def _create_app() -> FastAPI:
 
 
 app = _create_app()
+# TODO: Create separate app for frontend?
+app.mount("/frontend", StaticFiles(directory="migas_server/frontend"), name="frontend")
+templates = Jinja2Templates(directory="migas_server/frontend")
 
 
 @app.on_event("startup")
@@ -72,17 +77,9 @@ async def info():
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    index = resource_filename("migas_server", "frontend/index.html")
-    return FileResponse(index)
-
-
-@app.get("/usage")
-async def usage(project: str):
-    data = await get_viz_data(project)
-    # TODO: Send data to static HTML page
-    return data
+    return templates.TemplateResponse("home.html", {"request": request})
 
 
 @app.get("/viz", response_class=HTMLResponse)
-async def viz():
-    return FileResponse(resource_filename("migas_server", "frontend/chart.html"))
+async def viz(request: Request):
+    return templates.TemplateResponse("viz.html", {"request": request})
