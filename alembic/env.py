@@ -9,11 +9,26 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from alembic import context
 
 
+class MissingEnvironmentalVariable(Exception):
+    pass
+
+
+def _any_defined(names: list) -> bool:
+    env = os.environ
+    for name in names:
+        if name in env:
+            return True
+    return False
+
+
 def get_db_url() -> str:
     """Generate the database connection url"""
     from sqlalchemy.engine import make_url, URL
 
-    if db_url := os.getenv("DATABASE_URL"):
+    if not _any_defined(["DATABASE_URL", "DATABASE_USER", "DATABASE_PASSWORD", "DATABASE_NAME"]):
+        raise MissingEnvironmentalVariable("No database variables are set")
+
+    if (db_url := os.getenv("DATABASE_URL")):
         db_url = make_url(db_url).set(drivername="postgresql+asyncpg")
     else:
         db_url = URL.create(
@@ -25,7 +40,8 @@ def get_db_url() -> str:
 
     if gcp_conn := os.getenv("GCP_SQL_CONNECTION"):
         db_url = db_url.set(query={"host": f"/cloudsql/{gcp_conn}/.s.PGSQL.5432"})
-    return db_url
+    return str(db_url)
+
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
