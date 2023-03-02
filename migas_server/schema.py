@@ -11,16 +11,21 @@ from strawberry.types import Info
 
 from migas_server.connections import get_redis_connection
 from migas_server.database import (
+    get_viz_data,
     ingest_project,
     project_exists,
     query_projects,
     query_usage_by_datetimes,
-    get_viz_data,
 )
 from migas_server.fetchers import fetch_project_info
 from migas_server.models import get_project_tables, verify_token
 from migas_server.types import (
-    Context, DateTime, Process, Project, ProjectInput, AuthenticationResult
+    AuthenticationResult,
+    Context,
+    DateTime,
+    Process,
+    Project,
+    ProjectInput,
 )
 from migas_server.utils import now
 

@@ -1,13 +1,11 @@
 import os
 
-from pkg_resources import resource_filename
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.requests import Request
-from fastapi.responses import HTMLResponse, FileResponse
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.middleware.cors import CORSMiddleware
 from strawberry.fastapi import GraphQLRouter
 
 from migas_server import __version__
@@ -16,7 +14,7 @@ from migas_server.connections import (
     get_redis_connection,
     get_requests_session,
 )
-from migas_server.models import init_db, verify_token
+from migas_server.models import init_db
 from migas_server.schema import SCHEMA
 
 

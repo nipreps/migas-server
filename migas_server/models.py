@@ -188,7 +188,7 @@ async def verify_token(token: str) -> tuple[bool, list[str]]:
         res = await session.execute(
             select(Authentication.project).where(Authentication.token == token)
         )
-        if (project := res.one_or_none()):
+        if project := res.one_or_none():
             if project[0] == 'master':
                 from migas_server.database import query_projects
 

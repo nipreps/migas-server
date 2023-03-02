@@ -155,6 +155,7 @@ class ProjectInput:
     #     description="Client side arguments used", default_factory=lambda: "{}"
     # )
 
+
 @strawberry.type
 class AuthenticationResult:
     token: str

@@ -4,12 +4,7 @@ from typing import List
 from sqlalchemy import distinct, func, select, text
 from sqlalchemy.dialects.postgresql import insert
 
-from migas_server.models import (
-    Table,
-    gen_session,
-    get_project_tables,
-    projects,
-)
+from migas_server.models import Table, gen_session, get_project_tables, projects
 from migas_server.types import DateTime, Project, serialize
 
 
@@ -173,22 +168,22 @@ async def get_viz_data(project: str) -> list:
 
         for vers in data.keys():
             total = await session.execute(
-                select(func.count(distinct(p.c.session_id)))\
-                    .where(p.c.is_ci == False)\
-                    .where(p.c.version == vers)\
+                select(func.count(distinct(p.c.session_id)))
+                .where(p.c.is_ci == False)
+                .where(p.c.version == vers)
             )
             data[vers]['total_runs'] = total.scalar()
             success = await session.execute(
-                select(func.count(distinct(p.c.session_id)))\
-                    .where(p.c.is_ci == False)\
-                    .where(p.c.version == vers)\
-                    .where(text("status='C'"))
+                select(func.count(distinct(p.c.session_id)))
+                .where(p.c.is_ci == False)
+                .where(p.c.version == vers)
+                .where(text("status='C'"))
             )
             data[vers]['successful_runs'] = success.scalar()
             uusers = await session.execute(
-                select(func.count(distinct(p.c.user_id)))\
-                    .where(p.c.is_ci == False)\
-                    .where(p.c.version == vers)
+                select(func.count(distinct(p.c.user_id)))
+                .where(p.c.is_ci == False)
+                .where(p.c.version == vers)
             )
             data[vers]['unique_users'] = uusers.scalar()
     return data
