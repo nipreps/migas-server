@@ -82,7 +82,7 @@ async def get_db_engine() -> AsyncEngine:
 
         db_url = db_url.set(drivername="postgresql+asyncpg")
         if gcp_conn := os.getenv("GCP_SQL_CONNECTION"):
-                db_url = db_url.set(query={"host": f"/cloudsql/{gcp_conn}/.s.PGSQL.5432"})
+            db_url = db_url.set(query={"host": f"/cloudsql/{gcp_conn}/.s.PGSQL.5432"})
 
         DB_ENGINE = create_async_engine(
             db_url,

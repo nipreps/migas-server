@@ -156,6 +156,13 @@ class ProjectInput:
     # )
 
 
+@strawberry.type
+class AuthenticationResult:
+    token: str
+    projects: typing.List[str]
+    message: str
+
+
 async def serialize(data: dict) -> dict:
     """Serialize data into database-friendly types"""
     for k, v in data.items():

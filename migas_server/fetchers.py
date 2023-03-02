@@ -23,7 +23,6 @@ async def fetch_response(
 
 
 async def fetch_project_info(project: str) -> dict:
-
     cache = await get_redis_connection()
     latest_version = await cache.hget(project, 'latest_version') or 'unknown'
 

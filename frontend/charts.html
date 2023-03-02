@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8"/>
+        <title>Project usage</title>
+        <meta name="viewport" content="width=device-width"/>
+        <meta http-equiv="cache-control" content="no-cache"/>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" crossorigin="anonymous" referrerpolicy="no-referrer"/>
+        <link rel="stylesheet" href="/frontend/css/charts.css"/>
+    </head>
+    <body>
+        <div class="container">
+            <div class="nav">
+                <label id="project-label" for="project-select">Available Projects</label>
+                <select id="project-select" size="4" class="form-select"></select>
+                <input type="button" class="btn btn-primary btn-lg" id="populate-chart-btn" onclick="renderChart()" value="Generate Chart">
+            </div>
+            <!-- <div class="row">
+                <div class="col-lg-12"> -->
+            <div class="card">
+                <div class="card-body">
+                    <canvas id="canvas"></canvas>
+                </div>
+            </div>
+                <!-- </div>
+            </div> -->
+        </div>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.2.1/dist/chart.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+        <script>
+            const select = document.getElementById("project-select")
+            const button = document.getElementById("populate-chart-btn")
+            // load parameters and populate document
+            function getQueryParams() {
+                return location.search
+                    ? location.search.substr(1).split`&`.reduce((qd, item) => {let [k,v] = item.split`=`; v = v && decodeURIComponent(v); (qd[k] = qd[k] || []).push(v); return qd}, {})
+                    : {}
+            }
+            let params = getQueryParams();
+            if (!params.projects || !params.token) {
+                alert("You shouldn't be here.");
+                select.remove();
+                button.remove();
+            }
+            const projects = params.projects[0].split(',')
+            const token = params.token;
+
+            // populate select with available projects
+            projects.forEach((project) => {
+                let option = document.createElement("option")
+                option.text = project;
+                option.value = project;
+                select.add(option);
+            })
+
+            function renderChart() {
+                project = select.options[select.selectedIndex].value;
+
+                // destroy previous chart if still in use
+                const context = document.getElementById("canvas").getContext("2d");
+                let chartStatus = Chart.getChart(context);
+                if (chartStatus != undefined) {
+                    chartStatus.destroy();
+                }
+
+                const config = {
+                    type: "bar",
+                    data: {
+                        labels: [],  // dynamically assigned
+                        datasets: [],  // dynamically assigned
+                    },
+                    options: {
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `${project} usage`,
+                            },
+                        },
+                        responsive: true,
+                        tooltips: {
+                            mode: "index",
+                            intersect: false,
+                        },
+                        hover: {
+                            mode: "nearest",
+                            intersect: true,
+                        },
+                        scales: {
+                            x: {
+                                stacked: true,
+                            },
+                            y: {
+                                stacked: true,
+                            },
+                        },
+                    },
+                };
+
+                // query endpoint for project data
+                fetch('/graphql', {
+                    method: 'POST',
+                    headers: {
+                    'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        query: `{ usage_stats(project: "${project}", token: "${token}") }`
+                    })
+                })
+                .then((res) => res.json())
+                .then((usage) => {
+                    if (usage.errors) {
+                        alert(usage.errors[0].message)
+                        return;
+                    }
+                    // populate chart config with project usage
+                    stats = usage.data.usage_stats
+                    Object.keys(stats).forEach((version) => {
+                        config.data.datasets.push({
+                            label: version,
+                            data: [
+                                {x: "Total Runs", y: stats[version]["total_runs"]},
+                                {x: "Successful Runs", y: stats[version]["successful_runs"]},
+                                {x: "Number of Users", y: stats[version]["unique_users"]},
+                            ],
+                        });
+                    })
+                    const chart = new Chart(context, config);
+                })
+                .catch((error) => {
+                    console.log(error);
+                })
+            };
+        </script>
+    </body>
+</html>

@@ -11,14 +11,22 @@ from strawberry.types import Info
 
 from migas_server.connections import get_redis_connection
 from migas_server.database import (
+    get_viz_data,
     ingest_project,
     project_exists,
     query_projects,
     query_usage_by_datetimes,
 )
 from migas_server.fetchers import fetch_project_info
-from migas_server.models import get_project_tables
-from migas_server.types import Context, DateTime, Process, Project, ProjectInput
+from migas_server.models import get_project_tables, verify_token
+from migas_server.types import (
+    AuthenticationResult,
+    Context,
+    DateTime,
+    Process,
+    Project,
+    ProjectInput,
+)
 from migas_server.utils import now
 
 
@@ -66,12 +74,32 @@ class Query:
             'success': exists,
         }
 
+    @strawberry.field
+    async def login(token: str) -> AuthenticationResult:
+        valid, projects = await verify_token(token)
+        if not valid:
+            msg = 'Authentication Error: token is either invalid or expired.'
+        else:
+            msg = 'Authentication successful.'
+        return AuthenticationResult(
+            token=token,
+            projects=projects,
+            message=msg,
+        )
+
+    @strawberry.field
+    async def usage_stats(self, project: str, token: str) -> JSON:
+        'Generate different usage information'
+        _, projects = await verify_token(token)
+        if project not in projects:
+            raise Exception('Invalid token.')
+        return await get_viz_data(project)
+
 
 @strawberry.type
 class Mutation:
-    @strawberry.mutation
+    @strawberry.field
     async def add_project(self, p: ProjectInput, info: Info) -> JSON:
-
         # validate project
         if not p.project or '/' not in p.project:
             raise Exception("Invalid project specified.")
@@ -115,9 +143,9 @@ class Mutation:
         }
 
 
-class Watchdog(Extension):
+class RateLimiter(Extension):
     """
-    An extension to the GraphQL schema.
+    A GraphQL schema extension to implement sliding window rate limiting.
 
     This class has fine-grain control of the GraphQL execution stack.
     This extension verifies that incoming requests:
@@ -184,6 +212,6 @@ class Watchdog(Extension):
 SCHEMA = strawberry.Schema(
     query=Query,
     mutation=Mutation,
-    extensions=[Watchdog],
+    extensions=[RateLimiter],
     config=StrawberryConfig(auto_camel_case=False),
 )
