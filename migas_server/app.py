@@ -43,8 +43,8 @@ def _create_app() -> FastAPI:
 
 app = _create_app()
 # TODO: Create separate app for frontend?
-app.mount("/frontend", StaticFiles(directory="migas_server/frontend"), name="frontend")
-templates = Jinja2Templates(directory="migas_server/frontend")
+app.mount("/frontend", StaticFiles(directory="frontend"), name="frontend")
+templates = Jinja2Templates(directory="frontend")
 
 
 @app.on_event("startup")
