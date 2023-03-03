@@ -22,10 +22,11 @@ classifiers = [
 requires-python = ">3.10"
 dependencies = [
     "aiohttp",
-    "redis >=4.2.0",
     "asyncpg",
     "fastapi[all]",
+    "gunicorn",
     "packaging",
+    "redis >=4.2.0",
     "strawberry-graphql[fastapi]",
     "sqlalchemy[asyncio]",
 ]
@@ -36,7 +37,6 @@ Homepage = "https://github.com/nipreps/migas-server"
 
 [project.optional-dependencies]
 heroku = [
-    "alembic",
     "scout-apm",
 ]
 speedups = [
@@ -49,21 +49,21 @@ dev = [
     "pre-commit",
     "pip-tools",
 ]
+migrations = [
+    "alembic",
+]
 test = [
     "pytest",
 ]
 
 [project.scripts]
-migas-server = "migas_server.cli:main"
-
-[tool.hatch.build.targets.wheel.force-include]
-"migas_frontend" = "migas_frontend"
+migas-server = "src.server.cli:main"
 
 [tool.hatch.version]
 source = "vcs"
 
 [tool.hatch.build.hooks.vcs]
-version-file = "migas_server/_version.py"
+version-file = "src/server/_version.py"
 
 [tool.black]
 line-length = 99

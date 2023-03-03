@@ -22,8 +22,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Start all the things
-        run: docker compose up -d
+        run: |
+          docker compose build --build-arg BUILDTYPE=latest
+          docker compose up -d
       - name: Test the things
-        run: docker exec migas-server bash -c "pytest --pyargs migas_server"
+        run: docker exec app bash -c "pytest /src/migas/server"
       - name: Stop all the things
         run: docker compose down
