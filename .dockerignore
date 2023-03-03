@@ -1,1 +1,8 @@
+.maint/
+.github/
+examples/
 dist/
+deploy/heroku/
+mounts/
+dump.rdb
+.pre-commit-config.yaml

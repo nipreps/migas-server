@@ -1,6 +1,6 @@
 import pytest
 
-from migas_server import types
+from .. import types
 
 
 @pytest.mark.parametrize(

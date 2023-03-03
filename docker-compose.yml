@@ -1,8 +1,10 @@
 services:
   # Migas API server
-  server:
-    build: .
-    container_name: "migas-server"
+  app:
+    build:
+      context: .
+    image: "migas:latest"
+    container_name: "app"
     ports:
       - "8000:8000"
     depends_on:
@@ -12,7 +14,6 @@ services:
         condition: service_healthy
     networks:
       - migas
-    command: --proxy-headers
     environment:
       MIGAS_REDIS_URI: "redis://cache:6379"
       DATABASE_URL: "postgresql+asyncpg://postgres:crumbs@postgres:5432/migas"
@@ -21,6 +22,9 @@ services:
       MIGAS_MAX_REQUEST_SIZE:
       MIGAS_BYPASS_RATE_LIMIT:
       MIGAS_DEBUG:
+      WORKERS_PER_CORE:
+      MAX_WORKERS:
+      WEB_CONCURRENCY:
 
   # Redis in-memory db
   cache:

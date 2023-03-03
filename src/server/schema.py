@@ -9,17 +9,17 @@ from strawberry.scalars import JSON
 from strawberry.schema.config import StrawberryConfig
 from strawberry.types import Info
 
-from migas_server.connections import get_redis_connection
-from migas_server.database import (
+from .connections import get_redis_connection
+from .database import (
     get_viz_data,
     ingest_project,
     project_exists,
     query_projects,
     query_usage_by_datetimes,
 )
-from migas_server.fetchers import fetch_project_info
-from migas_server.models import get_project_tables, verify_token
-from migas_server.types import (
+from .fetchers import fetch_project_info
+from .models import get_project_tables, verify_token
+from .types import (
     AuthenticationResult,
     Context,
     DateTime,
@@ -27,7 +27,7 @@ from migas_server.types import (
     Project,
     ProjectInput,
 )
-from migas_server.utils import now
+from .utils import now
 
 
 @strawberry.type

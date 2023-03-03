@@ -10,10 +10,10 @@ repos:
     rev: 22.3.0
     hooks:
     -   id: black
-        exclude: migas_server/_version.py
+        exclude: src/server/_version.py
 - repo: https://github.com/pycqa/isort
   rev: 5.10.1
   hooks:
     -   id: isort
-        exclude: migas_server/_version.py
+        exclude: src/server/_version.py
         name: isort (python)
