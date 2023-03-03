@@ -6,7 +6,7 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from fastapi.testclient import TestClient
 
-from migas_server.app import app
+from ..app import app
 
 if not os.getenv("MIGAS_REDIS_URI"):
     pytest.skip(allow_module_level=True)

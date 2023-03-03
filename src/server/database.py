@@ -4,8 +4,8 @@ from typing import List
 from sqlalchemy import distinct, func, select, text
 from sqlalchemy.dialects.postgresql import insert
 
-from migas_server.models import Table, gen_session, get_project_tables, projects
-from migas_server.types import DateTime, Project, serialize
+from .models import Table, gen_session, get_project_tables, projects
+from .types import DateTime, Project, serialize
 
 
 # Table insertion

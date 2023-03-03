@@ -128,7 +128,7 @@ async def populate_base(conn: AsyncConnection) -> None:
         return inspector.has_table("projects")
 
     if await conn.run_sync(_has_master_table):
-        from migas_server.database import query_projects
+        from .database import query_projects
 
         for project in await query_projects():
             await get_project_tables(project)
@@ -190,7 +190,7 @@ async def verify_token(token: str) -> tuple[bool, list[str]]:
         )
         if project := res.one_or_none():
             if project[0] == 'master':
-                from migas_server.database import query_projects
+                from .database import query_projects
 
                 projects = await query_projects()
             else:

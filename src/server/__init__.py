@@ -4,4 +4,4 @@ __root__ = Path(__file__).parent
 try:
     from ._version import __version__
 except ImportError:
-    pass
+    __version__ = 'unknown'

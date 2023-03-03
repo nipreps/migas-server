@@ -2,7 +2,7 @@ import os
 
 import aiohttp
 
-from migas_server.connections import get_redis_connection, get_requests_session
+from .connections import get_redis_connection, get_requests_session
 
 GITHUB_RELEASE_URL = "https://api.github.com/repos/{project}/releases/latest"
 GITHUB_TAG_URL = "https://api.github.com/repos/{project}/tags"
