@@ -1,6 +1,6 @@
 [build-system]
-requires = ["flit_scm"]
-build-backend = "flit_scm:buildapi"
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
 
 [project]
 name = "migas_server"
@@ -31,6 +31,9 @@ dependencies = [
 ]
 dynamic = ["version"]
 
+[project.urls]
+Homepage = "https://github.com/nipreps/migas-server"
+
 [project.optional-dependencies]
 heroku = [
     "alembic",
@@ -53,11 +56,14 @@ test = [
 [project.scripts]
 migas-server = "migas_server.cli:main"
 
-[tool.flit.sdist]
-exclude = [".gitignore"]
+[tool.hatch.build.targets.wheel.force-include]
+"migas_frontend" = "migas_frontend"
 
-[tool.setuptools_scm]
-write_to = "migas_server/_version.py"
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "migas_server/_version.py"
 
 [tool.black]
 line-length = 99
