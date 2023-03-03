@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from strawberry.fastapi import GraphQLRouter
 
-from migas_server import __version__
+from migas_server import __version__, __root__
 from migas_server.connections import (
     get_db_engine,
     get_redis_connection,
@@ -41,8 +41,9 @@ def _create_app() -> FastAPI:
 
 app = _create_app()
 # TODO: Create separate app for frontend?
-app.mount("/frontend", StaticFiles(directory="frontend"), name="frontend")
-templates = Jinja2Templates(directory="frontend")
+frontend = str(__root__ / '..' / 'migas_frontend')
+app.mount("/frontend", StaticFiles(directory=frontend), name="frontend")
+templates = Jinja2Templates(directory=frontend)
 
 
 @app.on_event("startup")
