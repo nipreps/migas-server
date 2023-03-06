@@ -48,6 +48,7 @@ dev = [
     "isort",
     "pre-commit",
     "pip-tools",
+    "hatch",
 ]
 migrations = [
     "alembic",
