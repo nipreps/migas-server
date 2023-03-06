@@ -6,7 +6,7 @@ services:
     image: "migas:latest"
     container_name: "app"
     ports:
-      - "8000:8000"
+      - "8080:8080"
     depends_on:
       database:
         condition: service_healthy

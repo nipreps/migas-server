@@ -8,7 +8,7 @@ if (max_workers := os.getenv("MAX_WORKERS")) is not None:
     use_max_workers = int(max_workers)
 
 host = os.getenv("HOST", "0.0.0.0")
-port = os.getenv("PORT", "8000")
+port = os.getenv("PORT", "8080")
 
 cores = int(os.getenv("MAX_CORES", multiprocessing.cpu_count()))
 workers_per_core = float(workers_per_core_str)
