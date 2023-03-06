@@ -153,9 +153,9 @@ class RateLimiter(Extension):
     - Are not clobbering the GQL endpoint
     """
 
-    request_window = int(os.getenv("MIGAS_REQUEST_WINDOW")) or 60  # 1 minute
-    max_requests = int(os.getenv("MIGAS_MAX_REQUESTS_PER_WINDOW")) or 100
-    max_request_size = int(os.getenv("MIGAS_MAX_REQUEST_SIZE")) or 2500  # graphiql
+    request_window = int(os.getenv("MIGAS_REQUEST_WINDOW", "60"))  # 1 minute
+    max_requests = int(os.getenv("MIGAS_MAX_REQUESTS_PER_WINDOW", "100"))
+    max_request_size = int(os.getenv("MIGAS_MAX_REQUEST_SIZE", "2500"))  # graphiql
 
     async def on_request_start(self):
         """
