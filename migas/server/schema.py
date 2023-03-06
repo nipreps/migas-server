@@ -153,9 +153,9 @@ class RateLimiter(Extension):
     - Are not clobbering the GQL endpoint
     """
 
-    REQUEST_WINDOW = int(os.getenv("MIGAS_REQUEST_WINDOW", 60))
-    MAX_REQUESTS_PER_WINDOW = int(os.getenv("MIGAS_MAX_REQUESTS_PER_WINDOW", 5))
-    MAX_REQUEST_SIZE = int(os.getenv("MIGAS_MAX_REQUEST_SIZE", 450))
+    request_window = int(os.getenv("MIGAS_REQUEST_WINDOW")) or 60  # 1 minute
+    max_requests = int(os.getenv("MIGAS_MAX_REQUESTS_PER_WINDOW")) or 100
+    max_request_size = int(os.getenv("MIGAS_MAX_REQUEST_SIZE")) or 2500  # graphiql
 
     async def on_request_start(self):
         """
@@ -167,13 +167,13 @@ class RateLimiter(Extension):
             await self.sliding_window_rate_limit(request, response)
         # check request size
         body = await request.body()
-        if len(body) > self.MAX_REQUEST_SIZE:
+        if len(body) > self.max_request_size:
             response.status_code = 413
             self.execution_context.result = GraphQLExecutionResult(
                 data=None,
                 errors=[
                     GraphQLError(
-                        f'Request body ({len(body)}) exceeds maximum size ({self.MAX_REQUEST_SIZE})'
+                        f'Request body ({len(body)}) exceeds maximum size ({self.max_request_size})'
                     )
                 ],
             )
@@ -194,14 +194,14 @@ class RateLimiter(Extension):
         time_ = time.time()
 
         async with cache.pipeline(transaction=True) as pipe:
-            pipe.zremrangebyscore(key, 0, time_ - self.REQUEST_WINDOW)
+            pipe.zremrangebyscore(key, 0, time_ - self.request_window)
             pipe.zrange(key, 0, -1)
             pipe.zadd(key, {time_: time_})
-            pipe.expire(key, self.REQUEST_WINDOW)
+            pipe.expire(key, self.request_window)
             res = await pipe.execute()
 
         timestamps = res[1]
-        if len(timestamps) >= self.MAX_REQUESTS_PER_WINDOW:
+        if len(timestamps) > self.max_requests:
             response.status_code = 429  # Too many requests
             self.execution_context.result = GraphQLExecutionResult(
                 data=None,
