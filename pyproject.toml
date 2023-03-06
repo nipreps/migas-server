@@ -3,7 +3,7 @@ requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
-name = "migas_server"
+name = "migas-server"
 description = "Migas telemetry server"
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -57,13 +57,19 @@ test = [
 ]
 
 [project.scripts]
-migas-server = "src.server.cli:main"
+migas-server = "migas.server.cli:main"
 
 [tool.hatch.version]
 source = "vcs"
 
 [tool.hatch.build.hooks.vcs]
-version-file = "src/server/_version.py"
+version-file = "migas/server/_version.py"
+
+[tool.hatch.build.sources]
+"migas/server" = "migas/server"
+
+[tool.hatch.build.targets.wheel.force-include]
+"migas/static" = "migas/static"
 
 [tool.black]
 line-length = 99

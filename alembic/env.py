@@ -56,7 +56,7 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-from migas_server.models import Base, populate_base
+from migas.server.models import Base, populate_base
 
 target_metadata = Base.metadata
 
