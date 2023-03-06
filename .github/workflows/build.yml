@@ -26,6 +26,6 @@ jobs:
           docker compose build --build-arg BUILDTYPE=latest-test
           docker compose up -d
       - name: Test the things
-        run: docker exec app bash -c "pytest /src/migas/src/server"
+        run: docker exec app bash -c "pytest /src/migas/server"
       - name: Stop all the things
         run: docker compose down
