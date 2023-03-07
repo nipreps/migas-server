@@ -70,9 +70,9 @@ def test_graphql_big_request(client: TestClient) -> None:
 
 def test_graphql_overload(client: TestClient, monkeypatch: MonkeyPatch) -> None:
     monkeypatch.delitem(os.environ, 'MIGAS_BYPASS_RATE_LIMIT')
-    monkeypatch.setitem(os.environ, 'MIGAS_MAX_REQUESTS_PER_WINDOW', 5)  # Cap # of requests
+    monkeypatch.setitem(os.environ, 'MIGAS_MAX_REQUESTS_PER_WINDOW', "5")  # Cap # of requests
     client.post("/graphql", json={'query': queries['add_project']})
-    for i in range(0, 5):
+    for i in range(5):
         res = client.post("/graphql", json={'query': queries['add_project']})
         res.status_code == 200
     # anything more is not
