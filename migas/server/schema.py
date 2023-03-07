@@ -153,38 +153,46 @@ class RateLimiter(Extension):
     - Are not clobbering the GQL endpoint
     """
 
-    REQUEST_WINDOW = int(os.getenv("MIGAS_REQUEST_WINDOW", 60))
-    MAX_REQUESTS_PER_WINDOW = int(os.getenv("MIGAS_MAX_REQUESTS_PER_WINDOW", 5))
-    MAX_REQUEST_SIZE = int(os.getenv("MIGAS_MAX_REQUEST_SIZE", 450))
+    def __init__(self, *args, **kwargs):
+        self.set_attrs()
+        super().__init__(*args, **kwargs)
 
-    async def on_request_start(self):
+    def set_attrs(self):
+        self.request_window = int(os.getenv("MIGAS_REQUEST_WINDOW", "60"))
+        self.max_requests = int(os.getenv("MIGAS_MAX_REQUESTS_PER_WINDOW", "100"))
+        self.max_request_size = int(os.getenv("MIGAS_MAX_REQUEST_SIZE", "2500"))
+
+    async def on_operation(self):
         """
         Hook into the GraphQL request stack, and validate data at the start.
         """
+        if os.getenv("MIGAS_TESTING"):
+            self.set_attrs()
         request = self.execution_context.context['request']
         response = self.execution_context.context['response']
-        if not os.getenv("MIGAS_BYPASS_RATE_LIMIT", False):
+        if not os.getenv("MIGAS_BYPASS_RATE_LIMIT"):
             await self.sliding_window_rate_limit(request, response)
         # check request size
         body = await request.body()
-        if len(body) > self.MAX_REQUEST_SIZE:
+        if len(body) > self.max_request_size:
             response.status_code = 413
             self.execution_context.result = GraphQLExecutionResult(
                 data=None,
                 errors=[
                     GraphQLError(
-                        f'Request body ({len(body)}) exceeds maximum size ({self.MAX_REQUEST_SIZE})'
+                        f'Request body ({len(body)}) exceeds maximum size ({self.max_request_size})'
                     )
                 ],
             )
-            return
+        yield  # any logic after yield for post operation
+
 
     async def sliding_window_rate_limit(self, request: Request, response: Response):
         """
         Use a sliding window to verify incoming responses are not overloading the server.
 
-        Requests are checked to be in the range set by two attributes:
-        `self.REQUEST_WINDOW` and `self.MAX_REQUESTS_MINUTE`
+        Requests are checked to be in the range set by two environmental variables:
+        `MIGAS_REQUEST_WINDOW` and `MIGAS_MAX_REQUESTS_PER_WINDOW`
         """
         import time
 
@@ -194,14 +202,14 @@ class RateLimiter(Extension):
         time_ = time.time()
 
         async with cache.pipeline(transaction=True) as pipe:
-            pipe.zremrangebyscore(key, 0, time_ - self.REQUEST_WINDOW)
+            pipe.zremrangebyscore(key, 0, time_ - self.request_window)
             pipe.zrange(key, 0, -1)
             pipe.zadd(key, {time_: time_})
-            pipe.expire(key, self.REQUEST_WINDOW)
+            pipe.expire(key, self.request_window)
             res = await pipe.execute()
 
         timestamps = res[1]
-        if len(timestamps) >= self.MAX_REQUESTS_PER_WINDOW:
+        if len(timestamps) > self.max_requests:
             response.status_code = 429  # Too many requests
             self.execution_context.result = GraphQLExecutionResult(
                 data=None,
