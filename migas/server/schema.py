@@ -153,17 +153,24 @@ class RateLimiter(Extension):
     - Are not clobbering the GQL endpoint
     """
 
-    request_window = int(os.getenv("MIGAS_REQUEST_WINDOW", "60"))  # 1 minute
-    max_requests = int(os.getenv("MIGAS_MAX_REQUESTS_PER_WINDOW", "100"))
-    max_request_size = int(os.getenv("MIGAS_MAX_REQUEST_SIZE", "2500"))  # graphiql
+    def __init__(self, *args, **kwargs):
+        self.set_attrs()
+        super().__init__(*args, **kwargs)
 
-    async def on_execute(self):
+    def set_attrs(self):
+        self.request_window = int(os.getenv("MIGAS_REQUEST_WINDOW", "60"))
+        self.max_requests = int(os.getenv("MIGAS_MAX_REQUESTS_PER_WINDOW", "100"))
+        self.max_request_size = int(os.getenv("MIGAS_MAX_REQUEST_SIZE", "2500"))
+
+    async def on_operation(self):
         """
         Hook into the GraphQL request stack, and validate data at the start.
         """
+        if os.getenv("MIGAS_TESTING"):
+            self.set_attrs()
         request = self.execution_context.context['request']
         response = self.execution_context.context['response']
-        if not os.getenv("MIGAS_BYPASS_RATE_LIMIT", False):
+        if not os.getenv("MIGAS_BYPASS_RATE_LIMIT"):
             await self.sliding_window_rate_limit(request, response)
         # check request size
         body = await request.body()
@@ -177,14 +184,15 @@ class RateLimiter(Extension):
                     )
                 ],
             )
-            return
+        yield  # any logic after yield for post operation
+
 
     async def sliding_window_rate_limit(self, request: Request, response: Response):
         """
         Use a sliding window to verify incoming responses are not overloading the server.
 
-        Requests are checked to be in the range set by two attributes:
-        `self.REQUEST_WINDOW` and `self.MAX_REQUESTS_MINUTE`
+        Requests are checked to be in the range set by two environmental variables:
+        `MIGAS_REQUEST_WINDOW` and `MIGAS_MAX_REQUESTS_PER_WINDOW`
         """
         import time
 
