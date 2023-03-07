@@ -157,7 +157,7 @@ class RateLimiter(Extension):
     max_requests = int(os.getenv("MIGAS_MAX_REQUESTS_PER_WINDOW", "100"))
     max_request_size = int(os.getenv("MIGAS_MAX_REQUEST_SIZE", "2500"))  # graphiql
 
-    async def on_request_start(self):
+    async def on_execute(self):
         """
         Hook into the GraphQL request stack, and validate data at the start.
         """
