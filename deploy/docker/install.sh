@@ -1,6 +1,7 @@
 #!/bin/env bash
 
 BUILDTYPE=$1
+DEPLOYSERVER=$2
 
 case $BUILDTYPE in
 release)
@@ -12,3 +13,7 @@ latest-test)
 *)
     echo "Unknown command" && exit 1;;
 esac
+
+if [ "$DEPLOYSERVER" = "gunicorn" ]; then
+    pip install gunicorn
+fi

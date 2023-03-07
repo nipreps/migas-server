@@ -24,7 +24,6 @@ dependencies = [
     "aiohttp",
     "asyncpg",
     "fastapi[all]",
-    "gunicorn",
     "packaging",
     "redis >=4.2.0",
     "strawberry-graphql[fastapi]",
