@@ -7,5 +7,5 @@ ENV YARL_NO_EXTENSIONS=1 \
     DEPLOYSERVER=${DEPLOYSERVER}
 COPY . /src/
 WORKDIR /src/
-RUN bash deploy/docker/install.sh ${BUILDTYPE}
+RUN bash deploy/docker/install.sh ${BUILDTYPE} ${DEPLOYSERVER}
 ENTRYPOINT ["./deploy/docker/run.sh"]
