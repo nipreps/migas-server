@@ -14,6 +14,8 @@ services:
         condition: service_healthy
     networks:
       - migas
+    command:
+      --proxy-headers --port 8080 --host 0.0.0.0
     environment:
       MIGAS_REDIS_URI: "redis://cache:6379"
       DATABASE_URL: "postgresql+asyncpg://postgres:crumbs@postgres:5432/migas"
@@ -22,9 +24,7 @@ services:
       MIGAS_MAX_REQUEST_SIZE:
       MIGAS_BYPASS_RATE_LIMIT:
       MIGAS_DEBUG:
-      WORKERS_PER_CORE:
-      MAX_WORKERS:
-      WEB_CONCURRENCY:
+      MIGAS_TESTING:
 
   # Redis in-memory db
   cache:

@@ -1,9 +1,10 @@
 .PHONY: compose-up freeze release-gcp
 
 BUILDTYPE=latest
+DEPLOYSERVER=uvicorn
 
 compose-up:
-	docker compose build --build-arg BUILDTYPE=$(BUILDTYPE)
+	docker compose build --build-arg BUILDTYPE=$(BUILDTYPE) --build-arg DEPLOYSERVER=$(DEPLOYSERVER)
 	docker compose up
 
 freeze:
