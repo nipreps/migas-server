@@ -49,13 +49,12 @@ if [[ -z $SQL_EXISTS ]]; then
 fi
 
 # Step 2: Build the service image
-VERSION=${1-"unknown"}
-set +e
-VER=$(hatch version 2> /dev/null)
-if [[ "$VERSION" = "unknown" ]] && [[ -n $VER ]]; then
-    VERSION=$VER
+VERSION=`hatch version`
+if [ ${#VERSION} -gt 11 ]; then
+    echo "Version $VERSION needs to be shortened"
+    VERSION=`echo $VERSION | sed 's/+..*$//g'`
 fi
-set -e
+
 echo "Tagging version: $VERSION"
 
 GCR_TAG=gcr.io/$PROJECT_ID/$CLOUD_RUN_SERVICE_NAME:$VERSION
