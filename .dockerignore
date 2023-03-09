@@ -1,8 +1,10 @@
 .maint/
 .github/
+.git/
 examples/
 dist/
 deploy/heroku/
+deploy/gcp/
 mounts/
 dump.rdb
 .pre-commit-config.yaml

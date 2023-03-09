@@ -1,0 +1,16 @@
+dist/
+*egg-info
+
+.vscode/
+__pycache__/
+.ipynb_checkpoints/
+*.ipynb
+.maint/
+examples/
+data/
+logs/
+dump.rdb
+mounts/
+.pytest_cache/
+.mypy_cache/
+**/.env

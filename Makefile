@@ -4,7 +4,7 @@ BUILDTYPE=latest
 DEPLOYSERVER=uvicorn
 
 compose-up:
-	docker compose build --build-arg BUILDTYPE=$(BUILDTYPE) --build-arg DEPLOYSERVER=$(DEPLOYSERVER)
+	docker compose build --build-arg BUILDTYPE=$(BUILDTYPE) --build-arg DEPLOYSERVER=$(DEPLOYSERVER) --build-arg VERSION=`hatch version`
 	docker compose up
 
 freeze:
