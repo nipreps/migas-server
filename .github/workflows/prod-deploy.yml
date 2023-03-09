@@ -25,6 +25,11 @@ jobs:
       - name: 'Set up Cloud SDK'
         uses: 'google-github-actions/setup-gcloud@v1'
       # Use provided deployment script
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install hatch
+        run: pip install hatch
       - name: Run deployment script
         run: ./deploy/gcp/release-gcp.sh ${{ github.ref }}
 
