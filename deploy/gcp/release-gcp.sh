@@ -16,7 +16,6 @@ set -eux
 HERE=$(dirname $(realpath $0))
 ROOT=$(dirname $(dirname $HERE))
 
-VERSION=${1-"unknown"}
 
 # These should be available, but will be account specific
 # PROJECT_ID=
@@ -28,6 +27,7 @@ SQL_INSTANCE_NAME="migas-postgres"
 SQL_INSTANCE_TIER="db-g1-micro"
 CLOUD_RUN_SERVICE_NAME="migas-server"
 CLOUD_RUN_ENV_FILE="$HERE/.env"
+CLOUD_BUILD_YAML="$HERE/cloudbuild.yml"
 
 # Step 0: Install SDK
 # https://github.com/google-github-actions/setup-gcloud
@@ -49,9 +49,20 @@ if [[ -z $SQL_EXISTS ]]; then
 fi
 
 # Step 2: Build the service image
+VERSION=${1-"unknown"}
+set +e
+VER=$(hatch version 2> /dev/null)
+if [[ "$VERSION" = "unknown" ]] && [[ -n $VER ]]; then
+    VERSION=$VER
+fi
+set -e
+echo "Tagging version: $VERSION"
+
 GCR_TAG=gcr.io/$PROJECT_ID/$CLOUD_RUN_SERVICE_NAME:$VERSION
-gcloud builds submit \
-    --tag $GCR_TAG
+# gcloud builds submit \
+#     --tag $GCR_TAG
+gcloud builds submit --config $CLOUD_BUILD_YAML --substitutions=TAG_NAME=$VERSION
+
 
 # Step 3: Deploy the service
 CLOUD_SQL_INSTANCE_ID="$PROJECT_ID:$GCP_REGION:$SQL_INSTANCE_NAME"
@@ -78,6 +89,7 @@ DEPLOY_CMD="gcloud run deploy $CLOUD_RUN_SERVICE_NAME \
     --cpu=2 \
     --args=--port,8080,--proxy-headers,--headers,X-Backend-Server:migas \
     --cpu-throttling \
+    --no-traffic \
     $ENV_VARS"
 
 $DEPLOY_CMD
