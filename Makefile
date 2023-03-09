@@ -9,7 +9,7 @@ compose-up:
 
 freeze:
 	@echo "Freezing requirements"
-	pip-compile --extra test -o requirements.txt pyproject.toml --upgrade
+	pip-compile --extra test -o stable-requirements.txt pyproject.toml --upgrade
 
 release-gcp:
 	@echo "Releasing on GCP"

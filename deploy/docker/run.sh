@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-if [ ! -f /.dockerenv ]; then
+if [ ! -f /.dockerenv ] && [[ -z $GCP_SQL_CONNECTION ]]; then
     echo "Error: not inside a docker container!"
     exit 1
 fi

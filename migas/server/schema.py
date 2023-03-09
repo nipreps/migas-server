@@ -4,7 +4,7 @@ import strawberry
 from fastapi import Request, Response
 from graphql import ExecutionResult as GraphQLExecutionResult
 from graphql import GraphQLError
-from strawberry.extensions import Extension
+from strawberry.extensions import SchemaExtension
 from strawberry.scalars import JSON
 from strawberry.schema.config import StrawberryConfig
 from strawberry.types import Info
@@ -143,7 +143,7 @@ class Mutation:
         }
 
 
-class RateLimiter(Extension):
+class RateLimiter(SchemaExtension):
     """
     A GraphQL schema extension to implement sliding window rate limiting.
 
