@@ -1,6 +1,6 @@
 steps:
-- name: 'gcri.io/cloud-builders/docker'
+- name: 'gcr.io/cloud-builders/docker'
   args: ['build', '-t', 'gcr.io/$PROJECT_ID/migas-server:$TAG_NAME', '--build-arg', 'BUILDTYPE=release', '.']
 
 images:
-- 'gcr/io/$PROJECT_ID/migas-server:$TAG_NAME'
+- 'gcr.io/$PROJECT_ID/migas-server:$TAG_NAME'

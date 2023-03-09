@@ -5,4 +5,4 @@ export MIGAS_DEBUG=1
 export MIGAS_BYPASS_RATE_LIMIT=1
 export MIGAS_MAX_REQUEST_SIZE=3000
 
-uvicorn migas.server.app:app --host 0.0.0.0 --port 8080 --reload --proxy-headers
+uvicorn migas.server.app:app --host 0.0.0.0 --port 8080 --reload --proxy-headers --header X-Backend-Server:migas

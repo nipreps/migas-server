@@ -87,7 +87,7 @@ DEPLOY_CMD="gcloud run deploy $CLOUD_RUN_SERVICE_NAME \
     --set-cloudsql-instances=$CLOUD_SQL_INSTANCE_ID \
     --memory=512Mi \
     --cpu=2 \
-    --args=--port,8080,--proxy-headers,--headers,X-Backend-Server:migas \
+    --args=--host,0.0.0.0,--port,8080,--proxy-headers,--header,X-Backend-Server:migas \
     --cpu-throttling \
     --no-traffic \
     $ENV_VARS"
