@@ -1,6 +1,9 @@
-name: Deploy tag to production and create GH release
+name: Authenticate through GCP and if tagged, deploy to production + publish GH release
 
 on:
+  pull_request:
+    branches:
+      - master
   push:
     tags:
       - '*'
@@ -17,13 +20,16 @@ jobs:
         with:
           fetch-depth: 0
       # Authenticate and setup SDK
-      - id: 'auth'
+      - id: auth
         uses: 'google-github-actions/auth@v1'
         with:
           workload_identity_provider: 'projects/783007238857/locations/global/workloadIdentityPools/migas-gha/providers/github-actions'
           service_account: 'gh-actions@migas-362318.iam.gserviceaccount.com'
-      - name: 'Set up Cloud SDK'
+          token_format: 'access_token'
+      - name: Set up Cloud SDK
         uses: 'google-github-actions/setup-gcloud@v1'
+      - name: Get gcloud information
+        run: gcloud info
       # Use provided deployment script
       - uses: actions/setup-python@v4
         with:
@@ -31,9 +37,11 @@ jobs:
       - name: Install hatch
         run: pip install hatch
       - name: Run deployment script
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         run: ./deploy/gcp/release-gcp.sh ${{ github.ref }}
 
   release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     needs: deploy
     permissions:
