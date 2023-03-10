@@ -26,10 +26,13 @@ jobs:
           python-version: '3.10'
       - name: Install hatch
         run: pip install hatch
-      - name: Start all the things
+      - name: Build the image
         run: |
-          docker compose build --build-arg BUILDTYPE=latest-test --build-arg VERSION=`hatch version`
-          docker compose up -d
+          VERSION=`hatch version | tail -n1`
+          echo $VERSION
+          docker compose build --build-arg BUILDTYPE=latest-test --build-arg DEPLOYSERVER=uvicorn --build-arg VERSION=$VERSION
+      - name: Start all the things
+        run: docker compose up -d
       - name: Test the things
         run: docker exec app bash -c "pytest /src/migas/server"
       - name: Stop all the things
