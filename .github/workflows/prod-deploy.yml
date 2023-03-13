@@ -24,8 +24,8 @@ jobs:
       - id: auth
         uses: 'google-github-actions/auth@v1'
         with:
-          workload_identity_provider: 'projects/783007238857/locations/global/workloadIdentityPools/migas-gha/providers/github-actions'
-          service_account: 'gh-actions@migas-362318.iam.gserviceaccount.com'
+          workload_identity_provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.SERVICE_ACCOUNT }}
           token_format: 'access_token'
       - name: Set up Cloud SDK
         uses: 'google-github-actions/setup-gcloud@v1'
