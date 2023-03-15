@@ -34,8 +34,8 @@ jobs:
       - name: Submit to Cloud Build
         id: cloudbuild
         run: |
-          GCR_TAG="gcr.io/$PROJECT_ID/$CLOUD_RUN_SERVICE_NAME:${{ env.TAG_NAME }}" > $GITHUB_ENV
           gcloud builds submit --config deploy/gcp/cloudbuild.yml --substitutions=TAG_NAME=${{ env.TAG_NAME }}
+          echo "GCR_TAG=gcr.io/${{ secrets.PROJECT_ID }}/migas-server:${{ env.TAG_NAME }}" > $GITHUB_ENV
       - name: Create environment file for Cloud Run
         run: echo "${{ secrets.CLOUD_RUN_ENV_FILE }}" > .env
       - name: Deploy to Cloud Run
