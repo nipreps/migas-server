@@ -6,5 +6,8 @@ steps:
         '--build-arg', 'VERSION=$TAG_NAME',
         '.']
 
+options:
+  logging: CLOUD_LOGGING_ONLY
+
 images:
 - 'gcr.io/$PROJECT_ID/migas-server:$TAG_NAME'
