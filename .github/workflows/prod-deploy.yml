@@ -31,15 +31,37 @@ jobs:
         uses: 'google-github-actions/setup-gcloud@v1'
       - name: Get gcloud information
         run: gcloud info
-      # Use provided deployment script
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-      - name: Install hatch
-        run: pip install hatch
-      - name: Run deployment script
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-        run: ./deploy/gcp/release-gcp.sh ${{ github.ref }}
+      # Cloud Build + Cloud Run
+      - name: Extract tag name
+        id: tagname
+        run: echo ::set-output name=TAG_NAME::${GITHUB_REF/refs\/tags\//}
+      - name: Submit to Cloud Build
+        id: cloudbuild
+        run: |
+          TAG=${{ steps.tagname.outputs.TAG_NAME }}
+          GCR_TAG="gcr.io/$PROJECT_ID/$CLOUD_RUN_SERVICE_NAME:$TAG"
+          gcloud builds submit --config deploy/gcp/cloudbuild.yml --substitutions=TAG_NAME=$TAG
+          echo ::set-output name=GCR_TAG::${GCR_TAG}
+      - name: Create environment file for Cloud Run
+        run: echo ${{ secrets.CLOUD_RUN_ENV_FILE }} > .env
+      - name: Deploy to Cloud Run
+        id: cloudrun
+        run: |
+          GCR_TAG=${{ steps.cloudbuild.outputs.GCR_TAG}}
+          gcloud run deploy migas-server \
+            --region=us-central1 \
+            --image=$GCR_TAG \
+            --platform=managed \
+            --min-instances=1 \
+            --max-instances=3 \
+            --ingress=all \
+            --allow-unauthenticated \
+            --set-cloudsql-instances=${{ secrets.SQL_INSTANCE_NAME }} \
+            --memory=512Mi \
+            --cpu=2 \
+            --args=--host,0.0.0.0,--port,8080,--proxy-headers,--header,X-Backend-Server:migas \
+            --cpu-throttling \
+            --env-vars-file=.env
 
   release:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
