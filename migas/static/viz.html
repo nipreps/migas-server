@@ -53,7 +53,7 @@
                         return
                     }
                     // valid since at least one project was specified
-                    redirectURL = "/frontend/charts.html?projects=" + encodeURIComponent(auth.projects)
+                    redirectURL = "/static/charts.html?projects=" + encodeURIComponent(auth.projects)
                                   + "&token=" + encodeURIComponent(token);
                     window.location.href = redirectURL;
                 })

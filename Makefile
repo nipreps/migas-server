@@ -1,11 +1,14 @@
-.PHONY: compose-up freeze release-gcp
+.PHONY: compose-up compose-down freeze release-gcp
 
 BUILDTYPE=latest
 DEPLOYSERVER=uvicorn
 
 compose-up:
-	docker compose build --build-arg BUILDTYPE=$(BUILDTYPE) --build-arg DEPLOYSERVER=$(DEPLOYSERVER)
-	docker compose up
+	docker compose build --build-arg BUILDTYPE=$(BUILDTYPE) --build-arg DEPLOYSERVER=$(DEPLOYSERVER) --build-arg VERSION=`hatch version`
+	docker compose up --detach
+
+compose-down:
+	docker compose down
 
 freeze:
 	@echo "Freezing requirements"

@@ -1,10 +1,12 @@
 FROM python:3.10-slim
-RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 ARG BUILDTYPE=latest
 ARG DEPLOYSERVER=uvicorn
+ARG VERSION
 ENV YARL_NO_EXTENSIONS=1 \
     MULTIDICT_NO_EXTENSIONS=1 \
-    DEPLOYSERVER=${DEPLOYSERVER}
+    DEPLOYSERVER=${DEPLOYSERVER} \
+    BUILDTYPE=${BUILDTYPE} \
+    SETUPTOOLS_SCM_PRETEND_VERSION=${VERSION}
 COPY . /src/
 WORKDIR /src/
 RUN bash deploy/docker/install.sh ${BUILDTYPE} ${DEPLOYSERVER}
