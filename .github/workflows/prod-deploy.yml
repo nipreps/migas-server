@@ -1,9 +1,6 @@
 name: Authenticate through GCP and if tagged, deploy to production + publish GH release
 
 on:
-  pull_request:
-    branches:
-      - master
   push:
     tags:
       - '*'
