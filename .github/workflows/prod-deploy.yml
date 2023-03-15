@@ -1,4 +1,4 @@
-name: Authenticate through GCP and if tagged, deploy to production + publish GH release
+name: Deploy and make release
 
 on:
   push:
