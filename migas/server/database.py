@@ -82,7 +82,7 @@ async def ingest_project(project: Project) -> None:
     # check version lengths
     for vers in ('project_version', 'language_version'):
         if len(data[vers]) > 24:
-            print(f"Shortening version: {vers}")
+            print(f"Shortening {project.project} version: {data[vers]}")
             data[vers] = data[vers][:24]
     await insert_master(project.project)
     ptable, utable = await get_project_tables(project.project)
