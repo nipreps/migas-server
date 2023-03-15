@@ -30,23 +30,20 @@ jobs:
       # Cloud Build + Cloud Run
       - name: Extract tag name
         id: tagname
-        run: echo ::set-output name=TAG_NAME::${GITHUB_REF/refs\/tags\//}
+        run: echo "TAG=${GITHUB_REF/refs\/tags\//}" > $GITHUB_ENV
       - name: Submit to Cloud Build
         id: cloudbuild
         run: |
-          TAG=${{ steps.tagname.outputs.TAG_NAME }}
-          GCR_TAG="gcr.io/$PROJECT_ID/$CLOUD_RUN_SERVICE_NAME:$TAG"
-          gcloud builds submit --config deploy/gcp/cloudbuild.yml --substitutions=TAG_NAME=$TAG
-          echo ::set-output name=GCR_TAG::${GCR_TAG}
+          GCR_TAG="gcr.io/$PROJECT_ID/$CLOUD_RUN_SERVICE_NAME:${{ env.TAG }}" > $GITHUB_ENV
+          gcloud builds submit --config deploy/gcp/cloudbuild.yml --substitutions=TAG=${{ env.TAG }}
       - name: Create environment file for Cloud Run
-        run: echo ${{ secrets.CLOUD_RUN_ENV_FILE }} > .env
+        run: echo "${{ secrets.CLOUD_RUN_ENV_FILE }}" > .env
       - name: Deploy to Cloud Run
         id: cloudrun
         run: |
-          GCR_TAG=${{ steps.cloudbuild.outputs.GCR_TAG}}
           gcloud run deploy migas-server \
             --region=us-central1 \
-            --image=$GCR_TAG \
+            --image=${{ env.GCR_TAG }} \
             --platform=managed \
             --min-instances=1 \
             --max-instances=3 \
