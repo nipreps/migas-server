@@ -30,12 +30,12 @@ jobs:
       # Cloud Build + Cloud Run
       - name: Extract tag name
         id: tagname
-        run: echo "TAG=${GITHUB_REF/refs\/tags\//}" > $GITHUB_ENV
+        run: echo "TAG_NAME=${GITHUB_REF/refs\/tags\//}" > $GITHUB_ENV
       - name: Submit to Cloud Build
         id: cloudbuild
         run: |
-          GCR_TAG="gcr.io/$PROJECT_ID/$CLOUD_RUN_SERVICE_NAME:${{ env.TAG }}" > $GITHUB_ENV
-          gcloud builds submit --config deploy/gcp/cloudbuild.yml --substitutions=TAG=${{ env.TAG }}
+          GCR_TAG="gcr.io/$PROJECT_ID/$CLOUD_RUN_SERVICE_NAME:${{ env.TAG_NAME }}" > $GITHUB_ENV
+          gcloud builds submit --config deploy/gcp/cloudbuild.yml --substitutions=TAG_NAME=${{ env.TAG_NAME }}
       - name: Create environment file for Cloud Run
         run: echo "${{ secrets.CLOUD_RUN_ENV_FILE }}" > .env
       - name: Deploy to Cloud Run
