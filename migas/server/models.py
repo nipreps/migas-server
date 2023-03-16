@@ -79,9 +79,6 @@ async def get_project_tables(
     project_table = tables.get(project_fullname)
     users_table = tables.get(users_fullname)
     if create:
-        if project_table or users_table:
-            # missing complimentary table
-            raise RuntimeError(f'Missing required table for {project}')
         if project_table is None and users_table is None:
             # Dynamically create project and project/users table,
             # and create a relationship between them
@@ -106,6 +103,9 @@ async def get_project_tables(
             users_table = tables[users_fullname]
             project_table = tables[project_fullname]
             tables_to_create = [users_table, project_table]
+        elif project_table is None or users_table is None:
+                # missing complimentary table
+                raise RuntimeError(f'Missing required table for {project}')
 
     if tables_to_create:
         from .connections import get_db_engine
