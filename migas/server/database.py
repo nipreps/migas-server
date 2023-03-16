@@ -157,6 +157,17 @@ async def project_exists(project: str) -> bool:
 
 
 async def get_viz_data(project: str) -> list:
+    """
+    TODO: Implement bucket sorting.
+
+    Implements the following SQL pseudocode:
+    - select distinct version from <project> where version not like '%+%';
+    - for vers in ^:
+        - select count(distinct session_id) from <project> where is_ci = false and version = ver;
+        - select count(distinct session_id) from <project> where is_ci = false and version = ver and status = 'C';
+        - select count(distinct user_id) from <project> where is_ci = false and version = ver;
+        - select count(*), date_part('isoyear', timestamp) as year, date_part('week', timestamp) as week from <project> where status = 'C' group by year, week order by year, week;
+    """
     p, _ = await get_project_tables(project)
 
     async with gen_session() as session:
@@ -194,10 +205,20 @@ async def get_viz_data(project: str) -> list:
     return data
 
 
-# notes
-# select distinct version from <project> where version not like '%+%';
-# for vers in ^:
-# select count(distinct session_id) from <project> where is_ci = false and version = ver;
-# select count(distinct session_id) from <project> where is_ci = false and version = ver and status = 'C';
-# select count(distinct user_id) from <project> where is_ci = false and version = ver;
-# select count(*), date_part('isoyear', timestamp) as year, date_part('week', timestamp) as week from <project> where status = 'C' group by year, week order by year, week;
+async def verify_token(token: str) -> tuple[bool, list[str]]:
+    '''Query table for usage access'''
+    from sqlalchemy import select
+    from .models import Authentication
+
+    # verify token pertains to project
+    projects = []
+    async with gen_session() as session:
+        res = await session.execute(
+            select(Authentication.project).where(Authentication.token == token)
+        )
+        if (project := res.one_or_none()) is not None:
+            if project[0] == 'master':
+                projects = await query_projects()
+            else:
+                projects = [project[0]]
+    return bool(project), projects

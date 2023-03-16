@@ -16,9 +16,10 @@ from .database import (
     project_exists,
     query_projects,
     query_usage_by_datetimes,
+    verify_token,
 )
 from .fetchers import fetch_project_info
-from .models import get_project_tables, verify_token
+from .models import get_project_tables
 from .types import (
     AuthenticationResult,
     Context,
