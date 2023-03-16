@@ -77,32 +77,35 @@ async def get_project_tables(
     tables_to_create = []
 
     project_table = tables.get(project_fullname)
-    if project_table is None and create is True:
-        # Dynamically create project and project/users table,
-        # and create a relationship between them
-        ProjectModel = type(
-            project_class_name,
-            (Project,),
-            {
-                '__tablename__': project_tablename,
-                'users': relationship(users_class_name, back_populates='project'),
-            },
-        )
-        project_table = tables[project_fullname]
-        tables_to_create.append(project_table)
-
     users_table = tables.get(users_fullname)
-    if users_table is None and create is True:
-        UsersModel = type(
-            users_class_name,
-            (ProjectUsers,),
-            {
-                '__tablename__': users_tablename,
-                'project': relationship(project_class_name, back_populates='users'),
-            },
-        )
-        users_table = tables[users_fullname]
-        tables_to_create.append(users_table)
+    if create:
+        if project_table or users_table:
+            # missing complimentary table
+            raise RuntimeError(f'Missing required table for {project}')
+        if project_table is None and users_table is None:
+            # Dynamically create project and project/users table,
+            # and create a relationship between them
+            ProjectModel = type(
+                project_class_name,
+                (Project,),
+                {
+                    '__tablename__': project_tablename,
+                },
+            )
+            UsersModel = type(
+                users_class_name,
+                (ProjectUsers,),
+                {
+                    '__tablename__': users_tablename,
+                },
+            )
+            # assign relationships once both are defined
+            ProjectModel.users = relationship(users_class_name, back_populates='project')
+            UsersModel.project = relationship(project_class_name, back_populates='users')
+
+            users_table = tables[users_fullname]
+            project_table = tables[project_fullname]
+            tables_to_create = [users_table, project_table]
 
     if tables_to_create:
         from .connections import get_db_engine
