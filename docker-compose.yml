@@ -15,7 +15,7 @@ services:
     networks:
       - migas
     command:
-      --proxy-headers --port 8080 --host 0.0.0.0
+      --proxy-headers --port 8080 --host 0.0.0.0 --header X-Backend-Server:migas
     environment:
       MIGAS_REDIS_URI: "redis://cache:6379"
       DATABASE_URL: "postgresql+asyncpg://postgres:crumbs@postgres:5432/migas"
