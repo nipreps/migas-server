@@ -24,10 +24,10 @@ gunicorn)
     DEFAULT_GUNICORN_CONF=/src/deploy/docker/gunicorn_conf.py
     export GUNICORN_CONF=${GUNICORN_CONF:-$DEFAULT_GUNICORN_CONF}
     export WORKER_CLASS=${WORKER_CLASS:-"uvicorn.workers.UvicornWorker"}
-    CMD="gunicorn -k $WORKER_CLASS -c $GUNICORN_CONF $APP_MODULE"
+    CMD="python -m gunicorn -k $WORKER_CLASS -c $GUNICORN_CONF $APP_MODULE"
     ;;
 uvicorn)
-    CMD="uvicorn $APP_MODULE $@"
+    CMD="python -m uvicorn $APP_MODULE $@"
     ;;
 *)
     echo "No deployment server was specified"

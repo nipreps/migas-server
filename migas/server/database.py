@@ -119,7 +119,7 @@ async def query_usage_by_datetimes(
     async with gen_session() as session:
         # break up into 2 SELECT calls
         subq = (
-            select((project.c.timestamp, project.c.user_id))
+            select(project.c['timestamp', 'user_id'])
             .where(project.c.timestamp.between(start, end))
             .subquery()
         )
