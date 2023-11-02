@@ -42,13 +42,13 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        query: `{ login(token: "${token}") { token projects message } }`
+                        query: `{ login(token: "${token}") { success projects message } }`
                     })
                 })
                 .then((res) => res.json())
                 .then((res) => {
                     auth = res.data.login
-                    if (auth.projects.length == 0) {
+                    if (!auth.success || !auth.projects.length) {
                         alert(auth.message)
                         return
                     }
