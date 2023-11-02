@@ -23,8 +23,10 @@ from .models import get_project_tables
 from .types import (
     AuthenticationResult,
     Context,
+    ContextInput,
     DateTime,
     Process,
+    ProcessInput,
     Project,
     ProjectInput,
 )
@@ -40,11 +42,23 @@ class Query:
         return projs
 
     @strawberry.field
+    async def check_project(self, project: str, project_version: str | None = None) -> JSON:
+        '''Check project for latest version, developer notes, etc.'''
+        fetched = await fetch_project_info(project)
+        return {
+            'bad_versions': fetched['bad_versions'],
+            'cached': fetched['cached'],
+            'latest_version': fetched['version'],
+            'message': '',  # TODO: Allow message for bad_versions
+            'success': fetched['success'],
+        }
+
+    @strawberry.field
     async def get_usage(
         self,
         project: str,
         start: DateTime,
-        end: DateTime = None,
+        end: DateTime | None = None,
         unique: bool = False,
     ) -> JSON:
         '''
@@ -76,14 +90,16 @@ class Query:
         }
 
     @strawberry.field
-    async def login(token: str) -> AuthenticationResult:
+    async def login(self, token: str) -> AuthenticationResult:
         valid, projects = await verify_token(token)
         if not valid:
+            success = False
             msg = 'Authentication Error: token is either invalid or expired.'
         else:
+            success = True
             msg = 'Authentication successful.'
         return AuthenticationResult(
-            token=token,
+            success=success,
             projects=projects,
             message=msg,
         )
@@ -100,6 +116,49 @@ class Query:
 @strawberry.type
 class Mutation:
     @strawberry.field
+    async def add_breadcrumb(
+        self,
+        info: Info,
+        project: str,
+        project_version: str,
+        language: str,
+        language_version: str,
+        ctx: ContextInput,
+        proc: ProcessInput,
+    ) -> bool:
+        if not '/' in project:
+            return False
+
+        context = Context(
+            user_id=ctx.user_id,
+            session_id=ctx.session_id,
+            platform=ctx.platform,
+            container=ctx.container,
+            is_ci=ctx.is_ci,
+        )
+        process = Process(
+            status=proc.status,
+            status_desc=proc.status_desc,
+            error_type=proc.error_type,
+            error_desc=proc.error_desc,
+        )
+
+        project = Project(
+            project=project,
+            project_version=project_version,
+            language=language,
+            language_version=language_version,
+            timestamp=now(),
+            context=context,
+            process=process,
+        )
+
+        bg_tasks = info.context['background_tasks']
+        bg_tasks.add_task(ingest_project, project)
+        return True
+
+
+    @strawberry.field
     async def add_project(self, p: ProjectInput, info: Info) -> JSON:
         # validate project
         if not p.project or '/' not in p.project:
@@ -111,10 +170,10 @@ class Mutation:
             project_version=p.project_version,
             language=p.language,
             language_version=p.language_version,
-            session_id=p.session_id,
             timestamp=now(),
             context=Context(
                 user_id=p.user_id,
+                session_id=p.session_id,
                 user_type=p.user_type,
                 platform=p.platform,
                 container=p.container,
@@ -131,7 +190,6 @@ class Mutation:
         fetched = await fetch_project_info(p.project)
 
         # return project info ASAP, assign data ingestion as background tasks
-        request = info.context['request']
         bg_tasks = info.context['background_tasks']
         bg_tasks.add_task(ingest_project, project)
 
