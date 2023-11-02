@@ -35,20 +35,6 @@ Version = scalar(
     parse_value=parse_version,
 )
 
-# Arguments = scalar(
-#     str,
-#     name="Argument",
-#     description="Argument/Value pairs",
-#     serialize=json.dumps,
-#     parse_value=json.loads
-# )
-Arguments = scalar(
-    typing.NewType("JSONScalar", typing.Any),
-    serialize=lambda v: json.dumps(v),
-    parse_value=lambda v: json.loads(v),
-    parse_literal=value_from_ast_untyped,
-)
-
 
 @strawberry.enum
 class Container(Enum):
@@ -103,6 +89,7 @@ class Process:
 @strawberry.type
 class Context:
     user_id: str | None = None
+    session_id: str | None = None
     user_type: User = User.general
     platform: str = "unknown"
     container: Container = Container.unknown
@@ -117,9 +104,35 @@ class Project:
     language_version: Version
     timestamp: DateTime
     # optional
-    session_id: UUID | None = None
-    context: Context = None
-    process: Process = Process
+    context: Context
+    process: Process
+
+
+@strawberry.input
+class ContextInput:
+    session_id: str | None = strawberry.field(
+        description="Unique identifier for telemetry session", default=None
+    )
+    user_id: str | None = strawberry.field(description="Unique identifier for migas client", default=None)
+    user_type: User = strawberry.field(
+        description="Identifier of user role", default=User.general
+    )
+    platform: str = strawberry.field(description="Client platform type", default="unknown")
+    container: Container = strawberry.field(
+        description="Check if client pings from inside a container", default=Container.unknown
+    )
+    is_ci: bool = strawberry.field(
+        description="Client is pinging from continous integration", default=False
+    )
+
+@strawberry.input
+class ProcessInput:
+    status: Status = strawberry.field(
+        description="For timeseries pings, the current process status", default=Status.R
+    )
+    status_desc: str | None = strawberry.field(description="Description of status ping", default=None)
+    error_type: str | None = strawberry.field(description="Type of error encountered", default=None)
+    error_desc: str | None = strawberry.field(description="Description of error", default=None)
 
 
 @strawberry.input
@@ -129,28 +142,28 @@ class ProjectInput:
     language: str = strawberry.field(description="Programming language of project")
     language_version: Version = strawberry.field(description="Programming language version")
     # optional
-    session_id: str = strawberry.field(
+    session_id: str | None = strawberry.field(
         description="Unique identifier for telemetry session", default=None
     )
     # context args
-    user_id: str = strawberry.field(description="Unique identifier for migas client", default=None)
-    user_type: 'User' = strawberry.field(
+    user_id: str | None = strawberry.field(description="Unique identifier for migas client", default=None)
+    user_type: User = strawberry.field(
         description="Identifier of user role", default=User.general
     )
-    platform: str = strawberry.field(description="Client platform type", default=None)
-    container: 'Container' = strawberry.field(
+    platform: str = strawberry.field(description="Client platform type", default="unknown")
+    container: Container = strawberry.field(
         description="Check if client pings from inside a container", default=Container.unknown
     )
     is_ci: bool = strawberry.field(
         description="Client is pinging from continous integration", default=False
     )
     # process args
-    status: 'Status' = strawberry.field(
+    status: Status = strawberry.field(
         description="For timeseries pings, the current process status", default=Status.R
     )
-    status_desc: str = strawberry.field(description="Description of status ping", default=None)
-    error_type: str = strawberry.field(description="Type of error encountered", default=None)
-    error_desc: str = strawberry.field(description="Description of error", default=None)
+    status_desc: str | None = strawberry.field(description="Description of status ping", default=None)
+    error_type: str | None = strawberry.field(description="Type of error encountered", default=None)
+    error_desc: str | None = strawberry.field(description="Description of error", default=None)
     # arguments: Arguments = strawberry.field(
     #     description="Client side arguments used", default_factory=lambda: "{}"
     # )
@@ -158,7 +171,7 @@ class ProjectInput:
 
 @strawberry.type
 class AuthenticationResult:
-    token: str
+    success: bool
     projects: typing.List[str]
     message: str
 
