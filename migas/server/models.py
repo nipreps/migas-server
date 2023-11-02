@@ -59,7 +59,7 @@ class Authentication(Base):
 
 async def get_project_tables(
     project: str, create: bool = True
-) -> list[Table | None, Table | None]:
+) -> tuple[Table | None, Table | None]:
     """
     Return `Project` and `Users` tables pertaining to input `project`.
 
@@ -128,7 +128,7 @@ async def populate_base(conn: AsyncConnection) -> None:
         from sqlalchemy import inspect
 
         inspector = inspect(conn)
-        return inspector.has_table("projects")
+        return inspector.has_table("projects", schema='migas')
 
     if await conn.run_sync(_has_master_table):
         from .database import query_projects
@@ -147,19 +147,8 @@ async def init_db(engine: AsyncEngine) -> None:
     3) If projects table exists, ensure all tracked projects have Project/ProjectUsers tables.
     """
     async with engine.begin() as conn:
-
-        def _has_schema(conn) -> bool:
-            from sqlalchemy import inspect
-
-            inspector = inspect(conn)
-            return 'migas' in inspector.get_schema_names()
-
-        if not await conn.run_sync(_has_schema):
-            # upgrade: sqlalchemy 2
-            # https://github.com/sqlalchemy/sqlalchemy/issues/7354
-            from sqlalchemy.schema import CreateSchema
-
-            await conn.execute(CreateSchema('migas'))
+        from sqlalchemy.schema import CreateSchema
+        await conn.execute(CreateSchema('migas', if_not_exists=True))
 
         # if project is already being monitored, create it
         await populate_base(conn)
