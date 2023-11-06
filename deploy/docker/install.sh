@@ -6,12 +6,12 @@ BUILDTYPE=$1
 DEPLOYSERVER=$2
 
 # First update pip
-python -m pip install --no-cache-dir pip
+python -m pip install --no-cache-dir -U pip
 
 case $BUILDTYPE in
 release)
     python -m pip install --no-cache-dir pip-tools
-    python -m pip-sync stable-requirements.txt
+    pip-sync stable-requirements.txt
     python -m pip install --no-cache-dir /src
     ;;
 latest)
