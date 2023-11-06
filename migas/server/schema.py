@@ -22,6 +22,8 @@ from .fetchers import fetch_project_info
 from .models import get_project_tables
 from .types import (
     AuthenticationResult,
+    BreadcrumbResult,
+    CheckProjectResult,
     Context,
     ContextInput,
     DateTime,
@@ -42,16 +44,16 @@ class Query:
         return projs
 
     @strawberry.field
-    async def check_project(self, project: str, project_version: str | None = None) -> JSON:
-        '''Check project for latest version, developer notes, etc.'''
+    async def check_project(self, project: str, project_version: str) -> CheckProjectResult:
+        '''Check version of project for latest version, developer notes, etc.'''
         fetched = await fetch_project_info(project)
-        return {
-            'bad_versions': fetched['bad_versions'],
-            'cached': fetched['cached'],
-            'latest_version': fetched['version'],
-            'message': '',  # TODO: Allow message for bad_versions
-            'success': fetched['success'],
-        }
+        is_flagged = project_version in fetched['bad_versions']
+        return CheckProjectResult(
+            success=fetched['success'],
+            flagged=is_flagged,
+            latest=fetched['version'],
+            # TODO: Parse/relay message
+        )
 
     @strawberry.field
     async def get_usage(
@@ -125,9 +127,9 @@ class Mutation:
         language_version: str,
         ctx: ContextInput,
         proc: ProcessInput,
-    ) -> bool:
+    ) -> BreadcrumbResult:
         if not '/' in project:
-            return False
+            return BreadcrumbResult(success=False)
 
         context = Context(
             user_id=ctx.user_id,
@@ -155,14 +157,14 @@ class Mutation:
 
         bg_tasks = info.context['background_tasks']
         bg_tasks.add_task(ingest_project, project)
-        return True
+        return BreadcrumbResult(success=True)
 
 
     @strawberry.field
     async def add_project(self, p: ProjectInput, info: Info) -> JSON:
         # validate project
         if not p.project or '/' not in p.project:
-            raise Exception("Invalid project specified.")
+            return {'success': False}
 
         # convert to Project and set defaults
         project = Project(
