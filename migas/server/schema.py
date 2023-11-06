@@ -51,7 +51,7 @@ class Query:
         return CheckProjectResult(
             success=fetched['success'],
             flagged=is_flagged,
-            latest=fetched['latest_version'],
+            latest=fetched['version'],
             # TODO: Parse/relay message
         )
 
