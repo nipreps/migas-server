@@ -5,6 +5,6 @@ examples/
 dist/
 deploy/heroku/
 deploy/gcp/
-mounts/
+mounts/db/
 dump.rdb
 .pre-commit-config.yaml

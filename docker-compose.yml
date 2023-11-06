@@ -44,15 +44,16 @@ services:
       retries: 1
 
   # Postgres persistent db
+  # removed persistant volume: - ./mounts/db:/var/lib/postgresql/data/
   database:
-    image: "postgres:14.3-alpine3.16"
+    image: "postgres:alpine"
     container_name: "postgres"
     hostname: "postgres"
     restart: always
     ports:
       - "5432:5432"
     volumes:
-      - ./mounts/db:/var/lib/postgresql/data/
+      - ./mounts/startup:/docker-entrypoint-initdb.d
     environment:
       POSTGRES_USER: "postgres"
       POSTGRES_PASSWORD: "crumbs"

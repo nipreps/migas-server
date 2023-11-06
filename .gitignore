@@ -7,7 +7,7 @@ __pycache__/
 data/
 logs/
 dump.rdb
-mounts/
+mounts/db/
 .pytest_cache/
 .mypy_cache/
 **/.env
