@@ -176,6 +176,20 @@ class AuthenticationResult:
     message: str
 
 
+@strawberry.type
+class BreadcrumbResult:
+    success: bool
+    message: str = ''
+
+
+@strawberry.type
+class CheckProjectResult:
+    success: bool
+    latest: str
+    flagged: bool
+    message: str = ''
+
+
 async def serialize(data: dict) -> dict:
     """Serialize data into database-friendly types"""
     for k, v in data.items():
