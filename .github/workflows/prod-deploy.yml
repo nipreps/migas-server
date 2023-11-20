@@ -55,6 +55,8 @@ jobs:
             --args=--host,0.0.0.0,--port,8080,--proxy-headers,--header,X-Backend-Server:migas \
             --cpu-throttling \
             --env-vars-file=.env
+      - name: Cleanup env file
+        run: rm -f .env
 
   release:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
