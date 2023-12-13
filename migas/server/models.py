@@ -59,7 +59,7 @@ class Authentication(Base):
 
 async def get_project_tables(
     project: str, create: bool = True
-) -> tuple[Table | None, Table | None]:
+) -> tuple[Table, Table]:
     """
     Return `Project` and `Users` tables pertaining to input `project`.
 
@@ -96,9 +96,9 @@ async def get_project_tables(
                     '__tablename__': users_tablename,
                 },
             )
-            # assign relationships once both are defined
-            ProjectModel.users = relationship(users_class_name, back_populates='project')
-            UsersModel.project = relationship(project_class_name, back_populates='users')
+            # # assign relationships once both are defined
+            # ProjectModel.users = relationship(users_class_name, back_populates='project')
+            # UsersModel.project = relationship(project_class_name, back_populates='users')
 
             users_table = tables[users_fullname]
             project_table = tables[project_fullname]
@@ -108,17 +108,19 @@ async def get_project_tables(
                 raise RuntimeError(f'Missing required table for {project}')
 
     if tables_to_create:
-        from .connections import get_db_engine
-
-        engine = await get_db_engine()
-
-        def _create_tables(conn) -> None:
-            return Base.metadata.create_all(conn, tables=tables_to_create)
-
-        async with engine.begin() as conn:
-            await conn.run_sync(_create_tables)
+        await create_tables(tables_to_create)
 
     return project_table, users_table
+
+
+async def create_tables(tables: list) -> None:
+    from .connections import get_db_engine
+
+    engine = await get_db_engine()
+    async with engine.begin() as conn:
+        def _create_tables(conn) -> None:
+            return Base.metadata.create_all(conn, tables=tables)
+        await conn.run_sync(_create_tables)
 
 
 async def populate_base(conn: AsyncConnection) -> None:
