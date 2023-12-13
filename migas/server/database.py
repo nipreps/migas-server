@@ -1,7 +1,7 @@
-from typing import List
+import typing as ty
 
 # from asyncpg import Record
-from sqlalchemy import distinct, func, select, text
+from sqlalchemy import distinct, func, select, case, desc
 from sqlalchemy.dialects.postgresql import insert
 
 from .models import Table, gen_session, get_project_tables, projects
@@ -144,7 +144,7 @@ async def query_usage_unique(project: Table) -> int:
     return res.scalars().one()
 
 
-async def query_projects() -> List[str]:
+async def query_projects() -> list[str]:
     async with gen_session() as session:
         res = await session.execute(select(projects.c.project))
     return res.scalars().all()
@@ -156,53 +156,88 @@ async def project_exists(project: str) -> bool:
     return bool(res.one_or_none())
 
 
-async def get_viz_data(project: str) -> list:
+async def get_viz_data(
+    project_name: str,
+    version: str | None = None,
+    date_group: ty.Literal['week', 'month', 'year'] = 'month'
+) -> list:
     """
-    TODO: Implement bucket sorting.
+    Filter project usage into groups, based on versions and dates.
+    """
+    project, _ = await get_project_tables(project_name)
 
-    Implements the following SQL pseudocode:
-    - select distinct version from <project> where version not like '%+%';
-    - for vers in ^:
-        - select count(distinct session_id) from <project> where is_ci = false and version = ver;
-        - select count(distinct session_id) from <project> where is_ci = false and version = ver and status = 'C';
-        - select count(distinct user_id) from <project> where is_ci = false and version = ver;
-        - select count(*), date_part('isoyear', timestamp) as year, date_part('week', timestamp) as week from <project> where status = 'C' group by year, week order by year, week;
-    """
-    p, _ = await get_project_tables(project)
+    match date_group:
+        case 'week':
+            datefmt = 'YYYY-WW'
+        case 'month':
+            datefmt = 'YYYY-MM'
+        case 'year':
+            datefmt = 'YYYY'
+        case _:
+            raise NotImplementedError
+
+    # Create a subquery to:
+    # - filter out version(s)
+    # - convert timestamps into YEAR-WEEK values
+    subq0 = (
+        select(
+            project.c.version,
+            project.c.session_id,
+            func.to_char(project.c.timestamp, datefmt).label('date'),
+            project.c.status
+        )
+        .distinct(project.c.session_id)
+        .where(project.c.status != None)
+    )
+
+    if version:
+        subq0 = (
+            subq0.where(project.c.version == version)
+        )
+    else:
+        # Filter out "unofficial" versions
+        subq0 = (
+            subq0
+            .where(project.c.version.not_like('%+%'))
+            .where(project.c.version.not_like('%rc%'))
+        )
+    subq0 = subq0.subquery()
+
+
+    subq1 = (
+        select(
+            subq0.c.version,
+            subq0.c.date,
+            subq0.c.status,
+            func.count().label("status_sum")
+        )
+        .group_by(subq0.c.status, subq0.c.date, subq0.c.version)
+        # .order_by(subq.c.date.desc(), subq.c.version.desc())
+        .subquery()
+        )
+
+    complete = case((subq1.c.status == 'C', subq1.c.status_sum), else_=0)
+    failed = case((subq1.c.status == 'F', subq1.c.status_sum), else_=0)
+    suspended = case((subq1.c.status == 'S', subq1.c.status_sum), else_=0)
+    incomplete = case((subq1.c.status == 'R', subq1.c.status_sum), else_=0)
 
     async with gen_session() as session:
-        # we want to return a table with:
-        # version | total_runs (unique session_id) | sucessful_runs | users (unique user_id)
-        # TODO: index should be applied to version, session_id, user_id columns
-        # TODO: this should be done within a single query
 
-        # first grab all different versions
-        versions = await session.execute(
-            select(distinct(p.c.version)).where(p.c.version.not_like('%+%'))
+        # Group subquery into groups composed of:
+        # <version> <date> <status> <count>
+        date = await session.execute(
+            select(
+                subq1.c.version,
+                subq1.c.date,
+                func.max(complete).label('complete'),
+                func.max(failed).label('failed'),
+                func.max(suspended).label('suspended'),
+                func.max(incomplete).label('incomplete')
+            )
+            .group_by(subq1.c.version, subq1.c.date)
+            .order_by(subq1.c.version.desc(), subq1.c.date.desc())
         )
-        data = {v: {} for v in versions.scalars().all()}
-
-        for vers in data.keys():
-            total = await session.execute(
-                select(func.count(distinct(p.c.session_id)))
-                .where(p.c.is_ci == False)
-                .where(p.c.version == vers)
-            )
-            data[vers]['total_runs'] = total.scalar()
-            success = await session.execute(
-                select(func.count(distinct(p.c.session_id)))
-                .where(p.c.is_ci == False)
-                .where(p.c.version == vers)
-                .where(text("status='C'"))
-            )
-            data[vers]['successful_runs'] = success.scalar()
-            uusers = await session.execute(
-                select(func.count(distinct(p.c.user_id)))
-                .where(p.c.is_ci == False)
-                .where(p.c.version == vers)
-            )
-            data[vers]['unique_users'] = uusers.scalar()
-    return data
+    return date.all()
 
 
 async def verify_token(token: str) -> tuple[bool, list[str]]:
