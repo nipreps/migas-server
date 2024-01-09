@@ -114,7 +114,7 @@ class Query:
         project: str,
         token: str,
         version: str | None = None,
-        date_group: str = 'month',  # TODO: Literal incompatibility with strawberry - enum?
+        date_group: str = 'day',  # TODO: ty.Literal incompatibility with strawberry - enum?
     ) -> JSON:
         'Generate different usage information'
         _, projects = await verify_token(token)
@@ -122,19 +122,19 @@ class Query:
             raise Exception('Invalid token.')
         usage = await get_viz_data(project, version, date_group)
 
-        data = {}
+        data = {'versions': [], 'grouping': date_group, 'timeseries': []}
         for ver, date, comp, fail, susp, inc in usage:
-            if ver not in data:
-                data[ver] = {}
-                data[ver]['date_grouping'] = date_group
-                for f in ('dates', 'completed', 'failed', 'suspended', 'incomplete'):
-                    data[ver][f] = []
+            if ver not in data['versions']:
+                data['versions'].append(ver)
+            data['timeseries'].append({
+                'version': ver,
+                'date': date,
+                'completed': comp,
+                'failed': fail,
+                'suspended': susp,
+                'incomplete': inc,
+            })
 
-            data[ver]['dates'].append(date)
-            data[ver]['completed'].append(comp)
-            data[ver]['failed'].append(fail)
-            data[ver]['suspended'].append(susp)
-            data[ver]['incomplete'].append(inc)
         return data
 
 
