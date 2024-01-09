@@ -159,7 +159,7 @@ async def project_exists(project: str) -> bool:
 async def get_viz_data(
     project_name: str,
     version: str | None = None,
-    date_group: ty.Literal['week', 'month', 'year'] = 'month'
+    date_group: ty.Literal['day', 'week', 'month', 'year'] = 'month'
 ) -> list:
     """
     Filter project usage into groups, based on versions and dates.
@@ -167,8 +167,10 @@ async def get_viz_data(
     project, _ = await get_project_tables(project_name)
 
     match date_group:
+        case 'day':
+            datefmt = 'YYYY-MM-DD'
         case 'week':
-            datefmt = 'YYYY-WW'
+            datefmt = 'YYYY-WW' #?
         case 'month':
             datefmt = 'YYYY-MM'
         case 'year':
