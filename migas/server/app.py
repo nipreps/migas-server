@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
     # Establish aiohttp session
     app.requests = await get_requests_session()
     yield
-    await app.cache.close()
+    await app.cache.aclose()
     await app.db.dispose()
     await app.requests.close()
 
