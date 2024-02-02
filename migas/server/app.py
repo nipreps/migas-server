@@ -73,9 +73,9 @@ async def info():
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    return templates.TemplateResponse("home.html", {"request": request})
+    return templates.TemplateResponse(request, "home.html")
 
 
 @app.get("/viz", response_class=HTMLResponse)
 async def viz(request: Request):
-    return templates.TemplateResponse("viz.html", {"request": request})
+    return templates.TemplateResponse(request, "viz.html")
