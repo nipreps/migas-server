@@ -282,7 +282,8 @@ class RateLimiter(SchemaExtension):
 
         cache = await get_redis_connection()
         # the sliding window key
-        key = f'rate-limit-{request.client.host}'
+        host = request.client.host if request.client else 'no-client'
+        key = f'rate-limit-{host}'
         time_ = time.time()
 
         async with cache.pipeline(transaction=True) as pipe:
