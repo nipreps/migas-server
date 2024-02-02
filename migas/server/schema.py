@@ -1,4 +1,6 @@
+from collections import defaultdict
 import os
+import typing as ty
 
 import strawberry
 from fastapi import Request, Response
@@ -107,12 +109,33 @@ class Query:
         )
 
     @strawberry.field
-    async def usage_stats(self, project: str, token: str) -> JSON:
+    async def usage_stats(
+        self,
+        project: str,
+        token: str,
+        version: str | None = None,
+        date_group: str = 'day',  # TODO: ty.Literal incompatibility with strawberry - enum?
+    ) -> JSON:
         'Generate different usage information'
         _, projects = await verify_token(token)
         if project not in projects:
             raise Exception('Invalid token.')
-        return await get_viz_data(project)
+        usage = await get_viz_data(project, version, date_group)
+
+        data = {'versions': [], 'grouping': date_group, 'timeseries': []}
+        for ver, date, comp, fail, susp, inc in usage:
+            if ver not in data['versions']:
+                data['versions'].append(ver)
+            data['timeseries'].append({
+                'version': ver,
+                'date': date,
+                'completed': comp,
+                'failed': fail,
+                'suspended': susp,
+                'incomplete': inc,
+            })
+
+        return data
 
 
 @strawberry.type
