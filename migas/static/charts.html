@@ -161,8 +161,6 @@
 
 
             function generateCharts(data) {
-                const intervalSel = document.getElementById("usage-interval");
-                const interval = intervalSel.options[intervalSel.selectedIndex].value;
                 const ndx = crossfilter(data);
                 const all = ndx.groupAll();
 
@@ -174,15 +172,17 @@
 
                 const volumebyDay = dayDim.group().reduceSum(d => d.total / 100);
 
-                // make rendering dynamic
                 intervals = {
                     day: [dayDim, d3.timeDays],
                     week: [weekDim, d3.timeWeeks],
                     month: [monthDim, d3.timeMonths],
                     year: [yearDim, d3.timeYears]
                 }
-                const intervalDim = intervals[interval][0]
-                const intervalXAxis = intervals[interval][1]
+                // adjust interval based on select element
+                const intervalSel = document.getElementById("usage-interval");
+                let interval = intervalSel.options[intervalSel.selectedIndex].value;
+                let intervalDim = intervals[interval][0]
+                let intervalXAxis = intervals[interval][1]
 
                 const compGroup = intervalDim.group().reduceSum(d => d.completed);
                 const failGroup = intervalDim.group().reduceSum(d => d.failed);
