@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,8 +19,24 @@ from .models import init_db
 from .schema import SCHEMA
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Handle startup and shutdown logic"""
+    # Connect to Redis
+    app.cache = await get_redis_connection()
+    # Connect to PostgreSQL and initialize tables
+    app.db = await get_db_engine()
+    await init_db(app.db)
+    # Establish aiohttp session
+    app.requests = await get_requests_session()
+    yield
+    await app.cache.aclose()
+    await app.db.dispose()
+    await app.requests.close()
+
+
 def _create_app() -> FastAPI:
-    app = FastAPI(title="migas", version=__version__)
+    app = FastAPI(title="migas", version=__version__, lifespan=lifespan)
     graphql_app = GraphQLRouter(SCHEMA)
     app.include_router(graphql_app, prefix="/graphql")
 
@@ -45,26 +62,6 @@ static = str(__root__ / '..' / 'static')
 app.mount("/static", StaticFiles(directory=static), name="static")
 templates = Jinja2Templates(directory=static)
 
-
-@app.on_event("startup")
-async def startup():
-    # Connect to Redis
-    app.cache = await get_redis_connection()
-    # Connect to PostgreSQL and initialize tables
-    app.db = await get_db_engine()
-    await init_db(app.db)
-    # Establish aiohttp session
-    app.requests = await get_requests_session()
-
-
-@app.on_event("shutdown")
-async def shutdown():
-    # close connections
-    await app.cache.close()
-    await app.db.dispose()
-    await app.requests.close()
-
-
 @app.get("/info")
 async def info():
     return {
@@ -76,9 +73,9 @@ async def info():
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    return templates.TemplateResponse("home.html", {"request": request})
+    return templates.TemplateResponse(request, "home.html")
 
 
 @app.get("/viz", response_class=HTMLResponse)
 async def viz(request: Request):
-    return templates.TemplateResponse("viz.html", {"request": request})
+    return templates.TemplateResponse(request, "viz.html")
