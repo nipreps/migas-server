@@ -12,7 +12,7 @@ from graphql.utilities import value_from_ast_untyped
 from packaging.version import Version as _Version
 from packaging.version import _BaseVersion
 from packaging.version import parse as parse_version
-from strawberry.custom_scalar import scalar
+from strawberry import scalar
 
 from .utils import dt_to_str, str_to_dt
 
