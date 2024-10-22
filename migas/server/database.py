@@ -117,18 +117,15 @@ async def query_usage_by_datetimes(
     unique: bool = False,
 ) -> int:
     async with gen_session() as session:
-        # break up into 2 SELECT calls
-        subq = (
-            select(project.c['timestamp', 'user_id'])
-            .where(project.c.timestamp.between(start, end))
-            .subquery()
+        query = select(func.count()).where(
+            project.c.timestamp >= start, project.c.timestamp <= end
         )
         if unique:
-            stmt = select(func.count(distinct(subq.c.user_id)))
-        else:
-            stmt = select(func.count(subq.c.user_id))
-        res = await session.execute(stmt)
-    return res.scalars().one()
+            query = select(func.count(distinct(project.c.user_id))).where(
+                project.c.timestamp.between(start, end)
+            )
+        res = await session.execute(query)
+    return res.scalar_one_or_none() or 0
 
 
 async def query_usage(project: Table) -> int:
