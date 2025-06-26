@@ -5,12 +5,6 @@
         <title>Project usage</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
         <meta http-equiv="cache-control" content="no-cache"/>
-        <!-- <link
-            rel="stylesheet"
-            href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap-grid.min.css"
-            integrity="sha512-ZuRTqfQ3jNAKvJskDAU/hxbX1w25g41bANOVd1Co6GahIe2XjM6uVZ9dh0Nt3KFCOA061amfF2VeL60aJXdwwQ=="
-            crossorigin="anonymous"
-        /> -->
         <link
             rel="stylesheet"
             href="https://cdnjs.cloudflare.com/ajax/libs/dc/4.2.7/style/dc.min.css"
@@ -119,7 +113,8 @@
 
                     data.forEach(d => {
                         // precalculate display intervals
-                        d.total = [+d.completed, +d.failed, +d.suspended, +d.incomplete].reduce((a, b) => a + b, 0);
+                        // d.total = [+d.completed, +d.failed, +d.suspended, +d.incomplete].reduce((a, b) => a + b, 0);
+                        d.total = [+d.completed, +d.failed, +d.suspended].reduce((a, b) => a + b, 0);
                         d.day = dateFormatParser(d.date);
                         d.month = d3.timeMonth(d.day);
                         d.week = d3.timeWeek(d.day);
@@ -187,7 +182,7 @@
                 const compGroup = intervalDim.group().reduceSum(d => d.completed);
                 const failGroup = intervalDim.group().reduceSum(d => d.failed);
                 const suspGroup = intervalDim.group().reduceSum(d => d.suspended);
-                const incGroup = intervalDim.group().reduceSum(d => d.incomplete);
+                // const incGroup = intervalDim.group().reduceSum(d => d.incomplete);
 
                 const successRateGroup = dayDim.group().reduce(
                     (p, v) => {
@@ -212,7 +207,7 @@
                     '#20BC3A',  // green (completed)
                     '#DB2020',  // red (failed)
                     '#D3E618',  // yellow (suspended)
-                    '#B0ABA5'   // gray (incomplete)
+                    // '#B0ABA5'   // gray (incomplete)
                 ]
 
                 usageBarChart
@@ -224,7 +219,7 @@
                     .group(compGroup, 'completed')
                     .stack(failGroup, 'failed')
                     .stack(suspGroup, 'suspended')
-                    .stack(incGroup, 'incomplete')
+                    // .stack(incGroup, 'incomplete')
                     .mouseZoomable(true)
                     .x(d3.scaleTime().domain(startRange))
                     .centerBar(true)
