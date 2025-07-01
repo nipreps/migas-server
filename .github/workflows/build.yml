@@ -21,14 +21,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
+    - name: Install the latest version of uv
+      uses: astral-sh/setup-uv@v6
     - name: Install hatch
-      run: pip install hatch
+      run: uv tool install hatch
     - name: Build the image
       run: |
-        VERSION=`hatch version | tail -n1`
+        VERSION=`uvx hatch version | tail -n1`
         echo $VERSION
         docker compose build --build-arg BUILDTYPE=latest-test --build-arg DEPLOYSERVER=uvicorn --build-arg VERSION=$VERSION
     - name: Start all the things
