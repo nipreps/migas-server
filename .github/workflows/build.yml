@@ -3,15 +3,15 @@ name: Build and test service
 on:
   push:
     branches:
-      - master
+    - master
     tags:
-      - '*'
+    - '*'
   pull_request:
     branches:
-      - master
+    - master
   schedule:
-    # 7am EST / 8am EDT Mondays
-    - cron: '0 12 * * 1'
+  # 7am EST / 8am EDT Mondays
+  - cron: '0 12 * * 1'
 
 jobs:
   build-test:
@@ -20,20 +20,19 @@ jobs:
       || ! contains(github.event.head_commit.message, '[skip ci]')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-      - name: Install hatch
-        run: pip install hatch
-      - name: Build the image
-        run: |
-          VERSION=`hatch version | tail -n1`
-          echo $VERSION
-          docker compose build --build-arg BUILDTYPE=latest-test --build-arg DEPLOYSERVER=uvicorn --build-arg VERSION=$VERSION
-      - name: Start all the things
-        run: docker compose up -d
-      - name: Test the things
-        run: docker exec app bash -c "pytest /src/migas/server"
-      - name: Stop all the things
-        run: docker compose down
+    - uses: actions/checkout@v4
+    - name: Install the latest version of uv
+      uses: astral-sh/setup-uv@v6
+    - name: Install hatch
+      run: uv tool install hatch
+    - name: Build the image
+      run: |
+        VERSION=`uvx hatch version | tail -n1`
+        echo $VERSION
+        docker compose build --build-arg BUILDTYPE=latest-test --build-arg DEPLOYSERVER=uvicorn --build-arg VERSION=$VERSION
+    - name: Start all the things
+      run: docker compose up -d
+    - name: Test the things
+      run: docker exec app bash -c "pytest /src/migas/server"
+    - name: Stop all the things
+      run: docker compose down
