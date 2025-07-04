@@ -47,7 +47,7 @@ def _create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # only add scout monitoring if environmental variables are present
+    # only add scout monitoring if environment variables are present
     if all(os.getenv(x) for x in ("SCOUT_NAME", "SCOUT_MONITOR", "SCOUT_KEY")):
         from scout_apm.async_.starlette import ScoutMiddleware
 

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from alembic import context
 
 
-class MissingEnvironmentalVariable(Exception):
+class MissingEnvironmentVariable(Exception):
     pass
 
 
@@ -26,7 +26,7 @@ def get_db_url() -> str:
     from sqlalchemy.engine import make_url, URL
 
     if not _any_defined(["DATABASE_URL", "DATABASE_USER", "DATABASE_PASSWORD", "DATABASE_NAME"]):
-        raise MissingEnvironmentalVariable("No database variables are set")
+        raise MissingEnvironmentVariable("No database variables are set")
 
     if (db_url := os.getenv("DATABASE_URL")):
         db_url = make_url(db_url).set(drivername="postgresql+asyncpg")
