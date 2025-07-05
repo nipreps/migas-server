@@ -1,11 +1,21 @@
 import typing as ty
+from functools import wraps
+from datetime import datetime
 
 # from asyncpg import Record
-from sqlalchemy import distinct, func, select, case, desc
+from sqlalchemy import distinct, func, select, case
 from sqlalchemy.dialects.postgresql import insert
 
-from .models import Table, gen_session, get_project_tables, projects
-from .types import DateTime, Project, serialize
+from .models import Table, gen_session, get_project_tables, projects, SessionGen
+from .types import Project, serialize
+
+def db_context(func):
+    """Decorator that creates a session for database interaction."""
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        async with gen_session() as session:
+            return await func(*args, session=session, **kwargs)
+    return wrapper
 
 
 async def add_new_project(project: str) -> bool:
@@ -17,23 +27,24 @@ async def add_new_project(project: str) -> bool:
     return True
 
 # Table insertion
-async def insert_master(project: str) -> None:
+@db_context
+async def insert_master(project: str, session: SessionGen) -> None:
     """Add project to master table."""
-    async with gen_session() as session:
-        res = await session.execute(
-            insert(projects).on_conflict_do_nothing(),
-            {'project': project},
-        )
-        await session.commit()
+    await session.execute(
+        insert(projects).on_conflict_do_nothing(),
+        {'project': project},
+    )
+    await session.commit()
 
 
+@db_context
 async def insert_project(
     table: Table,
     *,
     version: str,
     language: str,
     language_version: str,
-    timestamp: DateTime,
+    timestamp: datetime,
     session_id: str | None,
     user_id: str | None,
     status: str,
@@ -41,28 +52,29 @@ async def insert_project(
     error_type: str | None,
     error_desc: str | None,
     is_ci: bool,
+    session: SessionGen,
 ) -> None:
     """Add to project table"""
-    async with gen_session() as session:
-        res = await session.execute(
-            table.insert(),
-            {
-                'version': version,
-                'language': language,
-                'language_version': language_version,
-                'timestamp': timestamp,
-                'session_id': session_id,
-                'user_id': user_id,
-                'status': status,
-                'status_desc': status_desc,
-                'error_type': error_type,
-                'error_desc': error_desc,
-                'is_ci': is_ci,
-            },
-        )
-        await session.commit()
+    await session.execute(
+        table.insert(),
+        {
+            'version': version,
+            'language': language,
+            'language_version': language_version,
+            'timestamp': timestamp,
+            'session_id': session_id,
+            'user_id': user_id,
+            'status': status,
+            'status_desc': status_desc,
+            'error_type': error_type,
+            'error_desc': error_desc,
+            'is_ci': is_ci,
+        },
+    )
+    await session.commit()
 
 
+@db_context
 async def insert_user(
     users: Table,
     *,
@@ -70,18 +82,18 @@ async def insert_user(
     user_type: str,
     platform: str,
     container: str,
+    session: SessionGen,
 ) -> None:
-    async with gen_session() as session:
-        res = await session.execute(
-            insert(users).on_conflict_do_nothing(),
-            {
-                'user_id': user_id,
-                'user_type': user_type,
-                'platform': platform,
-                'container': container,
-            },
-        )
-        await session.commit()
+    await session.execute(
+        insert(users).on_conflict_do_nothing(),
+        {
+            'user_id': user_id,
+            'user_type': user_type,
+            'platform': platform,
+            'container': container,
+        },
+    )
+    await session.commit()
 
 
 async def ingest_project(project: Project) -> None:
@@ -123,46 +135,47 @@ async def ingest_project(project: Project) -> None:
         )
 
 
+@db_context
 async def query_usage_by_datetimes(
     project: Table,
-    start: DateTime,
-    end: DateTime,
+    start: datetime,
+    end: datetime,
+    session: SessionGen,
     unique: bool = False,
 ) -> int:
-    async with gen_session() as session:
-        query = select(func.count()).where(
-            project.c.timestamp >= start, project.c.timestamp <= end
+    query = select(func.count()).where(
+        project.c.timestamp >= start, project.c.timestamp <= end
+    )
+    if unique:
+        query = select(func.count(distinct(project.c.user_id))).where(
+            project.c.timestamp.between(start, end)
         )
-        if unique:
-            query = select(func.count(distinct(project.c.user_id))).where(
-                project.c.timestamp.between(start, end)
-            )
-        res = await session.execute(query)
+    res = await session.execute(query)
     return res.scalar_one_or_none() or 0
 
 
-async def query_usage(project: Table) -> int:
-    async with gen_session() as session:
-        res = await session.execute(select(func.count(project.c.idx)))
+@db_context
+async def query_usage(project: Table, session: SessionGen) -> int:
+    res = await session.execute(select(func.count(project.c.idx)))
     return res.scalars().one()
 
 
-async def query_usage_unique(project: Table) -> int:
+@db_context
+async def query_usage_unique(project: Table, session: SessionGen) -> int:
     """TODO: What to do with all NULLs (unique users)?"""
-    async with gen_session() as session:
-        res = await session.execute(select(func.count(distinct(project.c.user_id))))
+    res = await session.execute(select(func.count(distinct(project.c.user_id))))
     return res.scalars().one()
 
 
-async def query_projects() -> list[str]:
-    async with gen_session() as session:
-        res = await session.execute(select(projects.c.project))
+@db_context
+async def query_projects(session: SessionGen) -> list[str]:
+    res = await session.execute(select(projects.c.project))
     return res.scalars().all()
 
 
-async def project_exists(project: str) -> bool:
-    async with gen_session() as session:
-        res = await session.execute(projects.select().where(projects.c.project == project))
+@db_context
+async def project_exists(project: str, session: SessionGen) -> bool:
+    res = await session.execute(projects.select().where(projects.c.project == project))
     return bool(res.one_or_none())
 
 
@@ -199,7 +212,7 @@ async def get_viz_data(
             project.c.status
         )
         .distinct(project.c.session_id)
-        .where(project.c.status != None)
+        .where(project.c.status is not None)
     )
 
     if version:
@@ -257,22 +270,18 @@ async def verify_token(token: str, require_root: bool = False) -> tuple[bool, li
     from sqlalchemy import select
     from .models import Authentication
 
+    project, projects = None, []
+
     # verify token pertains to project
-    projects = []
     async with gen_session() as session:
         res = await session.execute(
             select(Authentication.project).where(Authentication.token == token)
         )
         project = res.one_or_none()
 
-    projects = []
-    if project is None:
-        return False, projects
-
-    if project[0] == 'master':
-        projects = await query_projects()
-    elif require_root:
-        return False, projects
-    else:
-        projects = [project[0]]
+    if project:
+        if project[0] == 'master':
+            projects = await query_projects()
+        elif not require_root:
+            projects = [project[0]]
     return bool(project), projects
