@@ -57,9 +57,7 @@ class Authentication(Base):
     token = Column(String)
 
 
-async def get_project_tables(
-    project: str, create: bool = True
-) -> tuple[Table, Table]:
+async def get_project_tables(project: str, create: bool = False) -> tuple[Table, Table]:
     """
     Return `Project` and `Users` tables pertaining to input `project`.
 

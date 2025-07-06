@@ -84,8 +84,12 @@ async def ingest_project(project: Project) -> None:
         if len(data[vers]) > 24:
             print(f"Shortening {project.project} version: {data[vers]}")
             data[vers] = data[vers][:24]
-    await insert_master(project.project)
+
     ptable, utable = await get_project_tables(project.project)
+    if not ptable or not utable:
+        # Don't error but complain loudly
+        # TODO: Log > print
+        print(f'One or more missing tables:\n\n"Project table: {ptable}\nUsers table: {utable}')
     await insert_project(
         ptable,
         version=data['project_version'],
@@ -239,7 +243,7 @@ async def get_viz_data(
     return date.all()
 
 
-async def verify_token(token: str) -> tuple[bool, list[str]]:
+async def verify_token(token: str, require_root: bool = False) -> tuple[bool, list[str]]:
     '''Query table for usage access'''
     from sqlalchemy import select
     from .models import Authentication
@@ -250,9 +254,16 @@ async def verify_token(token: str) -> tuple[bool, list[str]]:
         res = await session.execute(
             select(Authentication.project).where(Authentication.token == token)
         )
-        if (project := res.one_or_none()) is not None:
-            if project[0] == 'master':
-                projects = await query_projects()
-            else:
-                projects = [project[0]]
+        project = res.one_or_none()
+
+    projects = []
+    if project is None:
+        return False, projects
+
+    if project[0] == 'master':
+        projects = await query_projects()
+    elif require_root:
+        return False, projects
+    else:
+        projects = [project[0]]
     return bool(project), projects
