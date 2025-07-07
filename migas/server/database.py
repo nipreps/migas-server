@@ -8,6 +8,14 @@ from .models import Table, gen_session, get_project_tables, projects
 from .types import DateTime, Project, serialize
 
 
+async def add_new_project(project: str) -> bool:
+    """Create new tables, and add project to master projects table."""
+    ptable, utable = await get_project_tables(project, create=True)
+    if ptable is None or utable is None:
+        return False
+    await insert_master(project)
+    return True
+
 # Table insertion
 async def insert_master(project: str) -> None:
     """Add project to master table."""
@@ -86,10 +94,11 @@ async def ingest_project(project: Project) -> None:
             data[vers] = data[vers][:24]
 
     ptable, utable = await get_project_tables(project.project)
-    if not ptable or not utable:
+    if ptable is None or utable is None:
         # Don't error but complain loudly
         # TODO: Log > print
         print(f'One or more missing tables:\n\n"Project table: {ptable}\nUsers table: {utable}')
+        return
     await insert_project(
         ptable,
         version=data['project_version'],

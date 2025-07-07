@@ -19,7 +19,7 @@ from .database import (
     query_projects,
     query_usage_by_datetimes,
     verify_token,
-    insert_master
+    add_new_project,
 )
 from .extensions import RequireRoot
 from .fetchers import fetch_project_info
@@ -244,9 +244,7 @@ class Mutation:
         # TODO: Check for existance of project / user tables
         if await project_exists(project):
             return {'success': True, 'message': 'Project is already registered.'}
-        # TODO: Make the following two transactions atomic
-        await insert_master(project)
-        await get_project_tables(project, create=True)
+        await add_new_project(project)
         return {'success': True, 'message': 'Project is now registered.'}
 
 
