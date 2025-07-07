@@ -2,7 +2,7 @@ import typing
 import strawberry
 from strawberry.permission import BasePermission
 
-from migas.server.database import verify_token
+from ..database import verify_token
 
 
 class RequireRoot(BasePermission):
