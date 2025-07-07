@@ -1,4 +1,3 @@
-import asyncio
 import os
 from typing import Iterator
 
@@ -6,7 +5,8 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from fastapi.testclient import TestClient
 
-from ..app import app
+from ..app import create_app
+from ..database import add_new_project
 
 if not os.getenv("MIGAS_REDIS_URI"):
     pytest.skip(allow_module_level=True)
@@ -14,22 +14,24 @@ if not os.getenv("MIGAS_REDIS_URI"):
 os.environ["MIGAS_BYPASS_RATE_LIMIT"] = "1"
 os.environ["MIGAS_TESTING"] = "1"
 
+TEST_PROJECT = "nipreps/migas-server"
+
 queries = {
-    'add_project': 'mutation{add_project(p:{project:"github/fetch",project_version:"3.6.2",language:"javascript",language_version:"1.7"})}',
+    'add_project': f'mutation{{add_project(p:{{project:"{TEST_PROJECT}",project_version:"0.5.0",language:"python",language_version:"3.12"}})}}',
 }
 
-
 @pytest.fixture(scope="module")
-def event_loop() -> Iterator[asyncio.AbstractEventLoop]:
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
+def test_app():
+    async def create_db(app):
+        await add_new_project(TEST_PROJECT)
 
+    app = create_app(on_startup=create_db)
+    return app
 
 # Test client
 @pytest.fixture(scope="module")
-def client(event_loop: asyncio.BaseEventLoop) -> Iterator[TestClient]:
-    with TestClient(app) as c:
+def client(test_app) -> Iterator[TestClient]:
+    with TestClient(test_app) as c:
         yield c
 
 
@@ -62,7 +64,7 @@ def test_graphql_add_project(query: str, client: TestClient) -> None:
 
 def test_graphql_big_request(client: TestClient) -> None:
     res = client.post(
-        "/graphql", json={'query': queries['add_project'].replace('javascript', 'x' * 5000)}
+        "/graphql", json={'query': queries['add_project'].replace('python', 'x' * 5000)}
     )
     assert res.status_code == 413
     errors = res.json()['errors']

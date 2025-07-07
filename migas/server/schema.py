@@ -19,7 +19,9 @@ from .database import (
     query_projects,
     query_usage_by_datetimes,
     verify_token,
+    add_new_project,
 )
+from .extensions import RequireRoot
 from .fetchers import fetch_project_info
 from .models import get_project_tables
 from .types import (
@@ -151,8 +153,12 @@ class Mutation:
         ctx: ContextInput,
         proc: ProcessInput,
     ) -> BreadcrumbResult:
-        if not '/' in project:
+        if '/' not in project:
             return BreadcrumbResult(success=False)
+
+        # TODO: Check in-memory db rather than database
+        if not await project_exists(project):
+            return BreadcrumbResult(success=False, message='Project is not yet registered.')
 
         context = Context(
             user_id=ctx.user_id,
@@ -187,6 +193,10 @@ class Mutation:
     async def add_project(self, p: ProjectInput, info: Info) -> JSON:
         # validate project
         if not p.project or '/' not in p.project:
+            return {'success': False}
+
+        # TODO: Check in-memory db rather than database
+        if not await project_exists(p.project):
             return {'success': False}
 
         # convert to Project and set defaults
@@ -225,6 +235,17 @@ class Mutation:
             'message': '',  # TODO: Allow message for bad_versions
             'success': fetched['success'],
         }
+
+    @strawberry.mutation(permission_classes=[RequireRoot])
+    async def register_project(self, project: str) -> JSON:
+        """
+        Register a project to be used with the service.
+        """
+        # TODO: Check for existance of project / user tables
+        if await project_exists(project):
+            return {'success': True, 'message': 'Project is already registered.'}
+        await add_new_project(project)
+        return {'success': True, 'message': 'Project is now registered.'}
 
 
 class RateLimiter(SchemaExtension):
@@ -275,7 +296,7 @@ class RateLimiter(SchemaExtension):
         """
         Use a sliding window to verify incoming responses are not overloading the server.
 
-        Requests are checked to be in the range set by two environmental variables:
+        Requests are checked to be in the range set by two environment variables:
         `MIGAS_REQUEST_WINDOW` and `MIGAS_MAX_REQUESTS_PER_WINDOW`
         """
         import time

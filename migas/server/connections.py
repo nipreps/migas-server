@@ -30,7 +30,7 @@ async def get_redis_connection() -> redis.Redis:
         if (uri := os.getenv("REDIS_TLS_URL")) is None and (
             uri := os.getenv("MIGAS_REDIS_URI")
         ) is None:
-            raise ConnectionError("Redis environmental variable is not set.")
+            raise ConnectionError("Redis environment variable is not set.")
 
         rkwargs = {'decode_responses': True}
         if os.getenv("HEROKU_DEPLOYED") and uri.startswith('rediss://'):
@@ -64,7 +64,7 @@ async def get_db_engine() -> AsyncEngine:
         from sqlalchemy.ext.asyncio import create_async_engine
 
         if (db_url := os.getenv("DATABASE_URL")) is None:
-            # Create URL from environmental variables
+            # Create URL from environment variables
             from sqlalchemy.engine import URL
 
             db_url = URL.create(
