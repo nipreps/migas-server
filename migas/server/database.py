@@ -13,13 +13,12 @@ def db_context(func):
     """Decorator that creates a session for database interaction."""
     @wraps(func)
     async def wrapper(*args, **kwargs):
-        has_session = kwargs.get('session')
-        if has_session:
+        cur_session = kwargs.get('session')
+        if cur_session:
+            # if chaining, committing and closing need to be handled
             return await func(*args, **kwargs)
-        # no session specified, inject a new one
         async with gen_session() as session:
-            kwargs['session'] = session
-            return await func(*args, **kwargs)
+            return await func(*args, session=session, **kwargs)
     return wrapper
 
 
@@ -39,7 +38,6 @@ async def insert_master(project: str, session: SessionGen) -> None:
         insert(projects).on_conflict_do_nothing(),
         {'project': project},
     )
-    await session.commit()
 
 
 @db_context
@@ -76,7 +74,6 @@ async def insert_project(
             'is_ci': is_ci,
         },
     )
-    await session.commit()
 
 
 @db_context
@@ -98,7 +95,6 @@ async def insert_user(
             'container': container,
         },
     )
-    await session.commit()
 
 
 async def ingest_project(project: Project) -> None:
