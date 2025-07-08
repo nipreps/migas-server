@@ -13,8 +13,13 @@ def db_context(func):
     """Decorator that creates a session for database interaction."""
     @wraps(func)
     async def wrapper(*args, **kwargs):
+        has_session = kwargs.get('session')
+        if has_session:
+            return await func(*args, **kwargs)
+        # no session specified, inject a new one
         async with gen_session() as session:
-            return await func(*args, session=session, **kwargs)
+            kwargs['session'] = session
+            return await func(*args, **kwargs)
     return wrapper
 
 
