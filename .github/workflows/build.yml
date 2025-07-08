@@ -3,12 +3,12 @@ name: Build and test service
 on:
   push:
     branches:
-    - master
+    - main
     tags:
     - '*'
   pull_request:
     branches:
-    - master
+    - main
   schedule:
   # 7am EST / 8am EDT Mondays
   - cron: '0 12 * * 1'
