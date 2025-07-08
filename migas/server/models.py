@@ -155,16 +155,20 @@ async def init_db(engine: AsyncEngine) -> None:
         # create all tables
         await conn.run_sync(Base.metadata.create_all)
 
+SessionGen = AsyncGenerator[AsyncSession, None]
 
 @asynccontextmanager
-async def gen_session() -> AsyncGenerator[AsyncSession, None]:
+async def gen_session() -> SessionGen:
     """Generate a database session, and close once finished."""
     from .connections import get_db_engine
 
     # do not expire on commit to allow use of data afterwards
     session = AsyncSession(await get_db_engine(), future=True, expire_on_commit=False)
-    async with session.begin():
-        try:
-            yield session
-        finally:
-            await session.close()
+    try:
+        yield session
+        await session.commit()
+    except Exception as e:
+        await session.rollback()
+        print(f"Transaction failed. Rolling back the session. Error: {e}")
+    finally:
+        await session.close()
