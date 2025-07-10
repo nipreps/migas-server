@@ -4,9 +4,9 @@ from typing import AsyncGenerator
 from sqlalchemy import Column, MetaData, Table
 from sqlalchemy.dialects.postgresql import ENUM, UUID
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.sql import func
-from sqlalchemy.types import BOOLEAN, INTEGER, TIMESTAMP, String
+from sqlalchemy.types import BOOLEAN, INTEGER, TIMESTAMP, String, BIGINT, CHAR, DOUBLE_PRECISION
 
 SCHEMA = 'migas'
 
@@ -55,6 +55,29 @@ class Authentication(Base):
     __tablename__ = "auth"
     project = Column(String(length=140), primary_key=True)
     token = Column(String)
+
+
+class LocASN(Base):
+    __tablename__ = 'loc_asn'
+    idx = Column(BIGINT, primary_key=True)
+    start_ip = Column(BIGINT, nullable=False)
+    end_ip = Column(BIGINT, nullable=False)
+    asn = Column(INTEGER)
+    asn_org = Column(String)
+
+
+class LocCity(Base):
+    __tablename__ = 'loc_city'
+    idx = Column(BIGINT, primary_key=True)
+    start_ip = Column(BIGINT, nullable=False)
+    end_ip = Column(BIGINT, nullable=False)
+    continent_code = Column(CHAR(2))
+    country_code = Column(CHAR(2))
+    state_province_name = Column(String)
+    city_name = Column(String)
+    lat = Column(DOUBLE_PRECISION)
+    lon = Column(DOUBLE_PRECISION)
+
 
 
 async def get_project_tables(project: str, create: bool = False) -> tuple[Table, Table]:
@@ -155,10 +178,9 @@ async def init_db(engine: AsyncEngine) -> None:
         # create all tables
         await conn.run_sync(Base.metadata.create_all)
 
-SessionGen = AsyncGenerator[AsyncSession, None]
 
 @asynccontextmanager
-async def gen_session() -> SessionGen:
+async def gen_session() -> AsyncGenerator[AsyncSession, None]:
     """Generate a database session, and close once finished."""
     from .connections import get_db_engine
 

@@ -6,7 +6,7 @@ from datetime import datetime
 from sqlalchemy import distinct, func, select, case
 from sqlalchemy.dialects.postgresql import insert
 
-from .models import Table, gen_session, get_project_tables, projects, SessionGen
+from .models import Table, gen_session, get_project_tables, projects, AsyncSession, LocASN, LocCity
 from .types import Project, serialize
 
 def db_context(func):
@@ -32,7 +32,7 @@ async def add_new_project(project: str) -> bool:
 
 # Table insertion
 @db_context
-async def insert_master(project: str, session: SessionGen) -> None:
+async def insert_master(project: str, session: AsyncSession) -> None:
     """Add project to master table."""
     await session.execute(
         insert(projects).on_conflict_do_nothing(),
@@ -55,7 +55,7 @@ async def insert_project(
     error_type: str | None,
     error_desc: str | None,
     is_ci: bool,
-    session: SessionGen,
+    session: AsyncSession,
 ) -> None:
     """Add to project table"""
     await session.execute(
@@ -84,7 +84,7 @@ async def insert_user(
     user_type: str,
     platform: str,
     container: str,
-    session: SessionGen,
+    session: AsyncSession,
 ) -> None:
     await session.execute(
         insert(users).on_conflict_do_nothing(),
@@ -141,7 +141,7 @@ async def query_usage_by_datetimes(
     project: Table,
     start: datetime,
     end: datetime,
-    session: SessionGen,
+    session: AsyncSession,
     unique: bool = False,
 ) -> int:
     query = select(func.count()).where(
@@ -156,26 +156,26 @@ async def query_usage_by_datetimes(
 
 
 @db_context
-async def query_usage(project: Table, session: SessionGen) -> int:
+async def query_usage(project: Table, session: AsyncSession) -> int:
     res = await session.execute(select(func.count(project.c.idx)))
     return res.scalars().one()
 
 
 @db_context
-async def query_usage_unique(project: Table, session: SessionGen) -> int:
+async def query_usage_unique(project: Table, session: AsyncSession) -> int:
     """TODO: What to do with all NULLs (unique users)?"""
     res = await session.execute(select(func.count(distinct(project.c.user_id))))
     return res.scalars().one()
 
 
 @db_context
-async def query_projects(session: SessionGen) -> list[str]:
+async def query_projects(session: AsyncSession) -> list[str]:
     res = await session.execute(select(projects.c.project))
     return res.scalars().all()
 
 
 @db_context
-async def project_exists(project: str, session: SessionGen) -> bool:
+async def project_exists(project: str, session: AsyncSession) -> bool:
     res = await session.execute(projects.select().where(projects.c.project == project))
     return bool(res.one_or_none())
 
@@ -266,9 +266,19 @@ async def get_viz_data(
     return date.all()
 
 
+@db_context
+async def valid_location_dbs(session: AsyncSession) -> tuple[bool, bool]:
+    res_asn = await session.execute(select(LocASN.c.idx).limit(1))
+    asn_valid = res_asn.scalar() is not None
+
+    res_city = await session.execute(select(LocCity.c.idx).limit(1))
+    city_valid = res_city.scalar() is not None
+    return asn_valid, city_valid
+
+
+
 async def verify_token(token: str, require_root: bool = False) -> tuple[bool, list[str]]:
     '''Query table for usage access'''
-    from sqlalchemy import select
     from .models import Authentication
 
     project, projects = None, []
