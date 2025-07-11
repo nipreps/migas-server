@@ -2,11 +2,19 @@ import typing as ty
 from functools import wraps
 from datetime import datetime
 
-# from asyncpg import Record
-from sqlalchemy import distinct, func, select, case
+from sqlalchemy import distinct, func, select, case, cast
 from sqlalchemy.dialects.postgresql import insert
 
-from .models import Table, gen_session, get_project_tables, projects, AsyncSession, LocASN, LocCity
+from .models import (
+    Table,
+    gen_session,
+    get_project_tables,
+    projects,
+    AsyncSession,
+    LocASN,
+    LocCity,
+    INET,
+)
 from .types import Project, serialize
 
 def db_context(func):
@@ -180,6 +188,21 @@ async def project_exists(project: str, session: AsyncSession) -> bool:
     return bool(res.one_or_none())
 
 
+@db_context
+async def query_loc(ip: str, session: AsyncSession) -> tuple[int | None, int | None]:
+    """Lookup an IP address and return table indices, if found."""
+    asn_res = await session.execute(
+        select(LocASN.idx).where(cast(ip, INET)).between(LocASN.start_ip, LocASN.end_ip)
+    )
+    asn = asn_res.scalar_one_or_none()
+
+    city_res = await session.execute(
+        select(LocCity.idx).where(cast(ip, INET)).between(LocCity.start_ip, LocCity.end_ip)
+    )
+    city = city_res.scalar_one_or_none()
+    return asn, city
+
+
 async def get_viz_data(
     project_name: str,
     version: str | None = None,
@@ -274,7 +297,6 @@ async def valid_location_dbs(session: AsyncSession) -> tuple[bool, bool]:
     res_city = await session.execute(select(LocCity.c.idx).limit(1))
     city_valid = res_city.scalar() is not None
     return asn_valid, city_valid
-
 
 
 async def verify_token(token: str, require_root: bool = False) -> tuple[bool, list[str]]:
