@@ -2,11 +2,11 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 from sqlalchemy import Column, MetaData, Table
-from sqlalchemy.dialects.postgresql import ENUM, UUID
+from sqlalchemy.dialects.postgresql import ENUM, UUID, INET
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.sql import func
-from sqlalchemy.types import BOOLEAN, INTEGER, TIMESTAMP, String, BIGINT, CHAR, DOUBLE_PRECISION
+from sqlalchemy.types import BOOLEAN, INTEGER, TIMESTAMP, String, CHAR, DOUBLE_PRECISION
 
 SCHEMA = 'migas'
 
@@ -46,6 +46,8 @@ class ProjectUsers(Base):
     user_type = Column(String(length=7), nullable=False)
     platform = Column(String(length=8))
     container = Column(String(length=9), nullable=False)
+    asn_idx = Column(INTEGER)
+    city_idx = Column(INTEGER)
 
 
 projects = Projects.__table__
@@ -59,18 +61,18 @@ class Authentication(Base):
 
 class LocASN(Base):
     __tablename__ = 'loc_asn'
-    idx = Column(BIGINT, primary_key=True)
-    start_ip = Column(BIGINT, nullable=False)
-    end_ip = Column(BIGINT, nullable=False)
+    idx = Column(INTEGER, primary_key=True)
+    start_ip = Column(INET, nullable=False)
+    end_ip = Column(INET, nullable=False)
     asn = Column(INTEGER)
     asn_org = Column(String)
 
 
 class LocCity(Base):
     __tablename__ = 'loc_city'
-    idx = Column(BIGINT, primary_key=True)
-    start_ip = Column(BIGINT, nullable=False)
-    end_ip = Column(BIGINT, nullable=False)
+    idx = Column(INTEGER, primary_key=True)
+    start_ip = Column(INET, nullable=False)
+    end_ip = Column(INET, nullable=False)
     continent_code = Column(CHAR(2))
     country_code = Column(CHAR(2))
     state_province_name = Column(String)
