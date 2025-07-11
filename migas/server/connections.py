@@ -2,7 +2,7 @@
 
 import os
 
-import aiohttp
+from aiohttp import ClientSession, ClientTimeout
 import redis.asyncio as redis
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -45,13 +45,13 @@ async def get_redis_connection() -> redis.Redis:
 
 
 # GH requests
-async def get_requests_session() -> aiohttp.ClientSession:
+async def get_requests_session() -> ClientSession:
     """Initialize within an async function, since sync initialization is deprecated."""
     global REQUESTS_SESSION
     if REQUESTS_SESSION is None:
         print("Creating new aiohttp session")
-        REQUESTS_SESSION = aiohttp.ClientSession(
-            timeout=aiohttp.ClientTimeout(total=3),  # maximum wait time for a request
+        REQUESTS_SESSION = ClientSession(
+            timeout=ClientTimeout(total=3),  # maximum wait time for a request
             headers={'Content-Type': 'application/json'},
         )
     return REQUESTS_SESSION
