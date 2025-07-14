@@ -1,3 +1,4 @@
+import typing as ty
 import os
 import gzip
 from functools import wraps
@@ -28,8 +29,11 @@ async def fetch_response(
     *,
     session: ClientSession,
     params: dict | None = None,
+    headers: dict | None = None,
     content_type: str = "application/json",
 ):
+    request_headers = headers or {}
+    request_headers['Content-Type'] = content_type
     async with session.get(url, params=params) as response:
         try:
             res = await response.json(content_type=content_type)
@@ -85,31 +89,48 @@ async def fetch_project_info(project: str) -> dict:
         "version": latest_version.lstrip('v'),
     }
 
+
 @inject_aiohttp_session
-async def fetch_gzipped_file(*, session: ClientSession, url: str) -> bytes | None:
+async def fetch_gzipped_file(url: str, *, session: ClientSession) -> bytes | None:
     """Get the already processed database file"""
-    async with session.get(url) as resp:
+    async with session.get(url, timeout=60) as resp:
         if resp.status != 200:
             return
         content = await resp.read()
     return gzip.decompress(content)
 
-async def download_ingest_csv():
-    ...
 
-async def fetch_loc_dbs():
+async def download_ingest_csv(url: str, db: ty.Literal['asn', 'city']):
+    from .models import copy_db_from_stream
+
+    file_bytes = await fetch_gzipped_file(url)
+    if file_bytes:
+        await copy_db_from_stream(file_bytes, db)
+
+
+async def fetch_loc_dbs(app):
     """
     1. Check if location databases are empty
     2. If not, fetch preprocessed location CSVs.
     2. Ingest into Postgres
     """
-    if os.getenv('MIGAS_DISABLE_LOCATION'):
+    if not os.getenv('MIGAS_DOWNLOAD_LOCATION'):
         return False
 
     from .database import valid_location_dbs
     valid_asn, valid_city = await valid_location_dbs()
     if not valid_asn:
-        await download_ingest_csv()
+        from .constants import LOC_ASN_URL
+
+        print('Downloading location data (ASN)')
+        await download_ingest_csv(LOC_ASN_URL, db='asn')
+    else:
+        print('Found valid ASN database')
 
     if not valid_city:
-        await download_ingest_csv()
+        from .constants import LOC_CITY_URL
+
+        print('Downloading location data (CITY)')
+        await download_ingest_csv(LOC_CITY_URL, db='city')
+    else:
+        print('Found valid CITY database')
