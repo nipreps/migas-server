@@ -91,9 +91,9 @@ async def fetch_project_info(project: str) -> dict:
 
 
 @inject_aiohttp_session
-async def fetch_gzipped_file(url: str, *, session: ClientSession) -> bytes | None:
+async def fetch_gzipped_file(url: str, *, timeout: int = 60, session: ClientSession) -> bytes | None:
     """Get the already processed database file"""
-    async with session.get(url, timeout=60) as resp:
+    async with session.get(url, timeout=timeout) as resp:
         if resp.status != 200:
             return
         content = await resp.read()
