@@ -184,8 +184,10 @@ class Mutation:
             process=process,
         )
 
+        request = info.context['request']
+        ip = request.client.host
         bg_tasks = info.context['background_tasks']
-        bg_tasks.add_task(ingest_project, project)
+        bg_tasks.add_task(ingest_project, project, ip)
         return BreadcrumbResult(success=True)
 
 
@@ -224,9 +226,11 @@ class Mutation:
 
         fetched = await fetch_project_info(p.project)
 
+        request = info.context['request']
+        ip = request.client.host
         # return project info ASAP, assign data ingestion as background tasks
         bg_tasks = info.context['background_tasks']
-        bg_tasks.add_task(ingest_project, project)
+        bg_tasks.add_task(ingest_project, project, ip)
 
         return {
             'bad_versions': fetched['bad_versions'],

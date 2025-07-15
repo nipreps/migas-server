@@ -78,6 +78,8 @@ async def insert_user(
     user_type: str,
     platform: str,
     container: str,
+    asn_idx: int | None,
+    city_idx: int | None,
     session: AsyncSession,
 ) -> None:
     await session.execute(
@@ -87,11 +89,13 @@ async def insert_user(
             'user_type': user_type,
             'platform': platform,
             'container': container,
+            'asn_idx': asn_idx,
+            'city_idx': city_idx,
         },
     )
 
 
-async def ingest_project(project: Project) -> None:
+async def ingest_project(project: Project, ip: str | None = None) -> None:
     """Dump information into database tables."""
     data = await serialize(project.__dict__)
     # check version lengths
@@ -120,6 +124,7 @@ async def ingest_project(project: Project) -> None:
         error_desc=data['process']['error_desc'],
         is_ci=data['context']['is_ci'],
     )
+    asn_idx, city_idx = await query_loc(ip)
     if data['context']['user_id'] is not None:
         await insert_user(
             utable,
@@ -127,6 +132,8 @@ async def ingest_project(project: Project) -> None:
             user_type=data['context']['user_type'],
             platform=data['context']['platform'],
             container=data['context']['container'],
+            asn_idx=asn_idx,
+            city_idx=city_idx,
         )
 
 
@@ -175,8 +182,11 @@ async def project_exists(project: str, session: AsyncSession) -> bool:
 
 
 @inject_db_session
-async def query_loc(ip: str, session: AsyncSession) -> tuple[int | None, int | None]:
+async def query_loc(ip: str | None, session: AsyncSession) -> tuple[int | None, int | None]:
     """Lookup an IP address and return table indices, if found."""
+    if ip is None:
+        return None, None
+
     asn_res = await session.execute(
         select(LocASN.idx).where(cast(ip, INET)).between(LocASN.start_ip, LocASN.end_ip)
     )
