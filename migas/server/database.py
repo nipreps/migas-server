@@ -183,19 +183,28 @@ async def project_exists(project: str, session: AsyncSession) -> bool:
 
 @inject_db_session
 async def query_loc(ip: str | None, session: AsyncSession) -> tuple[int | None, int | None]:
-    """Lookup an IP address and return table indices, if found."""
-    if ip is None:
-        return None, None
+    """
+    Lookup an IP address and return table indices, if found.
 
-    asn_res = await session.execute(
-        select(LocASN.idx).where(cast(ip, INET)).between(LocASN.start_ip, LocASN.end_ip)
-    )
-    asn = asn_res.scalar_one_or_none()
+    The incoming IP is cast to the Postgres INET type, better to wrap in a try in case this casting fails.
+    """
 
-    city_res = await session.execute(
-        select(LocCity.idx).where(cast(ip, INET)).between(LocCity.start_ip, LocCity.end_ip)
-    )
-    city = city_res.scalar_one_or_none()
+    try:
+        asn_res = await session.execute(
+            select(LocASN.idx).where(cast(ip, INET).between(LocASN.start_ip, LocASN.end_ip))
+        )
+        asn = asn_res.scalar_one_or_none()
+    except Exception:
+        asn = None
+
+    try:
+        city_res = await session.execute(
+            select(LocCity.idx).where(cast(ip, INET).between(LocCity.start_ip, LocCity.end_ip))
+        )
+        city = city_res.scalar_one_or_none()
+    except Exception:
+        city = None
+
     return asn, city
 
 
