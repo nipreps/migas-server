@@ -2,24 +2,18 @@ import typing as ty
 from functools import wraps
 from datetime import datetime
 
-# from asyncpg import Record
-from sqlalchemy import distinct, func, select, case
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import distinct, func, select, case, cast
+from sqlalchemy.dialects.postgresql import insert, INET
 
-from .models import Table, gen_session, get_project_tables, projects, SessionGen
+from .connections import inject_db_session, gen_session, AsyncSession
+from .models import (
+    Table,
+    get_project_tables,
+    projects,
+    LocASN,
+    LocCity,
+)
 from .types import Project, serialize
-
-def db_context(func):
-    """Decorator that creates a session for database interaction."""
-    @wraps(func)
-    async def wrapper(*args, **kwargs):
-        cur_session = kwargs.get('session')
-        if cur_session:
-            # if chaining, committing and closing need to be handled
-            return await func(*args, **kwargs)
-        async with gen_session() as session:
-            return await func(*args, session=session, **kwargs)
-    return wrapper
 
 
 async def add_new_project(project: str) -> bool:
@@ -31,8 +25,8 @@ async def add_new_project(project: str) -> bool:
     return True
 
 # Table insertion
-@db_context
-async def insert_master(project: str, session: SessionGen) -> None:
+@inject_db_session
+async def insert_master(project: str, session: AsyncSession) -> None:
     """Add project to master table."""
     await session.execute(
         insert(projects).on_conflict_do_nothing(),
@@ -40,7 +34,7 @@ async def insert_master(project: str, session: SessionGen) -> None:
     )
 
 
-@db_context
+@inject_db_session
 async def insert_project(
     table: Table,
     *,
@@ -55,7 +49,7 @@ async def insert_project(
     error_type: str | None,
     error_desc: str | None,
     is_ci: bool,
-    session: SessionGen,
+    session: AsyncSession,
 ) -> None:
     """Add to project table"""
     await session.execute(
@@ -76,7 +70,7 @@ async def insert_project(
     )
 
 
-@db_context
+@inject_db_session
 async def insert_user(
     users: Table,
     *,
@@ -84,7 +78,9 @@ async def insert_user(
     user_type: str,
     platform: str,
     container: str,
-    session: SessionGen,
+    asn_idx: int | None,
+    city_idx: int | None,
+    session: AsyncSession,
 ) -> None:
     await session.execute(
         insert(users).on_conflict_do_nothing(),
@@ -93,11 +89,13 @@ async def insert_user(
             'user_type': user_type,
             'platform': platform,
             'container': container,
+            'asn_idx': asn_idx,
+            'city_idx': city_idx,
         },
     )
 
 
-async def ingest_project(project: Project) -> None:
+async def ingest_project(project: Project, ip: str | None = None) -> None:
     """Dump information into database tables."""
     data = await serialize(project.__dict__)
     # check version lengths
@@ -126,6 +124,7 @@ async def ingest_project(project: Project) -> None:
         error_desc=data['process']['error_desc'],
         is_ci=data['context']['is_ci'],
     )
+    asn_idx, city_idx = await query_loc(ip)
     if data['context']['user_id'] is not None:
         await insert_user(
             utable,
@@ -133,15 +132,17 @@ async def ingest_project(project: Project) -> None:
             user_type=data['context']['user_type'],
             platform=data['context']['platform'],
             container=data['context']['container'],
+            asn_idx=asn_idx,
+            city_idx=city_idx,
         )
 
 
-@db_context
+@inject_db_session
 async def query_usage_by_datetimes(
     project: Table,
     start: datetime,
     end: datetime,
-    session: SessionGen,
+    session: AsyncSession,
     unique: bool = False,
 ) -> int:
     query = select(func.count()).where(
@@ -155,29 +156,56 @@ async def query_usage_by_datetimes(
     return res.scalar_one_or_none() or 0
 
 
-@db_context
-async def query_usage(project: Table, session: SessionGen) -> int:
+@inject_db_session
+async def query_usage(project: Table, session: AsyncSession) -> int:
     res = await session.execute(select(func.count(project.c.idx)))
     return res.scalars().one()
 
 
-@db_context
-async def query_usage_unique(project: Table, session: SessionGen) -> int:
+@inject_db_session
+async def query_usage_unique(project: Table, session: AsyncSession) -> int:
     """TODO: What to do with all NULLs (unique users)?"""
     res = await session.execute(select(func.count(distinct(project.c.user_id))))
     return res.scalars().one()
 
 
-@db_context
-async def query_projects(session: SessionGen) -> list[str]:
+@inject_db_session
+async def query_projects(session: AsyncSession) -> list[str]:
     res = await session.execute(select(projects.c.project))
     return res.scalars().all()
 
 
-@db_context
-async def project_exists(project: str, session: SessionGen) -> bool:
+@inject_db_session
+async def project_exists(project: str, session: AsyncSession) -> bool:
     res = await session.execute(projects.select().where(projects.c.project == project))
     return bool(res.one_or_none())
+
+
+@inject_db_session
+async def query_loc(ip: str | None, session: AsyncSession) -> tuple[int | None, int | None]:
+    """
+    Lookup an IP address and return table indices, if found.
+
+    The incoming IP is cast to the Postgres INET type, better to wrap in a try in case this casting fails.
+    """
+
+    try:
+        asn_res = await session.execute(
+            select(LocASN.idx).where(cast(ip, INET).between(LocASN.start_ip, LocASN.end_ip))
+        )
+        asn = asn_res.scalar_one_or_none()
+    except Exception:
+        asn = None
+
+    try:
+        city_res = await session.execute(
+            select(LocCity.idx).where(cast(ip, INET).between(LocCity.start_ip, LocCity.end_ip))
+        )
+        city = city_res.scalar_one_or_none()
+    except Exception:
+        city = None
+
+    return asn, city
 
 
 async def get_viz_data(
@@ -266,9 +294,18 @@ async def get_viz_data(
     return date.all()
 
 
+@inject_db_session
+async def valid_location_dbs(session: AsyncSession) -> tuple[bool, bool]:
+    res_asn = await session.execute(select(LocASN.idx).limit(1))
+    asn_valid = res_asn.scalar() is not None
+
+    res_city = await session.execute(select(LocCity.idx).limit(1))
+    city_valid = res_city.scalar() is not None
+    return asn_valid, city_valid
+
+
 async def verify_token(token: str, require_root: bool = False) -> tuple[bool, list[str]]:
     '''Query table for usage access'''
-    from sqlalchemy import select
     from .models import Authentication
 
     project, projects = None, []

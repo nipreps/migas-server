@@ -16,6 +16,7 @@ from .connections import (
     get_redis_connection,
     get_requests_session,
 )
+from .fetchers import fetch_loc_dbs
 from .models import init_db
 from .schema import SCHEMA
 
@@ -31,7 +32,7 @@ async def lifespan(
     app.cache = await get_redis_connection()
     # Connect to PostgreSQL and initialize tables
     app.db = await get_db_engine()
-    await init_db(app.db)
+    await init_db()
     # Establish aiohttp session
     app.requests = await get_requests_session()
     if on_startup:
@@ -93,4 +94,4 @@ def create_app(lifespan_func=lifespan, **lifespan_kwargs) -> FastAPI:
     return app
 
 
-app = create_app()
+app = create_app(on_startup=fetch_loc_dbs)

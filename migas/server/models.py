@@ -1,12 +1,13 @@
-from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+import typing as ty
 
-from sqlalchemy import Column, MetaData, Table
-from sqlalchemy.dialects.postgresql import ENUM, UUID
-from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy import Column, MetaData, Table, text
+from sqlalchemy.dialects.postgresql import ENUM, UUID, INET
+from sqlalchemy.ext.asyncio import AsyncConnection
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.sql import func
-from sqlalchemy.types import BOOLEAN, INTEGER, TIMESTAMP, String
+from sqlalchemy.types import BOOLEAN, INTEGER, TIMESTAMP, String, CHAR, DOUBLE_PRECISION
+
+from .connections import inject_db_conn
 
 SCHEMA = 'migas'
 
@@ -46,6 +47,8 @@ class ProjectUsers(Base):
     user_type = Column(String(length=7), nullable=False)
     platform = Column(String(length=8))
     container = Column(String(length=9), nullable=False)
+    asn_idx = Column(INTEGER)
+    city_idx = Column(INTEGER)
 
 
 projects = Projects.__table__
@@ -55,6 +58,29 @@ class Authentication(Base):
     __tablename__ = "auth"
     project = Column(String(length=140), primary_key=True)
     token = Column(String)
+
+
+class LocASN(Base):
+    __tablename__ = 'loc_asn'
+    idx = Column(INTEGER, primary_key=True)
+    start_ip = Column(INET, nullable=False)
+    end_ip = Column(INET, nullable=False)
+    asn = Column(INTEGER)
+    asn_org = Column(String)
+
+
+class LocCity(Base):
+    __tablename__ = 'loc_city'
+    idx = Column(INTEGER, primary_key=True)
+    start_ip = Column(INET, nullable=False)
+    end_ip = Column(INET, nullable=False)
+    continent_code = Column(CHAR(2))
+    country_code = Column(CHAR(2))
+    state_province_name = Column(String)
+    city_name = Column(String)
+    lat = Column(DOUBLE_PRECISION)
+    lon = Column(DOUBLE_PRECISION)
+
 
 
 async def get_project_tables(project: str, create: bool = False) -> tuple[Table, Table]:
@@ -111,24 +137,21 @@ async def get_project_tables(project: str, create: bool = False) -> tuple[Table,
     return project_table, users_table
 
 
-async def create_tables(tables: list) -> None:
-    from .connections import get_db_engine
-
-    engine = await get_db_engine()
-    async with engine.begin() as conn:
-        def _create_tables(conn) -> None:
-            return Base.metadata.create_all(conn, tables=tables)
-        await conn.run_sync(_create_tables)
+@inject_db_conn
+async def create_tables(tables: list, conn: AsyncConnection) -> None:
+    def _create_tables(conn) -> None:
+        return Base.metadata.create_all(conn, tables=tables)
+    await conn.run_sync(_create_tables)
 
 
+@inject_db_conn
 async def populate_base(conn: AsyncConnection) -> None:
     """Populate declarative class definitions with dynamically created tables."""
 
     def _has_master_table(conn) -> bool:
         from sqlalchemy import inspect
 
-        inspector = inspect(conn)
-        return inspector.has_table("projects", schema='migas')
+        return inspect(conn).has_table('projects', schema=SCHEMA)
 
     if await conn.run_sync(_has_master_table):
         from .database import query_projects
@@ -137,7 +160,8 @@ async def populate_base(conn: AsyncConnection) -> None:
             await get_project_tables(project)
 
 
-async def init_db(engine: AsyncEngine) -> None:
+@inject_db_conn
+async def init_db(conn: AsyncConnection) -> None:
     """
     Initialize the database.
 
@@ -146,29 +170,48 @@ async def init_db(engine: AsyncEngine) -> None:
     2) project tables
     3) If projects table exists, ensure all tracked projects have Project/ProjectUsers tables.
     """
-    async with engine.begin() as conn:
-        from sqlalchemy.schema import CreateSchema
-        await conn.execute(CreateSchema('migas', if_not_exists=True))
+    from sqlalchemy.schema import CreateSchema
+    await conn.execute(CreateSchema('migas', if_not_exists=True))
 
-        # if project is already being monitored, create it
-        await populate_base(conn)
-        # create all tables
-        await conn.run_sync(Base.metadata.create_all)
+    # if project is already being monitored, create it
+    await populate_base(conn=conn)
+    # create all tables
+    await conn.run_sync(Base.metadata.create_all)
 
-SessionGen = AsyncGenerator[AsyncSession, None]
 
-@asynccontextmanager
-async def gen_session() -> SessionGen:
-    """Generate a database session, and close once finished."""
-    from .connections import get_db_engine
+@inject_db_conn
+async def copy_db_from_stream(
+    file_bytes: bytes,
+    db: ty.Literal['asn', 'city'],
+    conn: AsyncConnection,
+):
+    """
+    Write bytes to a table.
+    """
+    import io
 
-    # do not expire on commit to allow use of data afterwards
-    session = AsyncSession(await get_db_engine(), future=True, expire_on_commit=False)
-    try:
-        yield session
-        await session.commit()
-    except Exception as e:
-        await session.rollback()
-        print(f"Transaction failed. Rolling back the session. Error: {e}")
-    finally:
-        await session.close()
+    match db:
+        case 'asn':
+            table = LocASN
+        case 'city':
+            table = LocCity
+        case _:
+            return
+
+    tablename = table.__tablename__
+    columns = [c.name for c in table.__table__.columns if c.name != 'idx']
+    raw_conn = await conn.get_raw_connection()
+
+    with io.BytesIO(file_bytes) as stream:
+        try:
+            # asyncpg-specific method
+            await raw_conn.driver_connection.copy_to_table(
+                table_name=tablename,
+                source=stream,
+                columns=columns,
+                schema_name=SCHEMA,
+                format='csv',
+                header=False,
+            )
+        except Exception as e:
+            print(f'Error when copying to {db}: {e}')
