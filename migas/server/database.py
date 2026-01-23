@@ -1,5 +1,4 @@
 import typing as ty
-from functools import wraps
 from datetime import datetime
 
 from sqlalchemy import distinct, func, select, case, cast
@@ -110,6 +109,8 @@ async def ingest_project(project: Project, ip: str | None = None) -> None:
         # TODO: Log > print
         print(f'One or more missing tables:\n\n"Project table: {ptable}\nUsers table: {utable}')
         return
+
+    geoloc_idx = await insert_query_geoloc(ip)
     await insert_project(
         ptable,
         version=data['project_version'],
@@ -132,8 +133,7 @@ async def ingest_project(project: Project, ip: str | None = None) -> None:
             user_type=data['context']['user_type'],
             platform=data['context']['platform'],
             container=data['context']['container'],
-            asn_idx=asn_idx,
-            city_idx=city_idx,
+            geoloc_idx=geoloc_idx,
         )
 
 
@@ -323,3 +323,57 @@ async def verify_token(token: str, require_root: bool = False) -> tuple[bool, li
         elif not require_root:
             projects = [project[0]]
     return bool(project), projects
+
+
+async def insert_query_geoloc(ip: str | None) -> int | None:
+    """
+    Gather geolocation information from an IP, and preserve in a dedicated table.
+
+    Initially will query the MMDB databases for geolocation information.
+    If found, will attempt to insert geolocation information into the GeoLoc table, but if
+    already present, will simply fetch the existing index.
+
+    The index returned will be inserted into the specific `Project` table.
+    """
+    from .fetchers import geoloc
+
+    info = await geoloc(ip)
+    if not info:
+        return
+
+    # Insert into geoloc table
+    from .models import GeoLoc
+
+    async with gen_session() as session:
+        res = await session.execute(
+            insert(GeoLoc)
+            .values(
+                asn=info.get('asn'),
+                asn_org=info.get('aso'),
+                continent_code=info.get('continent_code'),
+                country_code=info.get('country_code'),
+                state_province_name=info.get('state_or_province'),
+                city_name=info.get('city'),
+                lat=info.get('lat'),
+                lon=info.get('lon'),
+            )
+            .on_conflict_do_nothing()
+            .returning(GeoLoc.idx)
+        )
+        geoloc_idx = res.scalar_one_or_none()
+
+        if geoloc_idx is None:
+            # Fetch existing index
+            res = await session.execute(
+                select(GeoLoc.idx).where(
+                    GeoLoc.country_code == info.get('country_code'),
+                    GeoLoc.state_province_name == info.get('state_or_province'),
+                    GeoLoc.city_name == info.get('city'),
+                    GeoLoc.lat == info.get('lat'),
+                    GeoLoc.lon == info.get('lon'),
+                )
+            )
+            geoloc_idx = res.scalar_one_or_none()
+
+        return geoloc_idx
+

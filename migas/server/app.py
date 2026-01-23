@@ -15,6 +15,8 @@ from .connections import (
     get_db_engine,
     get_redis_connection,
     get_requests_session,
+    get_mmdb_reader,
+    close_geoloc_dbs,
 )
 from .fetchers import fetch_loc_dbs
 from .models import init_db
@@ -35,6 +37,7 @@ async def lifespan(
     await init_db()
     # Establish aiohttp session
     app.requests = await get_requests_session()
+    app.geodbs = await get_mmdb_reader()
     if on_startup:
         await on_startup(app)
     yield
@@ -43,6 +46,7 @@ async def lifespan(
     await app.cache.aclose()
     await app.db.dispose()
     await app.requests.close()
+    await close_geoloc_dbs()
 
 
 def create_app(lifespan_func=lifespan, **lifespan_kwargs) -> FastAPI:
@@ -78,6 +82,7 @@ def create_app(lifespan_func=lifespan, **lifespan_kwargs) -> FastAPI:
             "package": "migas",
             "version": __version__,
             "message": "Visit /graphql for GraphiQL interface",
+            "geoloc_enabled": bool(os.getenv('MIGAS_ENABLE_GEOLOC')),
         }
 
 
