@@ -1,3 +1,4 @@
+from pathlib import Path
 import typing as ty
 import os
 import gzip
@@ -91,7 +92,7 @@ async def fetch_project_info(project: str) -> dict:
 
 
 @inject_aiohttp_session
-async def fetch_gzipped_file(url: str, *, timeout: int = 60, session: ClientSession) -> bytes | None:
+async def fetch_gzipped_bytes(url: str, *, timeout: int = 20, session: ClientSession) -> bytes | None:
     """Get the already processed database file"""
     async with session.get(url, timeout=timeout) as resp:
         if resp.status != 200:
@@ -100,37 +101,37 @@ async def fetch_gzipped_file(url: str, *, timeout: int = 60, session: ClientSess
     return gzip.decompress(content)
 
 
-async def download_ingest_csv(url: str, db: ty.Literal['asn', 'city']):
-    from .models import copy_db_from_stream
+async def download_geoloc_db(url: str, db: ty.Literal['asn', 'city']) -> Path:
+    file_bytes = await fetch_gzipped_bytes(url)
+    out_file = Path(f'{db}.mmdb').absolute()
+    out_file.write_bytes(file_bytes)
+    return out_file
 
-    file_bytes = await fetch_gzipped_file(url)
-    if file_bytes:
-        await copy_db_from_stream(file_bytes, db)
 
+async def geoloc(ip: str, lang: str = 'en') -> dict | None:
+    from .connections import get_geoloc_dbs
 
-async def fetch_loc_dbs(app):
-    """
-    1. Check if location databases are empty
-    2. If not, fetch preprocessed location CSVs.
-    2. Ingest into Postgres
-    """
-    if not os.getenv('MIGAS_DOWNLOAD_LOCATION'):
-        return False
+    city, asn = await get_geoloc_dbs()
+    if not city or not asn:
+        return
 
-    from .database import valid_location_dbs
-    valid_asn, valid_city = await valid_location_dbs()
-    if not valid_asn:
-        from .constants import LOC_ASN_URL
+    info = {}
+    cinfo = city.get(ip)
+    if not cinfo:
+        print(f"No geolocation info for IP: {ip}")
+        return
+    info['city'] = cinfo['city']['names'][lang]
+    info['continent_code'] = cinfo['continent']['code']
+    info['country_code'] = cinfo['country']['iso_code']
+    info['lat'] = cinfo['location']['latitude']
+    info['lon'] = cinfo['location']['longitude']
+    if subdivs := cinfo['subdivisions']:
+        info['state_or_province'] = subdivs[0]['names'][lang]
 
-        print('Downloading location data (ASN)')
-        await download_ingest_csv(LOC_ASN_URL, db='asn')
-    else:
-        print('Found valid ASN database')
-
-    if not valid_city:
-        from .constants import LOC_CITY_URL
-
-        print('Downloading location data (CITY)')
-        await download_ingest_csv(LOC_CITY_URL, db='city')
-    else:
-        print('Found valid CITY database')
+    ainfo = asn.get(ip)
+    if not ainfo:
+        print(f"No geolocation info for IP: {ip}")
+        return info
+    info['asn'] = ainfo['autonomous_system_number']
+    info['aso'] = ainfo['autonomous_system_organization']
+    return info
