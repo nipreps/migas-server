@@ -7,32 +7,59 @@ from fastapi.testclient import TestClient
 
 from ..app import create_app
 from ..database import add_new_project
+from ..connection_context import isolated_connection_context, set_connection_context, ConnectionContext
 
 if not os.getenv("MIGAS_REDIS_URI"):
-    pytest.skip(allow_module_level=True)
+    pytest.skip(reason='Could not establish redis connection', allow_module_level=True)
 
-os.environ["MIGAS_BYPASS_RATE_LIMIT"] = "1"
-os.environ["MIGAS_TESTING"] = "1"
+if not (
+    os.getenv("DATABASE_URL") or
+    all(
+        os.getenv("DATABASE_USER"),
+        os.getenv("DATABASE_PASSWORD"),
+        os.getenv("DATABASE_NAME"),
+    )
+):
+    pytest.skip(reason='Could not establish postgres connection', allow_module_level=True)
 
 TEST_PROJECT = "nipreps/migas-server"
+
+async def create_db(app):
+    """Helper function to register a project on application startup."""
+    await add_new_project(TEST_PROJECT)
 
 queries = {
     'add_project': f'mutation{{add_project(p:{{project:"{TEST_PROJECT}",project_version:"0.5.0",language:"python",language_version:"3.12"}})}}',
 }
 
-@pytest.fixture(scope="module")
-def test_app():
-    async def create_db(app):
-        await add_new_project(TEST_PROJECT)
-
-    app = create_app(on_startup=create_db)
-    return app
-
 # Test client
-@pytest.fixture(scope="module")
-def client(test_app) -> Iterator[TestClient]:
-    with TestClient(test_app) as c:
-        yield c
+@pytest.fixture(scope="function")
+def client() -> Iterator[TestClient]:
+    original_values = {
+        "MIGAS_BYPASS_RATE_LIMIT": os.getenv("MIGAS_BYPASS_RATE_LIMIT"),
+        "MIGAS_TESTING": os.getenv("MIGAS_TESTING"),
+    }
+
+    os.environ["MIGAS_BYPASS_RATE_LIMIT"] = "1"
+    os.environ["MIGAS_TESTING"] = "1"
+    
+    # Create isolated context for this test
+    test_context = ConnectionContext()
+    original_context = set_connection_context(test_context)
+    
+    try:
+        app = create_app(on_startup=create_db)
+        with TestClient(app) as c:
+            yield c
+    finally:
+        # Restore original context
+        set_connection_context(original_context)
+        
+        for key, value in original_values.items():
+            if value is None:
+                del os.environ[key]
+                continue
+            os.environ[key] = value
 
 
 def test_server_landing(client: TestClient) -> None:
@@ -44,7 +71,9 @@ def test_server_landing(client: TestClient) -> None:
 def test_server_info(client: TestClient) -> None:
     res = client.get("/info")
     assert res.status_code == 200
-    assert res.json()["package"] == "migas"
+    obj = res.json()
+    assert obj["package"] == "migas"
+    assert obj["geoloc_enabled"] is False
 
 
 @pytest.mark.parametrize(

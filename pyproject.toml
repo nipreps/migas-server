@@ -42,6 +42,7 @@ speedups = [
     "aiohttp[speedups]",
     "redis[hiredis]",
 ]
+geo = ["maxminddb"],
 dev = [
     "black",
     "isort",
@@ -54,6 +55,9 @@ migrations = [
 ]
 test = [
     "pytest",
+]
+prod = [
+    "migas_server[speedups,migrations,geoloc]"
 ]
 
 [project.scripts]
