@@ -8,19 +8,21 @@ import aiohttp
 
 from .connections import get_redis_connection, get_requests_session, ClientSession
 
-GITHUB_RELEASE_URL = "https://api.github.com/repos/{project}/releases/latest"
-GITHUB_TAG_URL = "https://api.github.com/repos/{project}/tags"
-GITHUB_ET_FILE_URL = "https://raw.githubusercontent.com/{project}/{version}/.migas.json"
+GITHUB_RELEASE_URL = 'https://api.github.com/repos/{project}/releases/latest'
+GITHUB_TAG_URL = 'https://api.github.com/repos/{project}/tags'
+GITHUB_ET_FILE_URL = 'https://raw.githubusercontent.com/{project}/{version}/.migas.json'
 
 
 def inject_aiohttp_session(func):
     """Decorator that injects the global session to a function."""
+
     @wraps(func)
     async def wrapper(*args, **kwargs):
         session = kwargs.pop('session', None)
         if not session:
             session = await get_requests_session()
         return await func(*args, session=session, **kwargs)
+
     return wrapper
 
 
@@ -31,7 +33,7 @@ async def fetch_response(
     session: ClientSession,
     params: dict | None = None,
     headers: dict | None = None,
-    content_type: str = "application/json",
+    content_type: str = 'application/json',
 ):
     request_headers = headers or {}
     request_headers['Content-Type'] = content_type
@@ -74,7 +76,7 @@ async def fetch_project_info(project: str) -> dict:
                 GITHUB_ET_FILE_URL.format(project=project, version=latest_version)
             )
             if estatus == 200:
-                for bad_version in et.get("bad_versions", set()):
+                for bad_version in et.get('bad_versions', set()):
                     await cache.sadd(f'{project}/bad_versions', bad_version)
 
         # write to cache
@@ -84,15 +86,17 @@ async def fetch_project_info(project: str) -> dict:
     bad_versions = await cache.smembers(f'{project}/bad_versions') or set()
 
     return {
-        "bad_versions": list(bad_versions),
-        "cached": not cache_miss,
-        "success": latest_version not in ('unknown', 'forbidden'),
-        "version": latest_version.lstrip('v'),
+        'bad_versions': list(bad_versions),
+        'cached': not cache_miss,
+        'success': latest_version not in ('unknown', 'forbidden'),
+        'version': latest_version.lstrip('v'),
     }
 
 
 @inject_aiohttp_session
-async def fetch_gzipped_bytes(url: str, *, timeout: int = 20, session: ClientSession) -> bytes | None:
+async def fetch_gzipped_bytes(
+    url: str, *, timeout: int = 20, session: ClientSession
+) -> bytes | None:
     """Get the already processed database file"""
     async with session.get(url, timeout=timeout) as resp:
         if resp.status != 200:
@@ -103,22 +107,25 @@ async def fetch_gzipped_bytes(url: str, *, timeout: int = 20, session: ClientSes
 
 async def download_geoloc_db(url: str, db: ty.Literal['asn', 'city']) -> Path:
     file_bytes = await fetch_gzipped_bytes(url)
+    if not file_bytes:
+        raise RuntimeError(f'Failed to download {db} database from {url}')
     out_file = Path(f'{db}.mmdb').absolute()
     out_file.write_bytes(file_bytes)
+    print(f'File {out_file} ({len(file_bytes)} bytes) ready for lookups.')
     return out_file
 
 
 async def geoloc(ip: str, lang: str = 'en') -> dict | None:
-    from .connections import get_geoloc_dbs
+    from .connections import get_mmdb_reader
 
-    city, asn = await get_geoloc_dbs()
+    city, asn = await get_mmdb_reader()
     if not city or not asn:
         return
 
     info = {}
     cinfo = city.get(ip)
     if not cinfo:
-        print(f"No geolocation info for IP: {ip}")
+        print(f'No geolocation info for IP: {ip}')
         return
     info['city'] = cinfo['city']['names'][lang]
     info['continent_code'] = cinfo['continent']['code']
@@ -130,8 +137,14 @@ async def geoloc(ip: str, lang: str = 'en') -> dict | None:
 
     ainfo = asn.get(ip)
     if not ainfo:
-        print(f"No geolocation info for IP: {ip}")
+        print(f'No geolocation info for IP: {ip}')
         return info
     info['asn'] = ainfo['autonomous_system_number']
     info['aso'] = ainfo['autonomous_system_organization']
     return info
+
+
+async def fetch_loc_dbs(app=None) -> None:
+    from .connections import get_mmdb_reader
+
+    await get_mmdb_reader()

@@ -20,8 +20,8 @@ from .utils import dt_to_str, str_to_dt
 # slightly differs from datetime.datetime.isoformat()
 DateTime = scalar(
     datetime,
-    name="DateTime",
-    description="Date and time information in UTC, compliant with ISO-8601",
+    name='DateTime',
+    description='Date and time information in UTC, compliant with ISO-8601',
     serialize=dt_to_str,
     parse_value=str_to_dt,
 )
@@ -29,8 +29,8 @@ DateTime = scalar(
 # Version must be PEP440 compliant
 Version = scalar(
     _Version,
-    name="Version",
-    description="Version information (PEP440 compliant)",
+    name='Version',
+    description='Version information (PEP440 compliant)',
     serialize=lambda v: str(v),
     parse_value=parse_version,
 )
@@ -62,9 +62,9 @@ class Status(Enum):
     suspended = strawberry.enum_value('S')
 
     # Deprecations, to be removed in 0.4.0
-    pending = strawberry.enum_value('R', deprecation_reason="Pending is now running")
-    success = strawberry.enum_value('C', deprecation_reason="Success is now completed")
-    error = strawberry.enum_value('F', deprecation_reason="Error is now failed")
+    pending = strawberry.enum_value('R', deprecation_reason='Pending is now running')
+    success = strawberry.enum_value('C', deprecation_reason='Success is now completed')
+    error = strawberry.enum_value('F', deprecation_reason='Error is now failed')
 
 
 # @strawberry.type
@@ -91,7 +91,7 @@ class Context:
     user_id: str | None = None
     session_id: str | None = None
     user_type: User = User.general
-    platform: str = "unknown"
+    platform: str = 'unknown'
     container: Container = Container.unknown
     is_ci: bool = False
 
@@ -111,59 +111,68 @@ class Project:
 @strawberry.input
 class ContextInput:
     session_id: str | None = strawberry.field(
-        description="Unique identifier for telemetry session", default=None
+        description='Unique identifier for telemetry session', default=None
     )
-    user_id: str | None = strawberry.field(description="Unique identifier for migas client", default=None)
-    user_type: User = strawberry.field(
-        description="Identifier of user role", default=User.general
+    user_id: str | None = strawberry.field(
+        description='Unique identifier for migas client', default=None
     )
-    platform: str = strawberry.field(description="Client platform type", default="unknown")
+    user_type: User = strawberry.field(description='Identifier of user role', default=User.general)
+    platform: str = strawberry.field(description='Client platform type', default='unknown')
     container: Container = strawberry.field(
-        description="Check if client pings from inside a container", default=Container.unknown
+        description='Check if client pings from inside a container', default=Container.unknown
     )
     is_ci: bool = strawberry.field(
-        description="Client is pinging from continous integration", default=False
+        description='Client is pinging from continous integration', default=False
     )
+
 
 @strawberry.input
 class ProcessInput:
     status: Status = strawberry.field(
-        description="For timeseries pings, the current process status", default=Status.R
+        description='For timeseries pings, the current process status', default=Status.R
     )
-    status_desc: str | None = strawberry.field(description="Description of status ping", default=None)
-    error_type: str | None = strawberry.field(description="Type of error encountered", default=None)
-    error_desc: str | None = strawberry.field(description="Description of error", default=None)
+    status_desc: str | None = strawberry.field(
+        description='Description of status ping', default=None
+    )
+    error_type: str | None = strawberry.field(
+        description='Type of error encountered', default=None
+    )
+    error_desc: str | None = strawberry.field(description='Description of error', default=None)
 
 
 @strawberry.input
 class ProjectInput:
     project: str = strawberry.field(description="GitHub project in the form of 'owner/repo'")
-    project_version: Version = strawberry.field(description="Project version being used")
-    language: str = strawberry.field(description="Programming language of project")
-    language_version: Version = strawberry.field(description="Programming language version")
+    project_version: Version = strawberry.field(description='Project version being used')
+    language: str = strawberry.field(description='Programming language of project')
+    language_version: Version = strawberry.field(description='Programming language version')
     # optional
     session_id: str | None = strawberry.field(
-        description="Unique identifier for telemetry session", default=None
+        description='Unique identifier for telemetry session', default=None
     )
     # context args
-    user_id: str | None = strawberry.field(description="Unique identifier for migas client", default=None)
-    user_type: User = strawberry.field(
-        description="Identifier of user role", default=User.general
+    user_id: str | None = strawberry.field(
+        description='Unique identifier for migas client', default=None
     )
-    platform: str = strawberry.field(description="Client platform type", default="unknown")
+    user_type: User = strawberry.field(description='Identifier of user role', default=User.general)
+    platform: str = strawberry.field(description='Client platform type', default='unknown')
     container: Container = strawberry.field(
-        description="Check if client pings from inside a container", default=Container.unknown
+        description='Check if client pings from inside a container', default=Container.unknown
     )
     is_ci: bool = strawberry.field(
-        description="Client is pinging from continous integration", default=False
+        description='Client is pinging from continous integration', default=False
     )
     # process args
     status: Status = strawberry.field(
-        description="For timeseries pings, the current process status", default=Status.R
+        description='For timeseries pings, the current process status', default=Status.R
     )
-    status_desc: str | None = strawberry.field(description="Description of status ping", default=None)
-    error_type: str | None = strawberry.field(description="Type of error encountered", default=None)
-    error_desc: str | None = strawberry.field(description="Description of error", default=None)
+    status_desc: str | None = strawberry.field(
+        description='Description of status ping', default=None
+    )
+    error_type: str | None = strawberry.field(
+        description='Type of error encountered', default=None
+    )
+    error_desc: str | None = strawberry.field(description='Description of error', default=None)
     # arguments: Arguments = strawberry.field(
     #     description="Client side arguments used", default_factory=lambda: "{}"
     # )

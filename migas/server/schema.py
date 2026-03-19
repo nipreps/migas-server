@@ -43,13 +43,13 @@ from .utils import now
 class Query:
     @strawberry.field
     async def get_projects(self) -> list[str]:
-        '''Return projects that are being tracked'''
+        """Return projects that are being tracked"""
         projs = await query_projects()
         return projs
 
     @strawberry.field
     async def check_project(self, project: str, project_version: str) -> CheckProjectResult:
-        '''Check version of project for latest version, developer notes, etc.'''
+        """Check version of project for latest version, developer notes, etc."""
         fetched = await fetch_project_info(project)
         is_flagged = project_version in fetched['bad_versions']
         return CheckProjectResult(
@@ -61,13 +61,9 @@ class Query:
 
     @strawberry.field
     async def get_usage(
-        self,
-        project: str,
-        start: DateTime,
-        end: DateTime | None = None,
-        unique: bool = False,
+        self, project: str, start: DateTime, end: DateTime | None = None, unique: bool = False
     ) -> JSON:
-        '''
+        """
         Query project uses.
 
         `start` and `end` can be in either of the following formats:
@@ -76,7 +72,7 @@ class Query:
 
         If `endtime` is not provided, current time is used.
         If `unique`, only unique users will be included.
-        '''
+        """
 
         if end is None:
             end = now()
@@ -88,12 +84,7 @@ class Query:
             project_table, _ = await get_project_tables(project, create=False)
             count = await query_usage_by_datetimes(project_table, start, end, unique)
             message = ''
-        return {
-            'hits': count,
-            'message': message,
-            'unique': unique,
-            'success': exists,
-        }
+        return {'hits': count, 'message': message, 'unique': unique, 'success': exists}
 
     @strawberry.field
     async def login(self, token: str) -> AuthenticationResult:
@@ -104,11 +95,7 @@ class Query:
         else:
             success = True
             msg = 'Authentication successful.'
-        return AuthenticationResult(
-            success=success,
-            projects=projects,
-            message=msg,
-        )
+        return AuthenticationResult(success=success, projects=projects, message=msg)
 
     @strawberry.field
     async def usage_stats(
@@ -118,7 +105,7 @@ class Query:
         version: str | None = None,
         date_group: str = 'day',  # TODO: ty.Literal incompatibility with strawberry - enum?
     ) -> JSON:
-        'Generate different usage information'
+        "Generate different usage information"
         _, projects = await verify_token(token)
         if project not in projects:
             raise Exception('Invalid token.')
@@ -128,14 +115,16 @@ class Query:
         for ver, date, comp, fail, susp, inc in usage:
             if ver not in data['versions']:
                 data['versions'].append(ver)
-            data['timeseries'].append({
-                'version': ver,
-                'date': date,
-                'completed': comp,
-                'failed': fail,
-                'suspended': susp,
-                'incomplete': inc,
-            })
+            data['timeseries'].append(
+                {
+                    'version': ver,
+                    'date': date,
+                    'completed': comp,
+                    'failed': fail,
+                    'suspended': susp,
+                    'incomplete': inc,
+                }
+            )
 
         return data
 
@@ -189,7 +178,6 @@ class Mutation:
         bg_tasks = info.context['background_tasks']
         bg_tasks.add_task(ingest_project, project, ip)
         return BreadcrumbResult(success=True)
-
 
     @strawberry.field
     async def add_project(self, p: ProjectInput, info: Info) -> JSON:
@@ -267,19 +255,19 @@ class RateLimiter(SchemaExtension):
         super().__init__(*args, **kwargs)
 
     def set_attrs(self):
-        self.request_window = int(os.getenv("MIGAS_REQUEST_WINDOW", "60"))
-        self.max_requests = int(os.getenv("MIGAS_MAX_REQUESTS_PER_WINDOW", "100"))
-        self.max_request_size = int(os.getenv("MIGAS_MAX_REQUEST_SIZE", "2500"))
+        self.request_window = int(os.getenv('MIGAS_REQUEST_WINDOW', '60'))
+        self.max_requests = int(os.getenv('MIGAS_MAX_REQUESTS_PER_WINDOW', '100'))
+        self.max_request_size = int(os.getenv('MIGAS_MAX_REQUEST_SIZE', '2500'))
 
     async def on_operation(self):
         """
         Hook into the GraphQL request stack, and validate data at the start.
         """
-        if os.getenv("MIGAS_TESTING"):
+        if os.getenv('MIGAS_TESTING'):
             self.set_attrs()
         request = self.execution_context.context['request']
         response = self.execution_context.context['response']
-        if not os.getenv("MIGAS_BYPASS_RATE_LIMIT"):
+        if not os.getenv('MIGAS_BYPASS_RATE_LIMIT'):
             await self.sliding_window_rate_limit(request, response)
         # check request size
         body = await request.body()
@@ -294,7 +282,6 @@ class RateLimiter(SchemaExtension):
                 ],
             )
         yield  # any logic after yield for post operation
-
 
     async def sliding_window_rate_limit(self, request: Request, response: Response):
         """
@@ -322,8 +309,7 @@ class RateLimiter(SchemaExtension):
         if len(timestamps) > self.max_requests:
             response.status_code = 429  # Too many requests
             self.execution_context.result = GraphQLExecutionResult(
-                data=None,
-                errors=[GraphQLError('Too many requests, wait a minute.')],
+                data=None, errors=[GraphQLError('Too many requests, wait a minute.')]
             )
 
 

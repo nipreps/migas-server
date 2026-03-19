@@ -6,32 +6,32 @@ on:
     - main
     tags:
     - '*'
-  pull_request:
-    branches:
-    - main
+  pull_request: {}
   schedule:
   # 7am EST / 8am EDT Mondays
   - cron: '0 12 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-test:
-    if: |
-      github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
-      || ! contains(github.event.head_commit.message, '[skip ci]')
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
     - name: Install the latest version of uv
-      uses: astral-sh/setup-uv@v6
-    - name: Install hatch
-      run: uv tool install hatch
+      uses: astral-sh/setup-uv@v7
     - name: Build the image
       run: |
-        VERSION=`uvx hatch version | tail -n1`
+        VERSION=$(uvx --with hatch-vcs hatch version | tail -n1)
         echo $VERSION
         docker compose build --build-arg BUILDTYPE=latest-test --build-arg DEPLOYSERVER=uvicorn --build-arg VERSION=$VERSION
     - name: Start all the things
-      run: docker compose up -d
+      run: docker compose up -d --wait
     - name: Test the things
       run: docker exec app bash -c "pytest /src/migas/server"
     - name: Stop all the things
