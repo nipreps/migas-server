@@ -1,3 +1,6 @@
+#!/bin/bash
+
+# Common environment variables
 export MIGAS_REDIS_URI='redis://localhost'
 export DATABASE_URL='postgres://localhost/migas'
 export MIGAS_DEBUG=1
@@ -5,4 +8,15 @@ export MIGAS_DEBUG=1
 export MIGAS_BYPASS_RATE_LIMIT=1
 export MIGAS_MAX_REQUEST_SIZE=3000
 
-uvicorn migas.server.app:app --host 0.0.0.0 --port 8080 --reload --proxy-headers --header X-Backend-Server:migas
+if [ "$1" == "test" ]; then
+    echo "Running in test mode..."
+    uv run pytest -vrs ${2:-"migas/"}
+else
+    echo "Running server..."
+    uvicorn migas.server.app:app \
+        --host 0.0.0.0 \
+        --port 8080 \
+        --reload \
+        --proxy-headers \
+        --header X-Backend-Server:migas
+fi

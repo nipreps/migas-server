@@ -1,7 +1,7 @@
 import typing as ty
 
-from sqlalchemy import Column, MetaData, Table, text
-from sqlalchemy.dialects.postgresql import ENUM, UUID, INET
+from sqlalchemy import Column, MetaData, Table, UniqueConstraint
+from sqlalchemy.dialects.postgresql import ENUM, UUID
 from sqlalchemy.ext.asyncio import AsyncConnection
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.sql import func
@@ -15,14 +15,14 @@ Base = declarative_base(metadata=MetaData(schema=SCHEMA))
 
 
 class Projects(Base):
-    __tablename__ = "projects"
+    __tablename__ = 'projects'
 
     project = Column(String(140), primary_key=True)  # 39 owner + "/" + 100 repository
 
 
 class Project(Base):
     __abstract__ = True
-    __mapper_args__ = {"eager_defaults": True}
+    __mapper_args__ = {'eager_defaults': True}
 
     idx = Column(INTEGER, primary_key=True)
     version = Column(String(length=24), nullable=False)
@@ -40,7 +40,7 @@ class Project(Base):
 
 class ProjectUsers(Base):
     __abstract__ = True
-    __mapper_args__ = {"eager_defaults": True}
+    __mapper_args__ = {'eager_defaults': True}
 
     idx = Column(INTEGER, primary_key=True)
     user_id = Column(UUID, unique=True)
@@ -55,32 +55,28 @@ projects = Projects.__table__
 
 
 class Authentication(Base):
-    __tablename__ = "auth"
+    __tablename__ = 'auth'
     project = Column(String(length=140), primary_key=True)
     token = Column(String)
 
 
-class LocASN(Base):
-    __tablename__ = 'loc_asn'
+class GeoLoc(Base):
+    __tablename__ = 'geoloc'
+    table_args = (
+        UniqueConstraint(
+            'country_code', 'state_province_name', 'city_name', 'lat', 'lon', name='unique_loc_idx'
+        ),
+    )
+
     idx = Column(INTEGER, primary_key=True)
-    start_ip = Column(INET, nullable=False)
-    end_ip = Column(INET, nullable=False)
     asn = Column(INTEGER)
     asn_org = Column(String)
-
-
-class LocCity(Base):
-    __tablename__ = 'loc_city'
-    idx = Column(INTEGER, primary_key=True)
-    start_ip = Column(INET, nullable=False)
-    end_ip = Column(INET, nullable=False)
     continent_code = Column(CHAR(2))
     country_code = Column(CHAR(2))
     state_province_name = Column(String)
     city_name = Column(String)
     lat = Column(DOUBLE_PRECISION)
     lon = Column(DOUBLE_PRECISION)
-
 
 
 async def get_project_tables(project: str, create: bool = False) -> tuple[Table, Table]:
@@ -107,18 +103,10 @@ async def get_project_tables(project: str, create: bool = False) -> tuple[Table,
             # Dynamically create project and project/users table,
             # and create a relationship between them
             ProjectModel = type(
-                project_class_name,
-                (Project,),
-                {
-                    '__tablename__': project_tablename,
-                },
+                project_class_name, (Project,), {'__tablename__': project_tablename}
             )
             UsersModel = type(
-                users_class_name,
-                (ProjectUsers,),
-                {
-                    '__tablename__': users_tablename,
-                },
+                users_class_name, (ProjectUsers,), {'__tablename__': users_tablename}
             )
             # # assign relationships once both are defined
             # ProjectModel.users = relationship(users_class_name, back_populates='project')
@@ -128,8 +116,8 @@ async def get_project_tables(project: str, create: bool = False) -> tuple[Table,
             project_table = tables[project_fullname]
             tables_to_create = [users_table, project_table]
         elif project_table is None or users_table is None:
-                # missing complimentary table
-                raise RuntimeError(f'Missing required table for {project}')
+            # missing complimentary table
+            raise RuntimeError(f'Missing required table for {project}')
 
     if tables_to_create:
         await create_tables(tables_to_create)
@@ -141,6 +129,7 @@ async def get_project_tables(project: str, create: bool = False) -> tuple[Table,
 async def create_tables(tables: list, conn: AsyncConnection) -> None:
     def _create_tables(conn) -> None:
         return Base.metadata.create_all(conn, tables=tables)
+
     await conn.run_sync(_create_tables)
 
 
@@ -171,47 +160,10 @@ async def init_db(conn: AsyncConnection) -> None:
     3) If projects table exists, ensure all tracked projects have Project/ProjectUsers tables.
     """
     from sqlalchemy.schema import CreateSchema
+
     await conn.execute(CreateSchema('migas', if_not_exists=True))
 
     # if project is already being monitored, create it
     await populate_base(conn=conn)
     # create all tables
     await conn.run_sync(Base.metadata.create_all)
-
-
-@inject_db_conn
-async def copy_db_from_stream(
-    file_bytes: bytes,
-    db: ty.Literal['asn', 'city'],
-    conn: AsyncConnection,
-):
-    """
-    Write bytes to a table.
-    """
-    import io
-
-    match db:
-        case 'asn':
-            table = LocASN
-        case 'city':
-            table = LocCity
-        case _:
-            return
-
-    tablename = table.__tablename__
-    columns = [c.name for c in table.__table__.columns if c.name != 'idx']
-    raw_conn = await conn.get_raw_connection()
-
-    with io.BytesIO(file_bytes) as stream:
-        try:
-            # asyncpg-specific method
-            await raw_conn.driver_connection.copy_to_table(
-                table_name=tablename,
-                source=stream,
-                columns=columns,
-                schema_name=SCHEMA,
-                format='csv',
-                header=False,
-            )
-        except Exception as e:
-            print(f'Error when copying to {db}: {e}')

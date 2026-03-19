@@ -42,18 +42,21 @@ speedups = [
     "aiohttp[speedups]",
     "redis[hiredis]",
 ]
+geoloc = ["maxminddb"]
 dev = [
-    "black",
-    "isort",
     "pre-commit",
     "pip-tools",
     "hatch",
+    "ruff",
 ]
 migrations = [
     "alembic",
 ]
 test = [
     "pytest",
+]
+prod = [
+    "migas_server[speedups,migrations,geoloc]"
 ]
 
 [project.scripts]
@@ -71,10 +74,10 @@ version-file = "migas/server/_version.py"
 [tool.hatch.build.targets.wheel.force-include]
 "migas/static" = "migas/static"
 
-[tool.black]
-line-length = 99
-target-version = ['py310']
-skip-string-normalization = true
 
-[tool.isort]
-profile = 'black'
+[tool.ruff]
+line-length = 99
+
+[tool.ruff.format]
+quote-style = "single"
+skip-magic-trailing-comma = true

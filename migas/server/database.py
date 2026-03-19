@@ -1,18 +1,11 @@
 import typing as ty
-from functools import wraps
 from datetime import datetime
 
 from sqlalchemy import distinct, func, select, case, cast
 from sqlalchemy.dialects.postgresql import insert, INET
 
 from .connections import inject_db_session, gen_session, AsyncSession
-from .models import (
-    Table,
-    get_project_tables,
-    projects,
-    LocASN,
-    LocCity,
-)
+from .models import Table, get_project_tables, projects, GeoLoc
 from .types import Project, serialize
 
 
@@ -24,14 +17,12 @@ async def add_new_project(project: str) -> bool:
     await insert_master(project)
     return True
 
+
 # Table insertion
 @inject_db_session
 async def insert_master(project: str, session: AsyncSession) -> None:
     """Add project to master table."""
-    await session.execute(
-        insert(projects).on_conflict_do_nothing(),
-        {'project': project},
-    )
+    await session.execute(insert(projects).on_conflict_do_nothing(), {'project': project})
 
 
 @inject_db_session
@@ -101,7 +92,7 @@ async def ingest_project(project: Project, ip: str | None = None) -> None:
     # check version lengths
     for vers in ('project_version', 'language_version'):
         if len(data[vers]) > 24:
-            print(f"Shortening {project.project} version: {data[vers]}")
+            print(f'Shortening {project.project} version: {data[vers]}')
             data[vers] = data[vers][:24]
 
     ptable, utable = await get_project_tables(project.project)
@@ -110,6 +101,8 @@ async def ingest_project(project: Project, ip: str | None = None) -> None:
         # TODO: Log > print
         print(f'One or more missing tables:\n\n"Project table: {ptable}\nUsers table: {utable}')
         return
+
+    geoloc_idx = await insert_query_geoloc(ip)
     await insert_project(
         ptable,
         version=data['project_version'],
@@ -124,7 +117,6 @@ async def ingest_project(project: Project, ip: str | None = None) -> None:
         error_desc=data['process']['error_desc'],
         is_ci=data['context']['is_ci'],
     )
-    asn_idx, city_idx = await query_loc(ip)
     if data['context']['user_id'] is not None:
         await insert_user(
             utable,
@@ -132,22 +124,17 @@ async def ingest_project(project: Project, ip: str | None = None) -> None:
             user_type=data['context']['user_type'],
             platform=data['context']['platform'],
             container=data['context']['container'],
-            asn_idx=asn_idx,
-            city_idx=city_idx,
+            asn_idx=None,  # Not used anymore
+            city_idx=None,  # Not used anymore
+            geoloc_idx=geoloc_idx,
         )
 
 
 @inject_db_session
 async def query_usage_by_datetimes(
-    project: Table,
-    start: datetime,
-    end: datetime,
-    session: AsyncSession,
-    unique: bool = False,
+    project: Table, start: datetime, end: datetime, session: AsyncSession, unique: bool = False
 ) -> int:
-    query = select(func.count()).where(
-        project.c.timestamp >= start, project.c.timestamp <= end
-    )
+    query = select(func.count()).where(project.c.timestamp >= start, project.c.timestamp <= end)
     if unique:
         query = select(func.count(distinct(project.c.user_id))).where(
             project.c.timestamp.between(start, end)
@@ -181,37 +168,10 @@ async def project_exists(project: str, session: AsyncSession) -> bool:
     return bool(res.one_or_none())
 
 
-@inject_db_session
-async def query_loc(ip: str | None, session: AsyncSession) -> tuple[int | None, int | None]:
-    """
-    Lookup an IP address and return table indices, if found.
-
-    The incoming IP is cast to the Postgres INET type, better to wrap in a try in case this casting fails.
-    """
-
-    try:
-        asn_res = await session.execute(
-            select(LocASN.idx).where(cast(ip, INET).between(LocASN.start_ip, LocASN.end_ip))
-        )
-        asn = asn_res.scalar_one_or_none()
-    except Exception:
-        asn = None
-
-    try:
-        city_res = await session.execute(
-            select(LocCity.idx).where(cast(ip, INET).between(LocCity.start_ip, LocCity.end_ip))
-        )
-        city = city_res.scalar_one_or_none()
-    except Exception:
-        city = None
-
-    return asn, city
-
-
 async def get_viz_data(
     project_name: str,
     version: str | None = None,
-    date_group: ty.Literal['day', 'week', 'month', 'year'] = 'month'
+    date_group: ty.Literal['day', 'week', 'month', 'year'] = 'month',
 ) -> list:
     """
     Filter project usage into groups, based on versions and dates.
@@ -222,7 +182,7 @@ async def get_viz_data(
         case 'day':
             datefmt = 'YYYY-MM-DD'
         case 'week':
-            datefmt = 'YYYY-WW' #?
+            datefmt = 'YYYY-WW'  # ?
         case 'month':
             datefmt = 'YYYY-MM'
         case 'year':
@@ -238,37 +198,27 @@ async def get_viz_data(
             project.c.version,
             project.c.session_id,
             func.to_char(project.c.timestamp, datefmt).label('date'),
-            project.c.status
+            project.c.status,
         )
         .distinct(project.c.session_id)
         .where(project.c.status is not None)
     )
 
     if version:
-        subq0 = (
-            subq0.where(project.c.version == version)
-        )
+        subq0 = subq0.where(project.c.version == version)
     else:
         # Filter out "unofficial" versions
-        subq0 = (
-            subq0
-            .where(project.c.version.not_like('%+%'))
-            .where(project.c.version.not_like('%rc%'))
+        subq0 = subq0.where(project.c.version.not_like('%+%')).where(
+            project.c.version.not_like('%rc%')
         )
     subq0 = subq0.subquery()
 
-
     subq1 = (
-        select(
-            subq0.c.version,
-            subq0.c.date,
-            subq0.c.status,
-            func.count().label("status_sum")
-        )
+        select(subq0.c.version, subq0.c.date, subq0.c.status, func.count().label('status_sum'))
         .group_by(subq0.c.status, subq0.c.date, subq0.c.version)
         # .order_by(subq.c.date.desc(), subq.c.version.desc())
         .subquery()
-        )
+    )
 
     complete = case((subq1.c.status == 'C', subq1.c.status_sum), else_=0)
     failed = case((subq1.c.status == 'F', subq1.c.status_sum), else_=0)
@@ -276,7 +226,6 @@ async def get_viz_data(
     incomplete = case((subq1.c.status == 'R', subq1.c.status_sum), else_=0)
 
     async with gen_session() as session:
-
         # Group subquery into groups composed of:
         # <version> <date> <status> <count>
         date = await session.execute(
@@ -286,7 +235,7 @@ async def get_viz_data(
                 func.max(complete).label('complete'),
                 func.max(failed).label('failed'),
                 func.max(suspended).label('suspended'),
-                func.max(incomplete).label('incomplete')
+                func.max(incomplete).label('incomplete'),
             )
             .group_by(subq1.c.version, subq1.c.date)
             .order_by(subq1.c.version.desc(), subq1.c.date.desc())
@@ -296,16 +245,14 @@ async def get_viz_data(
 
 @inject_db_session
 async def valid_location_dbs(session: AsyncSession) -> tuple[bool, bool]:
-    res_asn = await session.execute(select(LocASN.idx).limit(1))
-    asn_valid = res_asn.scalar() is not None
+    from .connections import get_mmdb_reader
 
-    res_city = await session.execute(select(LocCity.idx).limit(1))
-    city_valid = res_city.scalar() is not None
-    return asn_valid, city_valid
+    city, asn = await get_mmdb_reader()
+    return asn is not None, city is not None
 
 
 async def verify_token(token: str, require_root: bool = False) -> tuple[bool, list[str]]:
-    '''Query table for usage access'''
+    """Query table for usage access"""
     from .models import Authentication
 
     project, projects = None, []
@@ -323,3 +270,56 @@ async def verify_token(token: str, require_root: bool = False) -> tuple[bool, li
         elif not require_root:
             projects = [project[0]]
     return bool(project), projects
+
+
+async def insert_query_geoloc(ip: str | None) -> int | None:
+    """
+    Gather geolocation information from an IP, and preserve in a dedicated table.
+
+    Initially will query the MMDB databases for geolocation information.
+    If found, will attempt to insert geolocation information into the GeoLoc table, but if
+    already present, will simply fetch the existing index.
+
+    The index returned will be inserted into the specific `Project` table.
+    """
+    from .fetchers import geoloc
+
+    info = await geoloc(ip)
+    if not info:
+        return
+
+    # Insert into geoloc table
+    from .models import GeoLoc
+
+    async with gen_session() as session:
+        res = await session.execute(
+            insert(GeoLoc)
+            .values(
+                asn=info.get('asn'),
+                asn_org=info.get('aso'),
+                continent_code=info.get('continent_code'),
+                country_code=info.get('country_code'),
+                state_province_name=info.get('state_or_province'),
+                city_name=info.get('city'),
+                lat=info.get('lat'),
+                lon=info.get('lon'),
+            )
+            .on_conflict_do_nothing()
+            .returning(GeoLoc.idx)
+        )
+        geoloc_idx = res.scalar_one_or_none()
+
+        if geoloc_idx is None:
+            # Fetch existing index
+            res = await session.execute(
+                select(GeoLoc.idx).where(
+                    GeoLoc.country_code == info.get('country_code'),
+                    GeoLoc.state_province_name == info.get('state_or_province'),
+                    GeoLoc.city_name == info.get('city'),
+                    GeoLoc.lat == info.get('lat'),
+                    GeoLoc.lon == info.get('lon'),
+                )
+            )
+            geoloc_idx = res.scalar_one_or_none()
+
+        return geoloc_idx
