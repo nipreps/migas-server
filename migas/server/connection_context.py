@@ -1,27 +1,29 @@
 import contextlib
 import contextvars
-from typing import Optional
 
 
+from dataclasses import dataclass
+from typing import Any
+
+@dataclass
 class ConnectionContext:
-    def __init__(self):
-        self.mem_cache = None
-        self.requests_session = None
-        self.db_engine = None
-        self.geoloc_city = None
-        self.geoloc_asn = None
+    mem_cache: Any = None
+    requests_session: Any = None
+    db_engine: Any = None
+    geoloc_city: Any = None
+    geoloc_asn: Any = None
 
 
-_current_context: contextvars.ContextVar[Optional[ConnectionContext]] = contextvars.ContextVar(
+_current_context: contextvars.ContextVar[ConnectionContext | None] = contextvars.ContextVar(
     'connection_context', default=None
 )
 
 
-def get_connection_context() -> Optional[ConnectionContext]:
+def get_connection_context() -> ConnectionContext | None:
     return _current_context.get()
 
 
-def set_connection_context(ctx: Optional[ConnectionContext]) -> Optional[ConnectionContext]:
+def set_connection_context(ctx: ConnectionContext | None) -> ConnectionContext | None:
     token = _current_context.get()
     _current_context.set(ctx)
     return token
