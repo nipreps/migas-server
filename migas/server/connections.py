@@ -227,7 +227,7 @@ async def get_mmdb_reader():
 
     print('Establishing geolocation databases')
 
-    if _get_val('geoloc_city') is _UNSET:
+    if _get_val('geoloc_city') in (None, _UNSET):
         print('Downloading city MMDB')
         city_url = os.getenv('MIGAS_GEOLOC_CITY_URL')
         if not city_url:
@@ -237,7 +237,7 @@ async def get_mmdb_reader():
         geoloc_city = maxminddb.open_database(city, mode=maxminddb.MODE_MMAP_EXT)
         _set_val('geoloc_city', geoloc_city)
 
-    if _get_val('geoloc_asn') is _UNSET:
+    if _get_val('geoloc_asn') in (None, _UNSET):
         print('Downloading asn MMDB')
         asn_url = os.getenv('MIGAS_GEOLOC_ASN_URL')
         if not asn_url:
