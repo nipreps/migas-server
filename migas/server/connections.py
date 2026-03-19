@@ -215,13 +215,14 @@ async def get_mmdb_reader():
     try:
         import maxminddb
     except ImportError:
-        GEOLOC_CITY, GEOLOC_ASN = None, None
-        return
+        _set_val('geoloc_city', None)
+        _set_val('geoloc_asn', None)
+        return None, None
 
     if os.getenv('MIGAS_DISABLE_GEOLOC'):
         _set_val('geoloc_city', None)
         _set_val('geoloc_asn', None)
-        return
+        return None, None
 
     from .fetchers import download_geoloc_db
 
@@ -233,9 +234,13 @@ async def get_mmdb_reader():
         if not city_url:
             from .constants import LOC_CITY_URL as city_url
 
-        city = await download_geoloc_db(city_url, 'city')
-        geoloc_city = maxminddb.open_database(city, mode=maxminddb.MODE_MMAP_EXT)
-        _set_val('geoloc_city', geoloc_city)
+        try:
+            city = await download_geoloc_db(city_url, 'city')
+            geoloc_city = maxminddb.open_database(city, mode=maxminddb.MODE_MMAP_EXT)
+            _set_val('geoloc_city', geoloc_city)
+        except Exception as e:
+            print(f'Failed to establish city MMDB: {e}')
+            _set_val('geoloc_city', None)
 
     if _get_val('geoloc_asn') in (None, _UNSET):
         print('Downloading asn MMDB')
@@ -243,9 +248,13 @@ async def get_mmdb_reader():
         if not asn_url:
             from .constants import LOC_ASN_URL as asn_url
 
-        asn = await download_geoloc_db(asn_url, 'asn')
-        geoloc_asn = maxminddb.open_database(asn, mode=maxminddb.MODE_MMAP_EXT)
-        _set_val('geoloc_asn', geoloc_asn)
+        try:
+            asn = await download_geoloc_db(asn_url, 'asn')
+            geoloc_asn = maxminddb.open_database(asn, mode=maxminddb.MODE_MMAP_EXT)
+            _set_val('geoloc_asn', geoloc_asn)
+        except Exception as e:
+            print(f'Failed to establish asn MMDB: {e}')
+            _set_val('geoloc_asn', None)
 
     return _get_val('geoloc_city'), _get_val('geoloc_asn')
 
