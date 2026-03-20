@@ -49,6 +49,7 @@ class ProjectUsers(Base):
     container = Column(String(length=9), nullable=False)
     asn_idx = Column(INTEGER)
     city_idx = Column(INTEGER)
+    geoloc_idx = Column(INTEGER)
 
 
 projects = Projects.__table__

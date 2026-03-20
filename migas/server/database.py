@@ -71,6 +71,7 @@ async def insert_user(
     container: str,
     asn_idx: int | None,
     city_idx: int | None,
+    geoloc_idx: int | None,
     session: AsyncSession,
 ) -> None:
     await session.execute(
@@ -82,8 +83,55 @@ async def insert_user(
             'container': container,
             'asn_idx': asn_idx,
             'city_idx': city_idx,
+            'geoloc_idx': geoloc_idx,
         },
     )
+
+
+async def insert_query_geoloc(ip: str) -> int | None:
+    """
+    Query geolocation database, and insert result into geoloc table if new.
+    """
+    from .fetchers import geoloc
+    from .models import GeoLoc
+
+    if not ip or ip == 'testclient':
+        return None
+
+    info = await geoloc(ip)
+    if not info:
+        return None
+
+    async with gen_session() as session:
+        # Check if already exists
+        # We can use an on-conflict-do-update
+        stmt = (
+            insert(GeoLoc)
+            .values(
+                asn=info.get('asn'),
+                asn_org=info.get('aso'),
+                continent_code=info.get('continent_code'),
+                country_code=info.get('country_code'),
+                state_province_name=info.get('state_or_province'),
+                city_name=info.get('city'),
+                lat=info.get('lat'),
+                lon=info.get('lon'),
+            )
+            .on_conflict_do_update(
+                index_elements=[
+                    'country_code',
+                    'state_province_name',
+                    'city_name',
+                    'lat',
+                    'lon',
+                ],
+                set_={'asn': info.get('asn'), 'asn_org': info.get('aso')},
+            )
+            .returning(GeoLoc.idx)
+        )
+
+        res = await session.execute(stmt)
+        return res.scalar_one_or_none()
 
 
 async def ingest_project(project: Project, ip: str | None = None) -> None:
