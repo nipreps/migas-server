@@ -15,7 +15,9 @@ services:
     networks:
       - migas
     command:
-      --proxy-headers --port 8080 --host 0.0.0.0 --header X-Backend-Server:migas
+      --proxy-headers --port 8080 --host 0.0.0.0 --header X-Backend-Server:migas --reload
+    volumes:
+      - ./migas:/src/migas
     environment:
       MIGAS_REDIS_URI: "redis://cache:6379"
       DATABASE_URL: "postgresql+asyncpg://postgres:crumbs@postgres:5432/migas"
@@ -23,7 +25,7 @@ services:
       MIGAS_MAX_REQUESTS_PER_WINDOW:
       MIGAS_MAX_REQUEST_SIZE:
       MIGAS_BYPASS_RATE_LIMIT:
-      MIGAS_DEBUG:
+      MIGAS_DEBUG: 1
       MIGAS_TESTING:
 
   # Redis in-memory db

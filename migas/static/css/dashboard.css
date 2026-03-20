@@ -1,0 +1,75 @@
+/* ── Dashboard tokens ───────────────────────────────────────────────────────
+   Extends the :root block above. Kept separate so it's clear what belongs
+   to the analytics dashboard vs. shared primitives.
+   --status-incomplete has no equivalent in the shared tokens above.
+   --chart-* are ApexCharts-specific overrides.                              */
+
+:root {
+    --status-incomplete: #57534e;
+
+    --chart-neutral: #44403c;
+    --chart-grid: var(--border);
+    /* reuse existing border token     */
+    --chart-fore: var(--text-secondary);
+    --chart-label: #b0bec5;
+}
+
+/* ── Stats summary row ───────────────────────────────────────────────────── */
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: var(--card-bg);
+    padding: 1.5rem;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+    color: var(--primary);
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* ── Layout helpers ──────────────────────────────────────────────────────── */
+
+.full-width {
+    grid-column: 1 / -1;
+}
+
+.interval-label {
+    margin-left: 2rem;
+}
+
+/* Subdued metadata shown next to a card title (e.g. date range indicator) */
+.card-title-meta {
+    font-size: 0.8rem;
+    font-weight: 400;
+    color: var(--text-secondary);
+}
+
+/* ── ApexCharts overrides ────────────────────────────────────────────────── */
+
+.apexcharts-canvas {
+    margin: 0 auto;
+}

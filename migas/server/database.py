@@ -1,11 +1,11 @@
 import typing as ty
 from datetime import datetime
 
-from sqlalchemy import distinct, func, select, case, cast
+from sqlalchemy import distinct, func, select, case, cast, update
 from sqlalchemy.dialects.postgresql import insert, INET
 
 from .connections import inject_db_session, gen_session, AsyncSession
-from .models import Table, get_project_tables, projects, GeoLoc
+from .models import Table, get_project_tables, projects, GeoLoc, Projects, Authentication
 from .types import Project, serialize
 
 
@@ -71,6 +71,7 @@ async def insert_user(
     container: str,
     asn_idx: int | None,
     city_idx: int | None,
+    geoloc_idx: int | None,
     session: AsyncSession,
 ) -> None:
     await session.execute(
@@ -82,8 +83,55 @@ async def insert_user(
             'container': container,
             'asn_idx': asn_idx,
             'city_idx': city_idx,
+            'geoloc_idx': geoloc_idx,
         },
     )
+
+
+async def insert_query_geoloc(ip: str) -> int | None:
+    """
+    Query geolocation database, and insert result into geoloc table if new.
+    """
+    from .fetchers import geoloc
+    from .models import GeoLoc
+
+    if not ip or ip == 'testclient':
+        return None
+
+    info = await geoloc(ip)
+    if not info:
+        return None
+
+    async with gen_session() as session:
+        # Check if already exists
+        # We can use an on-conflict-do-update
+        stmt = (
+            insert(GeoLoc)
+            .values(
+                asn=info.get('asn'),
+                asn_org=info.get('aso'),
+                continent_code=info.get('continent_code'),
+                country_code=info.get('country_code'),
+                state_province_name=info.get('state_or_province'),
+                city_name=info.get('city'),
+                lat=info.get('lat'),
+                lon=info.get('lon'),
+            )
+            .on_conflict_do_update(
+                index_elements=[
+                    'country_code',
+                    'state_province_name',
+                    'city_name',
+                    'lat',
+                    'lon',
+                ],
+                set_={'asn': info.get('asn'), 'asn_org': info.get('aso')},
+            )
+            .returning(GeoLoc.idx)
+        )
+
+        res = await session.execute(stmt)
+        return res.scalar_one_or_none()
 
 
 async def ingest_project(project: Project, ip: str | None = None) -> None:
@@ -176,29 +224,22 @@ async def get_viz_data(
     """
     Filter project usage into groups, based on versions and dates.
     """
-    project, _ = await get_project_tables(project_name)
+    project, _ = await get_project_tables(project_name, create=True)
 
-    match date_group:
-        case 'day':
-            datefmt = 'YYYY-MM-DD'
-        case 'week':
-            datefmt = 'YYYY-WW'  # ?
-        case 'month':
-            datefmt = 'YYYY-MM'
-        case 'year':
-            datefmt = 'YYYY'
-        case _:
-            raise NotImplementedError
+    if project is None:
+        return []
 
-    # Create a subquery to:
-    # - filter out version(s)
-    # - convert timestamps into YEAR-WEEK values
+    # Always use YYYY-MM-DD for the frontend to parse easily
+    # date_trunc already returns the first day of the period
+    date_trunc = func.date_trunc(date_group, project.c.timestamp)
+    date_str = func.to_char(date_trunc, 'YYYY-MM-DD')
+
     subq0 = (
         select(
             project.c.version,
             project.c.session_id,
-            func.to_char(project.c.timestamp, datefmt).label('date'),
-            project.c.status,
+            date_str.label('date'),
+            project.c.status
         )
         .distinct(project.c.session_id)
         .where(project.c.status is not None)
@@ -213,34 +254,28 @@ async def get_viz_data(
         )
     subq0 = subq0.subquery()
 
-    subq1 = (
-        select(subq0.c.version, subq0.c.date, subq0.c.status, func.count().label('status_sum'))
+    query = (
+        select(
+            subq0.c.version,
+            subq0.c.date,
+            subq0.c.status,
+            func.count().label("count")
+        )
         .group_by(subq0.c.status, subq0.c.date, subq0.c.version)
-        # .order_by(subq.c.date.desc(), subq.c.version.desc())
-        .subquery()
+        .order_by(subq0.c.date.desc(), subq0.c.version.desc())
     )
 
-    complete = case((subq1.c.status == 'C', subq1.c.status_sum), else_=0)
-    failed = case((subq1.c.status == 'F', subq1.c.status_sum), else_=0)
-    suspended = case((subq1.c.status == 'S', subq1.c.status_sum), else_=0)
-    incomplete = case((subq1.c.status == 'R', subq1.c.status_sum), else_=0)
-
     async with gen_session() as session:
-        # Group subquery into groups composed of:
-        # <version> <date> <status> <count>
-        date = await session.execute(
-            select(
-                subq1.c.version,
-                subq1.c.date,
-                func.max(complete).label('complete'),
-                func.max(failed).label('failed'),
-                func.max(suspended).label('suspended'),
-                func.max(incomplete).label('incomplete'),
-            )
-            .group_by(subq1.c.version, subq1.c.date)
-            .order_by(subq1.c.version.desc(), subq1.c.date.desc())
-        )
-    return date.all()
+        res = await session.execute(query)
+        return [
+            {
+                "version": row[0],
+                "date": row[1],
+                "status": row[2],
+                "count": row[3],
+            }
+            for row in res.all()
+        ]
 
 
 @inject_db_session
@@ -251,75 +286,84 @@ async def valid_location_dbs(session: AsyncSession) -> tuple[bool, bool]:
     return asn is not None, city is not None
 
 
+def hash_token(token: str) -> str:
+    """Hash token using SHA256."""
+    import hashlib
+
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
 async def verify_token(token: str, require_root: bool = False) -> tuple[bool, list[str]]:
     """Query table for usage access"""
     from .models import Authentication
 
     project, projects = None, []
+    hashed = hash_token(token)
 
     # verify token pertains to project
     async with gen_session() as session:
+        # Check both hashed (new) and potentially unhashed (legacy) tokens
         res = await session.execute(
-            select(Authentication.project).where(Authentication.token == token)
+            select(Authentication).where(
+                (Authentication.token == hashed) | (Authentication.token == token),
+                Authentication.is_active == True,
+            )
         )
-        project = res.one_or_none()
+        auth = res.scalar_one_or_none()
+        if auth:
+            from .utils import now
+            auth.last_used = await now()
+            
+            project_name = auth.project
+            if project_name == "master":
+                projects = await query_projects()
+            elif not require_root:
+                projects = [project_name]
+            await session.commit()
+            return True, projects
 
-    if project:
-        if project[0] == 'master':
-            projects = await query_projects()
-        elif not require_root:
-            projects = [project[0]]
-    return bool(project), projects
+    return False, []
 
 
-async def insert_query_geoloc(ip: str | None) -> int | None:
-    """
-    Gather geolocation information from an IP, and preserve in a dedicated table.
+async def create_token(project: str, description: str | None = None) -> str:
+    """Generate a new secure token and store its hash."""
+    from secrets import token_urlsafe
+    from .models import Authentication
 
-    Initially will query the MMDB databases for geolocation information.
-    If found, will attempt to insert geolocation information into the GeoLoc table, but if
-    already present, will simply fetch the existing index.
+    if project == "master":
+        raise ValueError("Cannot create new master tokens via this API.")
 
-    The index returned will be inserted into the specific `Project` table.
-    """
-    from .fetchers import geoloc
-
-    info = await geoloc(ip)
-    if not info:
-        return
-
-    # Insert into geoloc table
-    from .models import GeoLoc
+    raw_token = f"m_{token_urlsafe(32)}"
+    hashed = hash_token(raw_token)
 
     async with gen_session() as session:
-        res = await session.execute(
-            insert(GeoLoc)
-            .values(
-                asn=info.get('asn'),
-                asn_org=info.get('aso'),
-                continent_code=info.get('continent_code'),
-                country_code=info.get('country_code'),
-                state_province_name=info.get('state_or_province'),
-                city_name=info.get('city'),
-                lat=info.get('lat'),
-                lon=info.get('lon'),
-            )
-            .on_conflict_do_nothing()
-            .returning(GeoLoc.idx)
+        new_auth = Authentication(
+            project=project,
+            token=hashed,
+            description=description,
         )
-        geoloc_idx = res.scalar_one_or_none()
+        session.add(new_auth)
+        await session.commit()
 
-        if geoloc_idx is None:
-            # Fetch existing index
-            res = await session.execute(
-                select(GeoLoc.idx).where(
-                    GeoLoc.country_code == info.get('country_code'),
-                    GeoLoc.state_province_name == info.get('state_or_province'),
-                    GeoLoc.city_name == info.get('city'),
-                    GeoLoc.lat == info.get('lat'),
-                    GeoLoc.lon == info.get('lon'),
-                )
+    return raw_token
+
+
+async def revoke_token(token: str) -> bool:
+    """Deactivate a token."""
+    from .models import Authentication
+
+    hashed = hash_token(token)
+    async with gen_session() as session:
+        res = await session.execute(
+            select(Authentication).where(
+                (Authentication.token == hashed) | (Authentication.token == token)
             )
-            geoloc_idx = res.scalar_one_or_none()
-
-        return geoloc_idx
+        )
+        auth = res.scalar_one_or_none()
+        if auth:
+            if auth.project == "master":
+                return False  # Do not allow revoking master tokens
+            auth.is_active = False
+            await session.commit()
+            return True
+    return False

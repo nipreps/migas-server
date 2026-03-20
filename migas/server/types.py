@@ -186,6 +186,13 @@ class AuthenticationResult:
 
 
 @strawberry.type
+class TokenResult:
+    token: str | None = None
+    success: bool
+    message: str = ""
+
+
+@strawberry.type
 class BreadcrumbResult:
     success: bool
     message: str = ''

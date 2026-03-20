@@ -1,6 +1,6 @@
 import typing as ty
 
-from sqlalchemy import Column, MetaData, Table, UniqueConstraint
+from sqlalchemy import Column, MetaData, Table, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import ENUM, UUID
 from sqlalchemy.ext.asyncio import AsyncConnection
 from sqlalchemy.orm import declarative_base
@@ -49,15 +49,21 @@ class ProjectUsers(Base):
     container = Column(String(length=9), nullable=False)
     asn_idx = Column(INTEGER)
     city_idx = Column(INTEGER)
+    geoloc_idx = Column(INTEGER)
 
 
 projects = Projects.__table__
 
 
 class Authentication(Base):
-    __tablename__ = 'auth'
-    project = Column(String(length=140), primary_key=True)
-    token = Column(String)
+    __tablename__ = "auth"
+    idx = Column(INTEGER, primary_key=True)
+    project = Column(String(length=140), nullable=False)
+    token = Column(String, unique=True, nullable=False, index=True)
+    description = Column(String)
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    last_used = Column(TIMESTAMP(timezone=True), nullable=True)
+    is_active = Column(BOOLEAN, nullable=False, server_default=text("true"))
 
 
 class GeoLoc(Base):
