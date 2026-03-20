@@ -3,6 +3,8 @@ from typing import Iterator
 from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 
+# Import modules to ensure they can be patched
+from .. import fetchers, connections
 from ..app import create_app
 from ..database import add_new_project
 from ..connection_context import set_connection_context, ConnectionContext
@@ -62,8 +64,8 @@ def mock_fetchers(request):
         return
 
     with (
-        patch('migas.server.fetchers.fetch_response', new_callable=AsyncMock) as mock_resp,
-        patch('migas.server.fetchers.fetch_gzipped_bytes', new_callable=AsyncMock) as mock_gzip,
+        patch.object(fetchers, 'fetch_response', new_callable=AsyncMock) as mock_resp,
+        patch.object(fetchers, 'fetch_gzipped_bytes', new_callable=AsyncMock) as mock_gzip,
     ):
 
         async def fetch_response_side_effect(url, **kwargs):
@@ -93,8 +95,8 @@ def mock_geoloc_db(request, tmp_path):
         return
 
     with (
-        patch('migas.server.fetchers.download_geoloc_db', new_callable=AsyncMock) as mock_download,
-        patch('migas.server.connections.get_mmdb_reader', new_callable=AsyncMock) as mock_reader,
+        patch.object(fetchers, 'download_geoloc_db', new_callable=AsyncMock) as mock_download,
+        patch.object(connections, 'get_mmdb_reader', new_callable=AsyncMock) as mock_reader,
     ):
         # Return a dummy path for download
         dummy_db = tmp_path / 'dummy.mmdb'
