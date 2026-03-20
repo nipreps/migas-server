@@ -11,7 +11,6 @@ from ..connection_context import set_connection_context, ConnectionContext
 from .conftest import queries
 
 pytestmark = pytest.mark.geoloc
-pytest.importorskip('maxminddb')
 
 
 async def setup_geoloc_test(app):

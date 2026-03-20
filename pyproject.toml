@@ -28,6 +28,7 @@ dependencies = [
     "redis >=4.2.0",
     "strawberry-graphql[fastapi]",
     "sqlalchemy[asyncio]",
+    "maxminddb",
 ]
 dynamic = ["version"]
 
@@ -42,7 +43,6 @@ speedups = [
     "aiohttp[speedups]",
     "redis[hiredis]",
 ]
-geoloc = ["maxminddb"]
 dev = [
     "pre-commit",
     "pip-tools",
@@ -56,7 +56,7 @@ test = [
     "pytest",
 ]
 prod = [
-    "migas_server[speedups,migrations,geoloc]"
+    "migas_server[speedups,migrations]"
 ]
 
 [project.scripts]

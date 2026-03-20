@@ -18,7 +18,7 @@ latest)
     python -m pip install --no-cache-dir /src
     ;;
 latest-test)
-    python -m pip install --no-cache-dir "/src[test,geoloc]"
+    python -m pip install --no-cache-dir "/src[test]"
     ;;
 *)
     echo "Unknown command"
