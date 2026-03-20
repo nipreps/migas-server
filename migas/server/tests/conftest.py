@@ -85,6 +85,10 @@ def mock_fetchers(request):
 def mock_geoloc_db(request, tmp_path):
     """Bypass geolocation database downloads and loading in tests if missing."""
     if request.node.get_closest_marker('geoloc'):
+        if not request.node.get_closest_marker('network'):
+            from pathlib import Path
+            if not Path('asn.mmdb').exists() or not Path('city.mmdb').exists():
+                pytest.fail("Geolocation tests require the database files to exist locally. Run with `@pytest.mark.network` to download them, or download them manually.")
         yield None, None
         return
 
