@@ -51,7 +51,7 @@ def client() -> ty.Iterator[TestClient]:
 
     try:
         app = create_app(on_startup=setup_geoloc_test, close_connections=False)
-        with TestClient(app) as c:
+        with TestClient(app, client=("8.8.8.8", 12345)) as c:
             yield c
     finally:
         # Restore original context
@@ -79,3 +79,11 @@ def test_graphql_add_project(query: str, client: TestClient) -> None:
     assert output['success'] is True
     for k in ('bad_versions', 'cached', 'latest_version', 'message'):
         assert k in output
+
+def test_geoloc_lookup():
+    import asyncio
+    from migas.server.fetchers import geoloc
+    res = asyncio.run(geoloc('8.8.8.8'))
+    assert res is not None
+    assert res['country_code'] == 'US'
+    assert 'continent_code' in res
