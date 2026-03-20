@@ -91,6 +91,11 @@ def create_app(lifespan_func=lifespan, **lifespan_kwargs) -> FastAPI:
     async def viz(request: Request):
         return templates.TemplateResponse(request, 'viz.html')
 
+    @app.get("/viz/dashboard", response_class=HTMLResponse)
+    async def viz_dashboard(request: Request):
+        return templates.TemplateResponse(request, "dashboard.html")
+
+
     return app
 
 

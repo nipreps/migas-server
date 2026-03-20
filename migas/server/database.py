@@ -176,29 +176,22 @@ async def get_viz_data(
     """
     Filter project usage into groups, based on versions and dates.
     """
-    project, _ = await get_project_tables(project_name)
+    project, _ = await get_project_tables(project_name, create=True)
 
-    match date_group:
-        case 'day':
-            datefmt = 'YYYY-MM-DD'
-        case 'week':
-            datefmt = 'YYYY-WW'  # ?
-        case 'month':
-            datefmt = 'YYYY-MM'
-        case 'year':
-            datefmt = 'YYYY'
-        case _:
-            raise NotImplementedError
+    if project is None:
+        return []
 
-    # Create a subquery to:
-    # - filter out version(s)
-    # - convert timestamps into YEAR-WEEK values
+    # Always use YYYY-MM-DD for the frontend to parse easily
+    # date_trunc already returns the first day of the period
+    date_trunc = func.date_trunc(date_group, project.c.timestamp)
+    date_str = func.to_char(date_trunc, 'YYYY-MM-DD')
+
     subq0 = (
         select(
             project.c.version,
             project.c.session_id,
-            func.to_char(project.c.timestamp, datefmt).label('date'),
-            project.c.status,
+            date_str.label('date'),
+            project.c.status
         )
         .distinct(project.c.session_id)
         .where(project.c.status is not None)
@@ -213,34 +206,28 @@ async def get_viz_data(
         )
     subq0 = subq0.subquery()
 
-    subq1 = (
-        select(subq0.c.version, subq0.c.date, subq0.c.status, func.count().label('status_sum'))
+    query = (
+        select(
+            subq0.c.version,
+            subq0.c.date,
+            subq0.c.status,
+            func.count().label("count")
+        )
         .group_by(subq0.c.status, subq0.c.date, subq0.c.version)
-        # .order_by(subq.c.date.desc(), subq.c.version.desc())
-        .subquery()
+        .order_by(subq0.c.date.desc(), subq0.c.version.desc())
     )
 
-    complete = case((subq1.c.status == 'C', subq1.c.status_sum), else_=0)
-    failed = case((subq1.c.status == 'F', subq1.c.status_sum), else_=0)
-    suspended = case((subq1.c.status == 'S', subq1.c.status_sum), else_=0)
-    incomplete = case((subq1.c.status == 'R', subq1.c.status_sum), else_=0)
-
     async with gen_session() as session:
-        # Group subquery into groups composed of:
-        # <version> <date> <status> <count>
-        date = await session.execute(
-            select(
-                subq1.c.version,
-                subq1.c.date,
-                func.max(complete).label('complete'),
-                func.max(failed).label('failed'),
-                func.max(suspended).label('suspended'),
-                func.max(incomplete).label('incomplete'),
-            )
-            .group_by(subq1.c.version, subq1.c.date)
-            .order_by(subq1.c.version.desc(), subq1.c.date.desc())
-        )
-    return date.all()
+        res = await session.execute(query)
+        return [
+            {
+                "version": row[0],
+                "date": row[1],
+                "status": row[2],
+                "count": row[3],
+            }
+            for row in res.all()
+        ]
 
 
 @inject_db_session

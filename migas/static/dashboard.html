@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Migas | Analytics Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/viz.css">
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <style>
+        .apexcharts-canvas {
+            margin: 0 auto;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 0.2rem;
+            color: var(--primary);
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header class="nav">
+            <div class="nav-brand">migas</div>
+            <div class="nav-controls">
+                <a href="#" class="logout-link" onclick="logout(event)">Logout</a>
+            </div>
+        </header>
+        <div class="filter-row">
+            <div class="filter-group">
+                <span class="filter-label">Project</span>
+                <select id="project-select" class="project-name" onchange="updateDashboard()"></select>
+                <span class="filter-label" style="margin-left: 2rem;">Interval</span>
+                <div class="toggle-group" id="interval-toggle-group">
+                    <input type="radio" name="interval" value="day" id="int-day">
+                    <label for="int-day">Day</label>
+                    <input type="radio" name="interval" value="week" id="int-week">
+                    <label for="int-week">Week</label>
+                    <input type="radio" name="interval" value="month" id="int-month" checked>
+                    <label for="int-month">Month</label>
+                    <input type="radio" name="interval" value="year" id="int-year">
+                    <label for="int-year">Year</label>
+                </div>
+            </div>
+            <div class="filter-group" id="version-filter-row">
+                <span class="filter-label">Version</span>
+                <div class="toggle-group" id="version-toggle-group">
+                    <!-- Dynamically populated -->
+                    <input type="radio" name="v-filter" value="all" id="v-all" checked>
+                    <label for="v-all">All Versions</label>
+                </div>
+            </div>
+        </div>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="total-runs">0</div>
+                <div class="stat-label">Total Runs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="success-rate">0%</div>
+                <div class="stat-label">Success Rate</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="active-versions">0</div>
+                <div class="stat-label"># Tracked Versions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="last-update">--</div>
+                <div class="stat-label">Last Activity</div>
+            </div>
+        </div>
+        <div class="dashboard-grid">
+            <div class="card" style="grid-column: 1 / -1;">
+                <div class="card-title">
+                    <span>Usage Analytics</span>
+                    <span id="range-indicator" style="font-size: 0.8rem;
+                         font-weight: 400;
+                         color: var(--text-secondary)"></span>
+                    <button id="reset-zoom-btn" class="btn-reset" onclick="resetZoom()" style="display: none">Reset
+                        View</button>
+                </div>
+                <div id="usage-chart" class="chart-container" style="height: 400px;"></div>
+            </div>
+            <div class="card">
+                <div class="card-title">Status Distribution</div>
+                <div id="status-donut-chart" class="chart-container"></div>
+            </div>
+            <div class="card">
+                <div class="card-title">Popular Versions</div>
+                <div id="version-bar-chart" class="chart-container"></div>
+            </div>
+        </div>
+    </div>
+    <script>
+        const token = localStorage.getItem("migas_token");
+        const projectsStr = localStorage.getItem("migas_projects");
+
+        if (!token || !projectsStr) {
+            window.location.href = "/viz";
+        }
+
+        const projects = projectsStr.split(',');
+        const projectSelect = document.getElementById("project-select");
+        projects.forEach(p => {
+            const opt = document.createElement("option");
+            opt.text = p;
+            opt.value = p;
+            projectSelect.add(opt);
+        });
+
+        // Event listener for toggles
+        document.querySelectorAll('input[name="interval"]').forEach(el => {
+            el.addEventListener('change', updateDashboard);
+        });
+
+        let usageChart, statusChart, versionChart;
+        let currentRawData = [];
+        let selectedVersion = null;
+
+        async function fetchData(project) {
+            const date_group = document.querySelector('input[name="interval"]:checked').value;
+
+            const res = await fetch('/graphql', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    query: `{ usage_stats(project: "${project}", token: "${token}", date_group: "${date_group}") }`,
+                }),
+            });
+            const data = await res.json();
+            if (data.errors) throw new Error(data.errors[0].message);
+            return data.data.usage_stats;
+        }
+
+        function updateMetrics(data, minDate = null, maxDate = null) {
+            let filtered = data;
+
+            if (selectedVersion) {
+                filtered = filtered.filter(row => row.version === selectedVersion);
+            }
+
+            if (minDate && maxDate) {
+                filtered = filtered.filter(row => {
+                    const d = new Date(row.date).getTime();
+                    return d >= minDate && d <= maxDate;
+                });
+                const start = new Date(minDate).toLocaleDateString();
+                const end = new Date(maxDate).toLocaleDateString();
+                document.getElementById('range-indicator').innerText = `Displaying: ${start} - ${end}`;
+                document.getElementById('reset-zoom-btn').style.display = 'inline-block';
+            } else {
+                document.getElementById('range-indicator').innerText = selectedVersion ? `Filtered by version ${selectedVersion}` : 'All time (selected interval)';
+                document.getElementById('reset-zoom-btn').style.display = 'none';
+            }
+
+            const total = filtered.reduce((sum, row) => sum + row.count, 0);
+            const successful = filtered.filter(row => row.status === 'C').reduce((sum, row) => sum + row.count, 0);
+            const versions = new Set(filtered.map(row => row.version)).size;
+
+            document.getElementById('total-runs').innerText = total.toLocaleString();
+            document.getElementById('success-rate').innerText = total > 0 ? Math.round((successful / total) * 100) + '%' : '0%';
+            document.getElementById('active-versions').innerText = versions;
+
+            if (filtered.length > 0) {
+                const latestDate = [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date))[0].date;
+                document.getElementById('last-update').innerText = latestDate;
+            }
+        }
+
+        function sortVersions(a, b, desc = false) {
+            const pa = a.split('.').map(Number);
+            const pb = b.split('.').map(Number);
+            for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+                const na = pa[i] || 0;
+                const nb = pb[i] || 0;
+                if (na > nb) return desc ? -1 : 1;
+                if (na < nb) return desc ? 1 : -1;
+            }
+            return 0;
+        }
+
+        function updateVersionToggles(data) {
+            // Newest search: sort versions descending
+            const allVersions = [...new Set(data.map(r => r.version))].sort((a, b) => sortVersions(a, b, true));
+            const container = document.getElementById('version-toggle-group');
+
+            const mainVersions = allVersions.slice(0, 5);
+            const moreVersions = allVersions.slice(5);
+
+            let html = `
+                <input type="radio" name="v-filter" value="all" id="v-all" ${!selectedVersion ? 'checked' : ''} onchange="setVersionFilter(null)">
+                <label for="v-all">All Versions</label>
+            `;
+
+            mainVersions.forEach(v => {
+                const id = `v-${v.replace(/\./g, '-')}`;
+                html += `
+                    <input type="radio" name="v-filter" value="${v}" id="${id}" ${selectedVersion === v ? 'checked' : ''} onchange="setVersionFilter('${v}')">
+                    <label for="${id}">${v}</label>
+                `;
+            });
+
+            if (moreVersions.length > 0) {
+                const isDropdownSelected = selectedVersion && moreVersions.includes(selectedVersion);
+                html += `
+                    <select class="version-select" id="more-versions-select" onchange="setVersionFilter(this.value)">
+                        <option value="" ${!isDropdownSelected ? 'selected' : ''} disabled>More...</option>
+                        ${moreVersions.map(v => `<option value="${v}" ${selectedVersion === v ? 'selected' : ''}>${v}</option>`).join('')}
+                    </select>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function setVersionFilter(version) {
+            // If selecting from dropdown, 'version' comes from select value. If clicking 'More...' it might be empty.
+            if (version === "") return;
+            selectedVersion = version === "all" ? null : version;
+
+            renderCharts(currentRawData);
+            updateMetrics(currentRawData);
+
+            // Sync radio button
+            const val = selectedVersion || 'all';
+            const radio = document.querySelector(`input[name="v-filter"][value="${val}"]`);
+            if (radio) {
+                radio.checked = true;
+                // If we selected a 'main' version, reset the dropdown
+                const select = document.getElementById('more-versions-select');
+                if (select) select.selectedIndex = 0;
+            } else {
+                // If it's a 'more' version, ensure All/Main radios are unchecked
+                document.querySelectorAll('input[name="v-filter"]').forEach(r => r.checked = false);
+            }
+        }
+
+        function renderUsageChart(filteredData) {
+            const dates = [...new Set(currentRawData.map(r => r.date))].sort();
+            const statusMap = { 'C': 'Completed', 'F': 'Failed', 'S': 'Suspended', 'R': 'Incomplete' };
+            const statusColors = { 'C': '#15803d', 'F': '#991b1b', 'S': '#ca8a04', 'R': '#57534e' };
+
+            const series = Object.entries(statusMap).map(([code, name]) => {
+                return {
+                    name: name,
+                    data: dates.map(date => {
+                        const row = filteredData.find(r => r.date === date && r.status === code);
+                        return row ? row.count : 0;
+                    })
+                };
+            });
+
+            const commonOptions = {
+                chart: {
+                    foreColor: '#a8a29e',
+                    toolbar: { show: true },
+                    background: 'transparent'
+                },
+                theme: { mode: 'dark' },
+                colors: Object.values(statusColors),
+                grid: { borderColor: '#2d2a28' }
+            };
+
+            const usageOptions = {
+                ...commonOptions,
+                series: series,
+                chart: {
+                    ...commonOptions.chart,
+                    type: 'area',
+                    stacked: true,
+                    height: 400,
+                    animations: { enabled: true, easing: 'easeinout', speed: 800 },
+                    events: {
+                        zoomed: function (chartContext, { xaxis }) {
+                            updateMetrics(filteredData, xaxis.min, xaxis.max);
+                            renderStatusChart(filteredData, xaxis.min, xaxis.max);
+                            renderVersionChart(filteredData, xaxis.min, xaxis.max);
+                        },
+                        scrolled: function (chartContext, { xaxis }) {
+                            updateMetrics(filteredData, xaxis.min, xaxis.max);
+                            renderStatusChart(filteredData, xaxis.min, xaxis.max);
+                            renderVersionChart(filteredData, xaxis.min, xaxis.max);
+                        }
+                    }
+                },
+                dataLabels: { enabled: false },
+                stroke: { curve: 'smooth', width: 2 },
+                fill: {
+                    type: 'gradient',
+                    gradient: { opacityFrom: 0.6, opacityTo: 0.1 }
+                },
+                xaxis: {
+                    type: 'datetime',
+                    categories: dates
+                },
+                tooltip: { x: { format: 'dd MMM yyyy' }, theme: 'dark' }
+            };
+
+            if (usageChart) usageChart.destroy();
+            usageChart = new ApexCharts(document.querySelector("#usage-chart"), usageOptions);
+            usageChart.render();
+        }
+
+        function renderStatusChart(filteredData, minDate = null, maxDate = null) {
+            let data = filteredData;
+            if (minDate && maxDate) {
+                data = data.filter(r => {
+                    const d = new Date(r.date).getTime();
+                    return d >= minDate && d <= maxDate;
+                });
+            }
+
+            const statusMap = { 'C': 'Completed', 'F': 'Failed', 'S': 'Suspended', 'R': 'Incomplete' };
+            const statusColors = { 'C': '#15803d', 'F': '#991b1b', 'S': '#ca8a04', 'R': '#57534e' };
+            const statusTotals = Object.keys(statusMap).map(code => {
+                return data.filter(r => r.status === code).reduce((sum, r) => sum + r.count, 0);
+            });
+
+            const statusOptions = {
+                chart: {
+                    type: 'donut',
+                    height: 300,
+                    foreColor: '#a8a29e',
+                    background: 'transparent'
+                },
+                theme: { mode: 'dark' },
+                colors: Object.values(statusColors),
+                series: statusTotals,
+                labels: Object.values(statusMap),
+                stroke: { show: false },
+                plotOptions: {
+                    pie: {
+                        donut: {
+                            size: '70%',
+                            labels: {
+                                show: true,
+                                total: { show: true, label: 'TOTAL', color: '#b0bec5' }
+                            }
+                        }
+                    }
+                },
+                legend: { position: 'bottom' }
+            };
+
+            if (statusChart) statusChart.destroy();
+            statusChart = new ApexCharts(document.querySelector("#status-donut-chart"), statusOptions);
+            statusChart.render();
+        }
+
+        function renderVersionChart(filteredData, minDate = null, maxDate = null) {
+            // Note: We use CURRENT RAW DATA if we want to see ALL versions even when one is selected,
+            // OR we use filteredData if we want to see only current context.
+            // Requirement said "Popular Versions", usually implies the full context, 
+            // but zoom should definitely filter the counts.
+            let data = currentRawData;
+            if (minDate && maxDate) {
+                data = data.filter(r => {
+                    const d = new Date(r.date).getTime();
+                    return d >= minDate && d <= maxDate;
+                });
+            }
+
+            const versionCounts = data.reduce((acc, r) => {
+                acc[r.version] = (acc[r.version] || 0) + r.count;
+                return acc;
+            }, {});
+
+            const sortedPopVersions = Object.entries(versionCounts)
+                .sort((a, b) => b[1] - a[1])
+                .map(e => e[0]);
+
+            const sortedPopTotals = sortedPopVersions.map(v => versionCounts[v]);
+
+            const interval = document.querySelector('input[name="interval"]:checked').value;
+            const windowSize = { 'day': 7, 'week': 4, 'month': 3, 'year': 1 }[interval] || 3;
+            const sortedDates = [...new Set(data.map(r => r.date))].sort().reverse();
+            const periodA_Dates = sortedDates.slice(1, windowSize + 1);
+            const periodB_Dates = sortedDates.slice(windowSize + 1, (windowSize * 2) + 1);
+            const growthData = {};
+
+            if (periodA_Dates.length > 0 && periodB_Dates.length > 0) {
+                sortedPopVersions.forEach(v => {
+                    const sumA = data.filter(r => r.version === v && periodA_Dates.includes(r.date)).reduce((s, r) => s + r.count, 0);
+                    const sumB = data.filter(r => r.version === v && periodB_Dates.includes(r.date)).reduce((s, r) => s + r.count, 0);
+                    if (sumB > 0) growthData[v] = Math.round(((sumA - sumB) / sumB) * 100);
+                });
+            }
+
+            const categoriesWithGrowth = sortedPopVersions.map(v => {
+                const growth = growthData[v];
+                if (growth === undefined) return v;
+                const sign = growth >= 0 ? '+' : '';
+                return `${v} (${sign}${growth}%)`;
+            });
+
+            const versionOptions = {
+                chart: {
+                    type: 'bar',
+                    height: 300,
+                    foreColor: '#a8a29e',
+                    background: 'transparent',
+                    events: {
+                        dataPointSelection: function (event, chartContext, config) {
+                            const version = sortedPopVersions[config.dataPointIndex];
+                            setVersionFilter(version);
+                        }
+                    }
+                },
+                theme: { mode: 'dark' },
+                series: [{ name: 'Total Runs', data: sortedPopTotals }],
+                colors: sortedPopVersions.map(v => {
+                    const growth = growthData[v];
+                    if (growth === undefined) return '#44403c';
+                    return growth >= 0 ? '#15803d' : '#991b1b';
+                }),
+                plotOptions: {
+                    bar: { borderRadius: 4, horizontal: true, distributed: true }
+                },
+                xaxis: { categories: categoriesWithGrowth },
+                tooltip: {
+                    y: {
+                        formatter: function (val, { seriesIndex, dataPointIndex, w }) {
+                            const v = sortedPopVersions[dataPointIndex];
+                            const growth = growthData[v];
+                            let text = `${val.toLocaleString()} total runs`;
+                            if (growth !== undefined) {
+                                const sign = growth >= 0 ? '+' : '';
+                                const label = { 'day': '7d', 'week': '4w', 'month': '3m', 'year': '1y' }[interval];
+                                text += ` (${sign}${growth}% in last ${label})`;
+                            }
+                            return text;
+                        }
+                    }
+                },
+                legend: { show: false }
+            };
+
+            if (versionChart) versionChart.destroy();
+            versionChart = new ApexCharts(document.querySelector("#version-bar-chart"), versionOptions);
+            versionChart.render();
+        }
+
+        function renderCharts(rawData) {
+            currentRawData = rawData;
+            const filteredData = selectedVersion
+                ? rawData.filter(r => r.version === selectedVersion)
+                : rawData;
+
+            renderUsageChart(filteredData);
+            renderStatusChart(filteredData);
+            renderVersionChart(filteredData);
+        }
+
+        function resetZoom() {
+            if (usageChart) usageChart.resetSeries();
+            const filteredData = selectedVersion
+                ? currentRawData.filter(r => r.version === selectedVersion)
+                : currentRawData;
+            updateMetrics(filteredData);
+            renderUsageChart(filteredData);
+            renderStatusChart(filteredData);
+            renderVersionChart(filteredData);
+        }
+
+        async function updateDashboard() {
+            const project = projectSelect.value;
+            try {
+                const data = await fetchData(project);
+                updateVersionToggles(data);
+                updateMetrics(data);
+                renderCharts(data);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function logout(e) {
+            if (e) e.preventDefault();
+            localStorage.clear();
+            window.location.href = "/viz";
+        }
+
+        // Initial Load
+        updateDashboard();
+    </script>
+</body>
+
+</html>
