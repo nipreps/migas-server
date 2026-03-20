@@ -212,12 +212,7 @@ async def get_mmdb_reader():
     geoloc_city = _get_val('geoloc_city')
     geoloc_asn = _get_val('geoloc_asn')
 
-    try:
-        import maxminddb
-    except ImportError:
-        _set_val('geoloc_city', None)
-        _set_val('geoloc_asn', None)
-        return None, None
+    import maxminddb
 
     if os.getenv('MIGAS_DISABLE_GEOLOC'):
         _set_val('geoloc_city', None)

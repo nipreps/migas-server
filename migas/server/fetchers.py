@@ -106,10 +106,14 @@ async def fetch_gzipped_bytes(
 
 
 async def download_geoloc_db(url: str, db: ty.Literal['asn', 'city']) -> Path:
+    out_file = Path(f'{db}.mmdb').absolute()
+    if out_file.exists() and out_file.stat().st_size > 0:
+        print(f'File {out_file} already exists, skipping download.')
+        return out_file
+
     file_bytes = await fetch_gzipped_bytes(url)
     if not file_bytes:
         raise RuntimeError(f'Failed to download {db} database from {url}')
-    out_file = Path(f'{db}.mmdb').absolute()
     out_file.write_bytes(file_bytes)
     print(f'File {out_file} ({len(file_bytes)} bytes) ready for lookups.')
     return out_file
