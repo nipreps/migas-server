@@ -82,7 +82,7 @@ def test_graphql_add_project(query: str, client: TestClient) -> None:
 
 def test_geoloc_lookup():
     import asyncio
-    from migas.server.fetchers import geoloc
+    from ..fetchers import geoloc
     res = asyncio.run(geoloc('8.8.8.8'))
     assert res is not None
     assert res['country_code'] == 'US'
