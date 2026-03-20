@@ -1,11 +1,11 @@
 import typing as ty
 from datetime import datetime
 
-from sqlalchemy import distinct, func, select, case, cast
+from sqlalchemy import distinct, func, select, case, cast, update
 from sqlalchemy.dialects.postgresql import insert, INET
 
 from .connections import inject_db_session, gen_session, AsyncSession
-from .models import Table, get_project_tables, projects, GeoLoc
+from .models import Table, get_project_tables, projects, GeoLoc, Projects, Authentication
 from .types import Project, serialize
 
 

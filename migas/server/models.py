@@ -1,6 +1,6 @@
 import typing as ty
 
-from sqlalchemy import Column, MetaData, Table, UniqueConstraint
+from sqlalchemy import Column, MetaData, Table, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import ENUM, UUID
 from sqlalchemy.ext.asyncio import AsyncConnection
 from sqlalchemy.orm import declarative_base
