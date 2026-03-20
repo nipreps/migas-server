@@ -20,6 +20,8 @@ from .database import (
     query_usage_by_datetimes,
     verify_token,
     add_new_project,
+    create_token,
+    revoke_token,
 )
 from .extensions import RequireRoot
 from .fetchers import fetch_project_info
@@ -35,6 +37,7 @@ from .types import (
     ProcessInput,
     Project,
     ProjectInput,
+    TokenResult,
 )
 from .utils import now
 
@@ -224,9 +227,28 @@ class Mutation:
         """
         # TODO: Check for existance of project / user tables
         if await project_exists(project):
-            return {'success': True, 'message': 'Project is already registered.'}
+            return {"success": True, "message": "Project is already registered."}
         await add_new_project(project)
-        return {'success': True, 'message': 'Project is now registered.'}
+        return {"success": True, "message": "Project is now registered."}
+
+    @strawberry.mutation(permission_classes=[RequireRoot])
+    async def issue_token(self, project: str, description: str | None = None) -> TokenResult:
+        """
+        Issue a new token for a project.
+        """
+        if project == "master":
+            return TokenResult(success=False, message="Cannot issue tokens for the master project.")
+        if not await project_exists(project):
+            return TokenResult(success=False, message="Project is not registered.")
+        token = await create_token(project, description)
+        return TokenResult(success=True, token=token, message="Token issued successfully.")
+
+    @strawberry.mutation(permission_classes=[RequireRoot])
+    async def revoke_token(self, token: str) -> bool:
+        """
+        Revoke an existing token.
+        """
+        return await revoke_token(token)
 
 
 class RateLimiter(SchemaExtension):

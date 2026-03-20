@@ -238,75 +238,84 @@ async def valid_location_dbs(session: AsyncSession) -> tuple[bool, bool]:
     return asn is not None, city is not None
 
 
+def hash_token(token: str) -> str:
+    """Hash token using SHA256."""
+    import hashlib
+
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
 async def verify_token(token: str, require_root: bool = False) -> tuple[bool, list[str]]:
     """Query table for usage access"""
     from .models import Authentication
 
     project, projects = None, []
+    hashed = hash_token(token)
 
     # verify token pertains to project
     async with gen_session() as session:
+        # Check both hashed (new) and potentially unhashed (legacy) tokens
         res = await session.execute(
-            select(Authentication.project).where(Authentication.token == token)
+            select(Authentication).where(
+                (Authentication.token == hashed) | (Authentication.token == token),
+                Authentication.is_active == True,
+            )
         )
-        project = res.one_or_none()
+        auth = res.scalar_one_or_none()
+        if auth:
+            from .utils import now
+            auth.last_used = await now()
+            
+            project_name = auth.project
+            if project_name == "master":
+                projects = await query_projects()
+            elif not require_root:
+                projects = [project_name]
+            await session.commit()
+            return True, projects
 
-    if project:
-        if project[0] == 'master':
-            projects = await query_projects()
-        elif not require_root:
-            projects = [project[0]]
-    return bool(project), projects
+    return False, []
 
 
-async def insert_query_geoloc(ip: str | None) -> int | None:
-    """
-    Gather geolocation information from an IP, and preserve in a dedicated table.
+async def create_token(project: str, description: str | None = None) -> str:
+    """Generate a new secure token and store its hash."""
+    from secrets import token_urlsafe
+    from .models import Authentication
 
-    Initially will query the MMDB databases for geolocation information.
-    If found, will attempt to insert geolocation information into the GeoLoc table, but if
-    already present, will simply fetch the existing index.
+    if project == "master":
+        raise ValueError("Cannot create new master tokens via this API.")
 
-    The index returned will be inserted into the specific `Project` table.
-    """
-    from .fetchers import geoloc
-
-    info = await geoloc(ip)
-    if not info:
-        return
-
-    # Insert into geoloc table
-    from .models import GeoLoc
+    raw_token = f"m_{token_urlsafe(32)}"
+    hashed = hash_token(raw_token)
 
     async with gen_session() as session:
-        res = await session.execute(
-            insert(GeoLoc)
-            .values(
-                asn=info.get('asn'),
-                asn_org=info.get('aso'),
-                continent_code=info.get('continent_code'),
-                country_code=info.get('country_code'),
-                state_province_name=info.get('state_or_province'),
-                city_name=info.get('city'),
-                lat=info.get('lat'),
-                lon=info.get('lon'),
-            )
-            .on_conflict_do_nothing()
-            .returning(GeoLoc.idx)
+        new_auth = Authentication(
+            project=project,
+            token=hashed,
+            description=description,
         )
-        geoloc_idx = res.scalar_one_or_none()
+        session.add(new_auth)
+        await session.commit()
 
-        if geoloc_idx is None:
-            # Fetch existing index
-            res = await session.execute(
-                select(GeoLoc.idx).where(
-                    GeoLoc.country_code == info.get('country_code'),
-                    GeoLoc.state_province_name == info.get('state_or_province'),
-                    GeoLoc.city_name == info.get('city'),
-                    GeoLoc.lat == info.get('lat'),
-                    GeoLoc.lon == info.get('lon'),
-                )
+    return raw_token
+
+
+async def revoke_token(token: str) -> bool:
+    """Deactivate a token."""
+    from .models import Authentication
+
+    hashed = hash_token(token)
+    async with gen_session() as session:
+        res = await session.execute(
+            select(Authentication).where(
+                (Authentication.token == hashed) | (Authentication.token == token)
             )
-            geoloc_idx = res.scalar_one_or_none()
-
-        return geoloc_idx
+        )
+        auth = res.scalar_one_or_none()
+        if auth:
+            if auth.project == "master":
+                return False  # Do not allow revoking master tokens
+            auth.is_active = False
+            await session.commit()
+            return True
+    return False
