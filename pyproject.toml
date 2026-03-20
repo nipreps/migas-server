@@ -75,6 +75,12 @@ version-file = "migas/server/_version.py"
 "migas/static" = "migas/static"
 
 
+[tool.pytest.ini_options]
+markers = [
+    "network: tests that require real network connectivity",
+    "geoloc: tests that require real geolocation databases",
+]
+
 [tool.ruff]
 line-length = 99
 

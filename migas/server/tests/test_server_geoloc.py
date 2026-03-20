@@ -8,7 +8,9 @@ from ..app import create_app
 from ..fetchers import fetch_loc_dbs
 from ..connection_context import set_connection_context, ConnectionContext
 
-from .test_server import queries
+from .conftest import queries
+
+pytestmark = pytest.mark.geoloc
 
 
 async def setup_geoloc_test(app):

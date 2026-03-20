@@ -1,17 +1,9 @@
 import os
-from typing import Iterator
-
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from fastapi.testclient import TestClient
 
-from ..app import create_app
-from ..database import add_new_project
-from ..connection_context import (
-    isolated_connection_context,
-    set_connection_context,
-    ConnectionContext,
-)
+from .conftest import queries
 
 if not os.getenv('MIGAS_REDIS_URI'):
     pytest.skip(reason='Could not establish redis connection', allow_module_level=True)
@@ -23,52 +15,6 @@ if not (
     )
 ):
     pytest.skip(reason='Could not establish postgres connection', allow_module_level=True)
-
-TEST_PROJECT = 'nipreps/migas-server'
-
-
-async def create_db(app):
-    """Helper function to register a project on application startup."""
-    from ..connections import get_redis_connection
-
-    cache = await get_redis_connection()
-    await cache.flushdb()
-    await add_new_project(TEST_PROJECT)
-
-
-queries = {
-    'add_project': f'mutation{{add_project(p:{{project:"{TEST_PROJECT}",project_version:"0.5.0",language:"python",language_version:"3.12"}})}}'
-}
-
-
-# Test client
-@pytest.fixture(scope='function')
-def client() -> Iterator[TestClient]:
-    original_values = {
-        'MIGAS_BYPASS_RATE_LIMIT': os.getenv('MIGAS_BYPASS_RATE_LIMIT'),
-        'MIGAS_TESTING': os.getenv('MIGAS_TESTING'),
-    }
-
-    os.environ['MIGAS_BYPASS_RATE_LIMIT'] = '1'
-    os.environ['MIGAS_TESTING'] = '1'
-
-    # Create isolated context for this test
-    test_context = ConnectionContext()
-    original_context = set_connection_context(test_context)
-
-    try:
-        app = create_app(on_startup=create_db)
-        with TestClient(app) as c:
-            yield c
-    finally:
-        # Restore original context
-        set_connection_context(original_context)
-
-        for key, value in original_values.items():
-            if value is None:
-                del os.environ[key]
-                continue
-            os.environ[key] = value
 
 
 def test_server_landing(client: TestClient) -> None:
