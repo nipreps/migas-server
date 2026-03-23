@@ -1,5 +1,6 @@
-import typing as ty
+import logging.config
 import os
+import typing as ty
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -23,6 +24,25 @@ from .models import init_db
 from .schema import SCHEMA
 
 
+LOGGING_CONFIG = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "default": {"format": "INFO:     %(name)s - %(message)s"},
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "default",
+            "stream": "ext://sys.stdout",
+        },
+    },
+    "loggers": {
+        "migas": {"handlers": ["console"], "level": "INFO"},
+    },
+}
+
+
 @asynccontextmanager
 async def lifespan(
     app: FastAPI,
@@ -31,6 +51,7 @@ async def lifespan(
     **kwargs,
 ):
     """Handle startup and shutdown logic"""
+    logging.config.dictConfig(LOGGING_CONFIG)
     # Connect to Redis
     app.cache = await get_redis_connection()
     # Connect to PostgreSQL and initialize tables
