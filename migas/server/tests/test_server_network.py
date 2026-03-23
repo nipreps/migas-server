@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 
 from .conftest import queries
 
+
 @pytest.mark.network
 @pytest.mark.parametrize('query', [queries['add_project']])
 def test_graphql_add_project_network(query: str, client: TestClient) -> None:

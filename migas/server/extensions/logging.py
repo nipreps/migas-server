@@ -3,7 +3,7 @@ import logging
 from graphql import OperationDefinitionNode
 from strawberry.extensions import SchemaExtension
 
-from migas.server.graphql import _extract_field, _extract_from_ast
+from ..graphql import _extract_field, _extract_from_ast
 
 logger = logging.getLogger('migas.server')
 

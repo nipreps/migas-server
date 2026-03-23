@@ -23,7 +23,6 @@ async def create_db(app):
 
 queries = {
     'add_project': f'mutation {{ add_project(p: {{project: "{TEST_PROJECT}", project_version: "0.5.0", language: "python", language_version: "3.12"}}) }}',
-    'add_project_status': f'mutation {{ add_project(p: {{project: "{TEST_PROJECT}", project_version: "1.0.0", status: R}}) }}',
     'add_breadcrumb': f'mutation {{ add_breadcrumb(project: "{TEST_PROJECT}", project_version: "1.0.0", proc: {{status: C}}) }}',
     'get_usage': f'query {{ get_usage(project: "{TEST_PROJECT}") }}',
     'get_projects': 'query { get_projects }',
