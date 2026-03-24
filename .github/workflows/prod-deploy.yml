@@ -53,7 +53,7 @@ jobs:
             --memory=512Mi \
             --cpu=2 \
             --args=--host,0.0.0.0,--port,8080,--proxy-headers,--header,X-Backend-Server:migas \
-            --cpu-throttling \
+            --no-cpu-throttling \
             --env-vars-file=.env
       - name: Cleanup env file
         run: rm -f .env

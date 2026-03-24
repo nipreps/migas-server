@@ -25,6 +25,15 @@ concurrency:
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        deps: [locked, latest]
+        include:
+        - deps: locked
+          buildtype: test
+        - deps: latest
+          buildtype: test-latest
     steps:
     - uses: actions/checkout@v6
       with:
@@ -48,11 +57,11 @@ jobs:
         curl -L -o city.mmdb.gz "$CITY_URL"
         gunzip -f asn.mmdb.gz
         gunzip -f city.mmdb.gz
-    - name: Build the image
+    - name: Build the image (${{ matrix.deps }} deps)
       run: |
         VERSION=$(uvx --with hatch-vcs hatch version | tail -n1)
         echo $VERSION
-        docker compose build --build-arg BUILDTYPE=latest-test --build-arg DEPLOYSERVER=uvicorn --build-arg VERSION=$VERSION
+        docker compose build --build-arg BUILDTYPE=${{ matrix.buildtype }} --build-arg DEPLOYSERVER=uvicorn --build-arg VERSION=$VERSION
     - name: Start all the things
       run: docker compose up -d --wait
     - name: Test the things

@@ -8,3 +8,4 @@ deploy/gcp/
 mounts/
 dump.rdb
 .pre-commit-config.yaml
+.venv/

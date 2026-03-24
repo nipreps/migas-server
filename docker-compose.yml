@@ -29,6 +29,7 @@ services:
       MIGAS_BYPASS_RATE_LIMIT:
       MIGAS_DEBUG: 1
       MIGAS_TESTING:
+      PYTEST_ADDOPTS: "-p no:cacheprovider"
 
   # Redis in-memory db
   cache:

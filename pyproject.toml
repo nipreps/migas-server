@@ -45,7 +45,6 @@ speedups = [
 ]
 dev = [
     "pre-commit",
-    "pip-tools",
     "hatch",
     "ruff",
 ]
