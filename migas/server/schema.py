@@ -23,7 +23,7 @@ from .database import (
     create_token,
     revoke_token,
 )
-from .extensions import RequireRoot
+from .extensions import LoggingExtension, RequireRoot
 from .fetchers import fetch_project_info
 from .models import get_project_tables
 from .types import (
@@ -327,6 +327,6 @@ class RateLimiter(SchemaExtension):
 SCHEMA = strawberry.Schema(
     query=Query,
     mutation=Mutation,
-    extensions=[RateLimiter],
+    extensions=[RateLimiter, LoggingExtension],
     config=StrawberryConfig(auto_camel_case=False),
 )

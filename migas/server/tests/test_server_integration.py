@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 
 from .conftest import queries
 
+
 @pytest.mark.network
 @pytest.mark.geoloc
 @pytest.mark.parametrize('query', [queries['add_project']])

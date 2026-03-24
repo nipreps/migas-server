@@ -1,3 +1,4 @@
+import os
 import pytest
 from typing import Iterator
 from unittest.mock import AsyncMock, patch
@@ -20,14 +21,33 @@ async def create_db(app):
     await cache.flushdb()
     await add_new_project(TEST_PROJECT)
 
-
 queries = {
-    'add_project': f'mutation{{add_project(p:{{project:"{TEST_PROJECT}",project_version:"0.5.0",language:"python",language_version:"3.12"}})}}'
+    'add_project': f'mutation {{ add_project(p: {{project: "{TEST_PROJECT}", project_version: "0.5.0", language: "python", language_version: "3.12"}}) }}',
+    'add_breadcrumb': f'mutation {{ add_breadcrumb(project: "{TEST_PROJECT}", project_version: "1.0.0", proc: {{status: C}}) }}',
+    'get_usage': f'query {{ get_usage(project: "{TEST_PROJECT}") }}',
+    'get_projects': 'query { get_projects }',
 }
 
 
+@pytest.fixture
+def _redis_available():
+    if not os.getenv('MIGAS_REDIS_URI'):
+        pytest.skip('Could not establish redis connection')
+
+
+@pytest.fixture
+def _postgres_available():
+    if not (
+        os.getenv('DATABASE_URL')
+        or all(
+            [os.getenv('DATABASE_USER'), os.getenv('DATABASE_PASSWORD'), os.getenv('DATABASE_NAME')]
+        )
+    ):
+        pytest.skip('Could not establish postgres connection')
+
+
 @pytest.fixture(scope='function')
-def client() -> Iterator[TestClient]:
+def client(_redis_available, _postgres_available) -> Iterator[TestClient]:
     import os
 
     original_values = {

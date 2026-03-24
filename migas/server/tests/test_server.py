@@ -5,18 +5,6 @@ from fastapi.testclient import TestClient
 
 from .conftest import queries
 
-if not os.getenv('MIGAS_REDIS_URI'):
-    pytest.skip(reason='Could not establish redis connection', allow_module_level=True)
-
-if not (
-    os.getenv('DATABASE_URL')
-    or all(
-        [os.getenv('DATABASE_USER'), os.getenv('DATABASE_PASSWORD'), os.getenv('DATABASE_NAME')]
-    )
-):
-    pytest.skip(reason='Could not establish postgres connection', allow_module_level=True)
-
-
 def test_server_landing(client: TestClient) -> None:
     res = client.get('/')
     assert res.status_code == 200

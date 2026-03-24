@@ -1,3 +1,4 @@
 from .auth import RequireRoot
+from .logging import LoggingExtension
 
-__all__ = ['RequireRoot']
+__all__ = ['LoggingExtension', 'RequireRoot']
