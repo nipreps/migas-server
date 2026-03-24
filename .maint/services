@@ -1,0 +1,26 @@
+#!/bin/bash
+set +x
+
+# Check if argument is provided
+if [ -z "$1" ]; then
+  echo "Usage: $0 {start|stop}"
+  exit 1
+fi
+
+# Get the command (start/stop)
+COMMAND=$1
+
+# Validate the command
+if [[ "$COMMAND" != "start" && "$COMMAND" != "stop" ]]; then
+  echo "Invalid argument: $COMMAND. Use 'start' or 'stop'."
+  exit 1
+fi
+
+# Start or stop PostgreSQL and Redis
+echo "Running 'brew services $COMMAND' for PostgreSQL and Redis..."
+
+brew services $COMMAND postgresql@14
+brew services $COMMAND redis
+
+echo "Services $COMMAND successfully."
+

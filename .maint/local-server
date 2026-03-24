@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # Common environment variables
-export MIGAS_REDIS_URI='redis://localhost'
-export DATABASE_URL='postgres://localhost/migas'
+export MIGAS_REDIS_URI='redis://localhost:6379'
+export DATABASE_URL='postgresql+asyncpg://localhost/migas'
 export MIGAS_DEBUG=1
-#export MIGAS_MAX_REQUESTS_PER_WINDOW=50
 export MIGAS_BYPASS_RATE_LIMIT=1
 export MIGAS_MAX_REQUEST_SIZE=3000
 
 if [ "$1" == "test" ]; then
+    export MIGAS_TESTING=1
     echo "Running in test mode..."
     uv run pytest -vrs ${2:-"migas/"}
 else
