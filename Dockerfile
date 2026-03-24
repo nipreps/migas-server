@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.14-slim
 ARG BUILDTYPE=latest
 ARG DEPLOYSERVER=uvicorn
 ARG VERSION
@@ -7,6 +7,8 @@ ENV YARL_NO_EXTENSIONS=1 \
     DEPLOYSERVER=${DEPLOYSERVER} \
     BUILDTYPE=${BUILDTYPE} \
     SETUPTOOLS_SCM_PRETEND_VERSION=${VERSION}
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+ENV UV_PROJECT_ENVIRONMENT=/usr/local
 COPY . /src/
 WORKDIR /src/
 RUN bash deploy/docker/install.sh ${BUILDTYPE} ${DEPLOYSERVER}
