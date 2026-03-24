@@ -5,20 +5,15 @@ set -e
 BUILDTYPE=$1
 DEPLOYSERVER=$2
 
-# First update pip
-python -m pip install --no-cache-dir -U pip
-
 case $BUILDTYPE in
 release)
-    python -m pip install --no-cache-dir pip-tools
-    pip-sync stable-requirements.txt
-    python -m pip install --no-cache-dir /src
+    uv sync --no-dev
     ;;
 latest)
-    python -m pip install --no-cache-dir /src
+    uv pip install --no-cache /src
     ;;
 latest-test)
-    python -m pip install --no-cache-dir "/src[test]"
+    uv pip install --no-cache "/src[test]"
     ;;
 *)
     echo "Unknown command"
@@ -27,5 +22,5 @@ latest-test)
 esac
 
 if [ "$DEPLOYSERVER" = "gunicorn" ]; then
-    python -m pip install --no-cache-dir gunicorn
+    uv pip install --no-cache gunicorn
 fi
