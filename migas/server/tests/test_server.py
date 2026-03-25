@@ -5,18 +5,18 @@ from fastapi.testclient import TestClient
 
 from .conftest import queries
 
-def test_server_landing(client: TestClient) -> None:
-    res = client.get('/')
-    assert res.status_code == 200
-    assert 'html' in res.headers.get('Content-Type')
-
-
 def test_server_info(client: TestClient) -> None:
     res = client.get('/info')
     assert res.status_code == 200
     obj = res.json()
     assert obj['package'] == 'migas'
     assert obj['geoloc_enabled'] is False
+
+
+def test_server_landing(client: TestClient) -> None:
+    res = client.get('/')
+    assert res.status_code == 200
+    assert 'html' in res.headers.get('Content-Type')
 
 
 @pytest.mark.parametrize('query', [queries['add_project']])
