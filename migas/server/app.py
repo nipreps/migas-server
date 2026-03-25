@@ -93,7 +93,6 @@ def create_app(lifespan_func=lifespan, **lifespan_kwargs) -> FastAPI:
     app.mount('/static', StaticFiles(directory=static), name='static')
     templates = Jinja2Templates(directory=static)
 
-
     @app.get('/', response_class=HTMLResponse)
     async def home(request: Request):
         return templates.TemplateResponse(request, 'home.html', {'version': __version__})
@@ -109,11 +108,19 @@ def create_app(lifespan_func=lifespan, **lifespan_kwargs) -> FastAPI:
 
     @app.get('/viz', response_class=HTMLResponse)
     async def viz(request: Request):
-        return templates.TemplateResponse(request, 'viz.html', {'version': __version__})
+        return templates.TemplateResponse(
+            request,
+            'viz.html',
+            {'version': __version__, 'dev_mode': bool(os.getenv('MIGAS_TESTING'))},
+        )
 
     @app.get('/viz/dashboard', response_class=HTMLResponse)
     async def viz_dashboard(request: Request):
-        return templates.TemplateResponse(request, 'dashboard.html', {'version': __version__})
+        return templates.TemplateResponse(
+            request,
+            'dashboard.html',
+            {'version': __version__, 'dev_mode': bool(os.getenv('MIGAS_TESTING'))},
+        )
 
     return app
 

@@ -22,7 +22,7 @@
                     id="submit"
                     type="button"
                     onclick="submitToken()">Login</button>
-            <button class="btn btn-skip" onclick="skipLogin()">Skip for now (Dev Mode)</button>
+            {% if dev_mode %}<button class="btn btn-skip" onclick="skipLogin()">Skip for now (Dev Mode)</button>{% endif %}
         </div>
         <div id="status" class="status-container"></div>
     </div>
@@ -66,26 +66,32 @@
         }
     }
 
-    async function skipLogin() {
-        // Dev mode bypass
-        try {
-            const res = await fetch('/graphql', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ query: '{ get_projects }' })
-            });
-            const data = await res.json();
-            const projects = data.data.get_projects;
+    {% if dev_mode %}
+        async function skipLogin() {
+            // Dev mode bypass
+            try {
+                const res = await fetch('/graphql', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        query: '{ get_projects }'
+                    })
+                });
+                const data = await res.json();
+                const projects = data.data.get_projects;
 
-            localStorage.setItem("migas_token", "dev_token");
-            localStorage.setItem("migas_projects", projects.join(','));
-            window.location.href = "/viz/dashboard";
-        } catch (err) {
-            // Fallback if fetch fails
-            localStorage.setItem("migas_token", "dev_token");
-            localStorage.setItem("migas_projects", "nipreps/migas-server");
-            window.location.href = "/viz/dashboard";
+                localStorage.setItem("migas_token", "dev_token");
+                localStorage.setItem("migas_projects", projects.join(','));
+                window.location.href = "/viz/dashboard";
+            } catch (err) {
+                // Fallback if fetch fails
+                localStorage.setItem("migas_token", "dev_token");
+                localStorage.setItem("migas_projects", "nipreps/migas-server");
+                window.location.href = "/viz/dashboard";
+            }
         }
-    }
+    {% endif %}
     </script>
 {% endblock extra_scripts %}
