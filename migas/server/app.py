@@ -12,6 +12,7 @@ from fastapi.templating import Jinja2Templates
 from strawberry.fastapi import GraphQLRouter
 
 from . import __version__, __root__
+from .api.routes import router as api_router
 from .connections import (
     get_db_engine,
     get_redis_connection,
@@ -25,21 +26,17 @@ from .schema import SCHEMA
 
 
 LOGGING_CONFIG = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "default": {"format": "INFO:     %(name)s - %(message)s"},
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {'default': {'format': 'INFO:     %(name)s - %(message)s'}},
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'default',
+            'stream': 'ext://sys.stdout',
+        }
     },
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "default",
-            "stream": "ext://sys.stdout",
-        },
-    },
-    "loggers": {
-        "migas": {"handlers": ["console"], "level": "INFO"},
-    },
+    'loggers': {'migas': {'handlers': ['console'], 'level': 'INFO'}},
 }
 
 
@@ -79,6 +76,7 @@ def create_app(lifespan_func=lifespan, **lifespan_kwargs) -> FastAPI:
     )
     graphql_app = GraphQLRouter(SCHEMA)
     app.include_router(graphql_app, prefix='/graphql')
+    app.include_router(api_router)
 
     app.add_middleware(
         CORSMiddleware, allow_origins=['*'], allow_methods=['*'], allow_headers=['*']
@@ -112,10 +110,9 @@ def create_app(lifespan_func=lifespan, **lifespan_kwargs) -> FastAPI:
     async def viz(request: Request):
         return templates.TemplateResponse(request, 'viz.html')
 
-    @app.get("/viz/dashboard", response_class=HTMLResponse)
+    @app.get('/viz/dashboard', response_class=HTMLResponse)
     async def viz_dashboard(request: Request):
-        return templates.TemplateResponse(request, "dashboard.html")
-
+        return templates.TemplateResponse(request, 'dashboard.html')
 
     return app
 

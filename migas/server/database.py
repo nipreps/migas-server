@@ -7,6 +7,7 @@ from sqlalchemy.dialects.postgresql import insert, INET
 from .connections import inject_db_session, gen_session, AsyncSession
 from .models import Table, get_project_tables, projects, GeoLoc, Projects, Authentication
 from .types import Project, serialize
+from .utils import now
 
 
 async def add_new_project(project: str) -> bool:
@@ -287,48 +288,61 @@ async def valid_location_dbs(session: AsyncSession) -> tuple[bool, bool]:
 
 
 def hash_token(token: str) -> str:
-    """Hash token using SHA256."""
+    """Hash token using BLAKE2b (64 chars)."""
     import hashlib
 
-    return hashlib.sha256(token.encode()).hexdigest()
+    return hashlib.blake2b(token.encode(), digest_size=32).hexdigest()
 
 
-async def verify_token(token: str, require_root: bool = False) -> tuple[bool, list[str]]:
-    """Query table for usage access"""
-    from .models import Authentication
-
-    project, projects = None, []
+async def _get_auth_by_token(token: str, session: AsyncSession) -> Authentication | None:
+    """Retrieve an Authentication record by token (hashed or unhashed)."""
     hashed = hash_token(token)
-
-    # verify token pertains to project
-    async with gen_session() as session:
-        # Check both hashed (new) and potentially unhashed (legacy) tokens
-        res = await session.execute(
-            select(Authentication).where(
-                (Authentication.token == hashed) | (Authentication.token == token),
-                Authentication.is_active == True,
-            )
+    res = await session.execute(
+        select(Authentication).where(
+            # In case legacy tokens are still unhashed
+            # TODO: Remove this once all tokens are hashed
+            (Authentication.token == hashed) | (Authentication.token == token)
         )
-        auth = res.scalar_one_or_none()
-        if auth:
-            from .utils import now
-            auth.last_used = await now()
-            
-            project_name = auth.project
-            if project_name == "master":
-                projects = await query_projects()
-            elif not require_root:
-                projects = [project_name]
-            await session.commit()
-            return True, projects
+    )
+    return res.scalar_one_or_none()
 
-    return False, []
+
+async def authenticate_token(token: str, require_root: bool = False) -> tuple[bool, list[str]]:
+    """Verify token and return list of projects it has access to."""
+    # verify project is within token scope
+    valid, projects = False, []
+    async with gen_session() as session:
+        auth = await _get_auth_by_token(token, session)
+        if not auth:
+            return valid, projects
+
+        auth.last_used = now()
+        if auth.project == "master":
+            projects = await query_projects()
+            valid = True
+        elif not require_root:
+            projects = [auth.project]
+            valid = True
+
+        await session.commit()
+
+    return valid, projects
+
+
+async def get_tokens(project: str | None = None) -> list[Authentication]:
+    """Retrieve tokens, optionally filtered by project."""
+
+    async with gen_session() as session:
+        stmt = select(Authentication)
+        if project:
+            stmt = stmt.where(Authentication.project == project)
+        res = await session.execute(stmt)
+        return res.scalars().all()
 
 
 async def create_token(project: str, description: str | None = None) -> str:
     """Generate a new secure token and store its hash."""
     from secrets import token_urlsafe
-    from .models import Authentication
 
     if project == "master":
         raise ValueError("Cannot create new master tokens via this API.")
@@ -350,20 +364,10 @@ async def create_token(project: str, description: str | None = None) -> str:
 
 async def revoke_token(token: str) -> bool:
     """Deactivate a token."""
-    from .models import Authentication
-
-    hashed = hash_token(token)
     async with gen_session() as session:
-        res = await session.execute(
-            select(Authentication).where(
-                (Authentication.token == hashed) | (Authentication.token == token)
-            )
-        )
-        auth = res.scalar_one_or_none()
-        if auth:
-            if auth.project == "master":
-                return False  # Do not allow revoking master tokens
-            auth.is_active = False
+        auth = await _get_auth_by_token(token, session)
+        if auth and auth.project != "master":
+            await session.delete(auth)
             await session.commit()
             return True
     return False

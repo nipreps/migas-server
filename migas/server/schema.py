@@ -18,7 +18,7 @@ from .database import (
     project_exists,
     query_projects,
     query_usage_by_datetimes,
-    verify_token,
+    authenticate_token,
     add_new_project,
     create_token,
     revoke_token,
@@ -91,7 +91,7 @@ class Query:
 
     @strawberry.field
     async def login(self, token: str) -> AuthenticationResult:
-        valid, projects = await verify_token(token)
+        valid, projects = await authenticate_token(token)
         if not valid:
             success = False
             msg = 'Authentication Error: token is either invalid or expired.'
@@ -108,15 +108,15 @@ class Query:
         version: str | None = None,
         date_group: str = 'day',  # TODO: ty.Literal incompatibility with strawberry - enum?
     ) -> JSON:
-        'Generate different usage information'
-        if not os.getenv("MIGAS_DEBUG") and not token:
+        "Generate different usage information"
+        if not os.getenv('MIGAS_DEBUG') and not token:
             raise Exception('Token required.')
 
-        if token and not (os.getenv("MIGAS_DEBUG") and token == 'dev_token'):
-            _, projects = await verify_token(token)
+        if token and not (os.getenv('MIGAS_DEBUG') and token == 'dev_token'):
+            _, projects = await authenticate_token(token)
             if project not in projects:
                 raise Exception('Invalid token.')
-        
+
         usage = await get_viz_data(project, version, date_group)
         return usage
 
@@ -227,21 +227,23 @@ class Mutation:
         """
         # TODO: Check for existance of project / user tables
         if await project_exists(project):
-            return {"success": True, "message": "Project is already registered."}
+            return {'success': True, 'message': 'Project is already registered.'}
         await add_new_project(project)
-        return {"success": True, "message": "Project is now registered."}
+        return {'success': True, 'message': 'Project is now registered.'}
 
     @strawberry.mutation(permission_classes=[RequireRoot])
     async def issue_token(self, project: str, description: str | None = None) -> TokenResult:
         """
         Issue a new token for a project.
         """
-        if project == "master":
-            return TokenResult(success=False, message="Cannot issue tokens for the master project.")
+        if project == 'master':
+            return TokenResult(
+                success=False, message='Cannot issue tokens for the master project.'
+            )
         if not await project_exists(project):
-            return TokenResult(success=False, message="Project is not registered.")
+            return TokenResult(success=False, message='Project is not registered.')
         token = await create_token(project, description)
-        return TokenResult(success=True, token=token, message="Token issued successfully.")
+        return TokenResult(success=True, token=token, message='Token issued successfully.')
 
     @strawberry.mutation(permission_classes=[RequireRoot])
     async def revoke_token(self, token: str) -> bool:
@@ -249,6 +251,15 @@ class Mutation:
         Revoke an existing token.
         """
         return await revoke_token(token)
+
+
+from .extensions.ratelimit import (
+    RateLimitError,
+    RateLimitExceededError,
+    RequestTooLargeError,
+    check_rate_limit,
+    check_request_size,
+)
 
 
 class RateLimiter(SchemaExtension):
@@ -274,54 +285,18 @@ class RateLimiter(SchemaExtension):
         """
         Hook into the GraphQL request stack, and validate data at the start.
         """
-        if os.getenv('MIGAS_TESTING'):
-            self.set_attrs()
         request = self.execution_context.context['request']
         response = self.execution_context.context['response']
-        if not os.getenv('MIGAS_BYPASS_RATE_LIMIT'):
-            await self.sliding_window_rate_limit(request, response)
-        # check request size
-        body = await request.body()
-        if len(body) > self.max_request_size:
-            response.status_code = 413
+
+        try:
+            await check_rate_limit(request)
+            await check_request_size(request)
+        except RateLimitError as e:
+            response.status_code = e.status_code
             self.execution_context.result = GraphQLExecutionResult(
-                data=None,
-                errors=[
-                    GraphQLError(
-                        f'Request body ({len(body)}) exceeds maximum size ({self.max_request_size})'
-                    )
-                ],
+                data=None, errors=[GraphQLError(e.message)]
             )
         yield  # any logic after yield for post operation
-
-    async def sliding_window_rate_limit(self, request: Request, response: Response):
-        """
-        Use a sliding window to verify incoming responses are not overloading the server.
-
-        Requests are checked to be in the range set by two environment variables:
-        `MIGAS_REQUEST_WINDOW` and `MIGAS_MAX_REQUESTS_PER_WINDOW`
-        """
-        import time
-
-        cache = await get_redis_connection()
-        # the sliding window key
-        host = request.client.host if request.client else 'no-client'
-        key = f'rate-limit-{host}'
-        time_ = time.time()
-
-        async with cache.pipeline(transaction=True) as pipe:
-            pipe.zremrangebyscore(key, 0, time_ - self.request_window)
-            pipe.zrange(key, 0, -1)
-            pipe.zadd(key, {time_: time_})
-            pipe.expire(key, self.request_window)
-            res = await pipe.execute()
-
-        timestamps = res[1]
-        if len(timestamps) > self.max_requests:
-            response.status_code = 429  # Too many requests
-            self.execution_context.result = GraphQLExecutionResult(
-                data=None, errors=[GraphQLError('Too many requests, wait a minute.')]
-            )
 
 
 SCHEMA = strawberry.Schema(
