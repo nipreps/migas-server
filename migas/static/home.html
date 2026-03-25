@@ -1,9 +1,10 @@
 {% extends "base.html" %}
-
-{% block title %}Migas | Telemetry Server{% endblock %}
-
-{% block body_class %}login-page{% endblock %}
-
+{% block title %}
+    Migas | Telemetry Server
+{% endblock title %}
+{% block body_class %}
+    login-page
+{% endblock body_class %}
 {% block extra_head %}
     <style>
       body {
@@ -86,25 +87,20 @@
         .btn { width: 100%; }
       }
     </style>
-{% endblock %}
-
+{% endblock extra_head %}
 {% block content %}
     <section class="hero">
-      <span class="nav-brand hero-title">migas</span>
-      <p class="hero-tagline">application telemetry and visualization</p>
-      
-      <div class="cta-group">
-        <a href="/viz" class="btn btn-primary">
-          Open Visualization Portal
-        </a>
-        <a href="https://github.com/nipreps/migas-server/wiki" target="_blank" class="btn btn-secondary">
-          Read the Wiki
-        </a>
-      </div>
-
-      <section class="info-section">
-        <p>Interested in tracking your project?</p>
-        <a href="mailto:nipreps@gmail.com">Contact the Nipreps Developers</a>
-      </section>
+        <span class="nav-brand hero-title">migas</span>
+        <p class="hero-tagline">application telemetry and visualization</p>
+        <div class="cta-group">
+            <a href="{{ url_for('viz') }}" class="btn btn-primary">Open Visualization Portal</a>
+            <a href="https://github.com/nipreps/migas-server/wiki"
+               target="_blank"
+               class="btn btn-secondary">Read the Wiki</a>
+        </div>
+        <section class="info-section">
+            <p>Interested in tracking your project?</p>
+            <a href="mailto:nipreps@gmail.com">Contact the Nipreps Developers</a>
+        </section>
     </section>
-{% endblock %}
+{% endblock content %}
