@@ -251,6 +251,15 @@ class Mutation:
         return await revoke_token(token)
 
 
+from .extensions.ratelimit import (
+    RateLimitError,
+    RateLimitExceededError,
+    RequestTooLargeError,
+    check_rate_limit,
+    check_request_size,
+)
+
+
 class RateLimiter(SchemaExtension):
     """
     A GraphQL schema extension to implement sliding window rate limiting.
@@ -260,6 +269,7 @@ class RateLimiter(SchemaExtension):
     - Have a reasonable sized request body
     - Are not clobbering the GQL endpoint
     """
+
 
     def __init__(self, *args, **kwargs):
         self.set_attrs()
@@ -274,54 +284,21 @@ class RateLimiter(SchemaExtension):
         """
         Hook into the GraphQL request stack, and validate data at the start.
         """
-        if os.getenv('MIGAS_TESTING'):
-            self.set_attrs()
         request = self.execution_context.context['request']
         response = self.execution_context.context['response']
-        if not os.getenv('MIGAS_BYPASS_RATE_LIMIT'):
-            await self.sliding_window_rate_limit(request, response)
-        # check request size
-        body = await request.body()
-        if len(body) > self.max_request_size:
-            response.status_code = 413
+
+        try:
+            await check_rate_limit(request)
+            await check_request_size(request)
+        except RateLimitError as e:
+            response.status_code = e.status_code
             self.execution_context.result = GraphQLExecutionResult(
                 data=None,
-                errors=[
-                    GraphQLError(
-                        f'Request body ({len(body)}) exceeds maximum size ({self.max_request_size})'
-                    )
-                ],
+                errors=[GraphQLError(e.message)],
             )
         yield  # any logic after yield for post operation
 
-    async def sliding_window_rate_limit(self, request: Request, response: Response):
-        """
-        Use a sliding window to verify incoming responses are not overloading the server.
 
-        Requests are checked to be in the range set by two environment variables:
-        `MIGAS_REQUEST_WINDOW` and `MIGAS_MAX_REQUESTS_PER_WINDOW`
-        """
-        import time
-
-        cache = await get_redis_connection()
-        # the sliding window key
-        host = request.client.host if request.client else 'no-client'
-        key = f'rate-limit-{host}'
-        time_ = time.time()
-
-        async with cache.pipeline(transaction=True) as pipe:
-            pipe.zremrangebyscore(key, 0, time_ - self.request_window)
-            pipe.zrange(key, 0, -1)
-            pipe.zadd(key, {time_: time_})
-            pipe.expire(key, self.request_window)
-            res = await pipe.execute()
-
-        timestamps = res[1]
-        if len(timestamps) > self.max_requests:
-            response.status_code = 429  # Too many requests
-            self.execution_context.result = GraphQLExecutionResult(
-                data=None, errors=[GraphQLError('Too many requests, wait a minute.')]
-            )
 
 
 SCHEMA = strawberry.Schema(
