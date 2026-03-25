@@ -47,8 +47,7 @@ async def check_rate_limit(
     if max_requests is None:
         max_requests = int(os.getenv('MIGAS_MAX_REQUESTS_PER_WINDOW', '100'))
 
-    cache = await get_redis_connection()
-    if cache is None:
+    if (cache := await get_redis_connection()) is None:
         return
 
     host = request.client.host if request.client else 'no-client'

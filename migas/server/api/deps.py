@@ -1,6 +1,9 @@
 """FastAPI dependencies for REST API endpoints."""
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, HTTPException, Request, status
+
+from ..database import authenticate_token
+from ..extensions.ratelimit import RateLimitError, check_rate_limit, check_request_size
 
 
 async def require_root(request: Request) -> None:
@@ -9,8 +12,6 @@ async def require_root(request: Request) -> None:
     Raises HTTPException(401) if the token is missing, invalid, or
     does not have root privileges.
     """
-    from ..database import authenticate_token
-
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
         raise HTTPException(status_code=401, detail='Missing or malformed Authorization header.')
@@ -19,3 +20,10 @@ async def require_root(request: Request) -> None:
     valid, projects = await authenticate_token(token, require_root=True)
     if not valid or not projects:
         raise HTTPException(status_code=401, detail='Invalid or insufficient token.')
+
+async def rate_limit(request: Request) -> None:
+    try:
+        await check_rate_limit(request)
+        await check_request_size(request)
+    except RateLimitError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)

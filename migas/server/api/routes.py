@@ -10,7 +10,7 @@ from ..database import (
 )
 from ..types import Context, Process, Project
 from ..utils import now
-from .deps import require_root
+from .deps import rate_limit, require_root
 from .models import (
     BreadcrumbRequest,
     BreadcrumbResponse,
@@ -30,6 +30,7 @@ router = APIRouter(prefix='/api', tags=['api'])
     '/breadcrumb',
     response_model=BreadcrumbResponse,
     status_code=202,
+    dependencies=[Depends(rate_limit)],
     responses={
         200: {'model': BreadcrumbResponse, 'description': 'Synchronous ingestion (wait=true)'},
         400: {'description': 'Invalid or untracked project'},
