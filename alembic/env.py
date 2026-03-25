@@ -25,21 +25,21 @@ def get_db_url() -> str:
     """Generate the database connection url"""
     from sqlalchemy.engine import make_url, URL
 
-    if not _any_defined(["DATABASE_URL", "DATABASE_USER", "DATABASE_PASSWORD", "DATABASE_NAME"]):
-        raise MissingEnvironmentVariable("No database variables are set")
+    if not _any_defined(['DATABASE_URL', 'DATABASE_USER', 'DATABASE_PASSWORD', 'DATABASE_NAME']):
+        raise MissingEnvironmentVariable('No database variables are set')
 
-    if (db_url := os.getenv("DATABASE_URL")):
-        db_url = make_url(db_url).set(drivername="postgresql+asyncpg")
+    if db_url := os.getenv('DATABASE_URL'):
+        db_url = make_url(db_url).set(drivername='postgresql+asyncpg')
     else:
         db_url = URL.create(
-            drivername="postgresql+asyncpg",
-            username=os.getenv("DATABASE_USER"),
-            password=os.getenv("DATABASE_PASSWORD"),
-            database=os.getenv("DATABASE_NAME")
+            drivername='postgresql+asyncpg',
+            username=os.getenv('DATABASE_USER'),
+            password=os.getenv('DATABASE_PASSWORD'),
+            database=os.getenv('DATABASE_NAME'),
         )
 
-    if gcp_conn := os.getenv("GCP_SQL_CONNECTION"):
-        db_url = db_url.set(query={"host": f"/cloudsql/{gcp_conn}/.s.PGSQL.5432"})
+    if gcp_conn := os.getenv('GCP_SQL_CONNECTION'):
+        db_url = db_url.set(query={'host': f'/cloudsql/{gcp_conn}/.s.PGSQL.5432'})
     return str(db_url)
 
 
@@ -47,7 +47,7 @@ def get_db_url() -> str:
 # access to the values within the .ini file in use.
 config = context.config
 URL = get_db_url()
-config.set_main_option("sqlalchemy.url", URL)
+config.set_main_option('sqlalchemy.url', URL)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -82,7 +82,7 @@ def run_migrations_offline() -> None:
         url=URL,
         target_metadata=target_metadata,
         literal_binds=True,
-        dialect_opts={"paramstyle": "named"},
+        dialect_opts={'paramstyle': 'named'},
     )
 
     with context.begin_transaction():
@@ -107,14 +107,14 @@ async def run_migrations_online() -> None:
     connectable = AsyncEngine(
         engine_from_config(
             config.get_section(config.config_ini_section),
-            prefix="sqlalchemy.",
+            prefix='sqlalchemy.',
             poolclass=pool.NullPool,
             future=True,
         )
     )
 
     async with connectable.connect() as connection:
-        await populate_base(connection)
+        await populate_base(conn=connection)
         global target_metadata
         target_metadata = Base.metadata
         await connection.run_sync(do_run_migrations)
