@@ -108,15 +108,15 @@ class Query:
         version: str | None = None,
         date_group: str = 'day',  # TODO: ty.Literal incompatibility with strawberry - enum?
     ) -> JSON:
-        'Generate different usage information'
-        if not os.getenv("MIGAS_DEBUG") and not token:
+        "Generate different usage information"
+        if not os.getenv('MIGAS_DEBUG') and not token:
             raise Exception('Token required.')
 
-        if token and not (os.getenv("MIGAS_DEBUG") and token == 'dev_token'):
+        if token and not (os.getenv('MIGAS_DEBUG') and token == 'dev_token'):
             _, projects = await authenticate_token(token)
             if project not in projects:
                 raise Exception('Invalid token.')
-        
+
         usage = await get_viz_data(project, version, date_group)
         return usage
 
@@ -227,21 +227,23 @@ class Mutation:
         """
         # TODO: Check for existance of project / user tables
         if await project_exists(project):
-            return {"success": True, "message": "Project is already registered."}
+            return {'success': True, 'message': 'Project is already registered.'}
         await add_new_project(project)
-        return {"success": True, "message": "Project is now registered."}
+        return {'success': True, 'message': 'Project is now registered.'}
 
     @strawberry.mutation(permission_classes=[RequireRoot])
     async def issue_token(self, project: str, description: str | None = None) -> TokenResult:
         """
         Issue a new token for a project.
         """
-        if project == "master":
-            return TokenResult(success=False, message="Cannot issue tokens for the master project.")
+        if project == 'master':
+            return TokenResult(
+                success=False, message='Cannot issue tokens for the master project.'
+            )
         if not await project_exists(project):
-            return TokenResult(success=False, message="Project is not registered.")
+            return TokenResult(success=False, message='Project is not registered.')
         token = await create_token(project, description)
-        return TokenResult(success=True, token=token, message="Token issued successfully.")
+        return TokenResult(success=True, token=token, message='Token issued successfully.')
 
     @strawberry.mutation(permission_classes=[RequireRoot])
     async def revoke_token(self, token: str) -> bool:
@@ -270,7 +272,6 @@ class RateLimiter(SchemaExtension):
     - Are not clobbering the GQL endpoint
     """
 
-
     def __init__(self, *args, **kwargs):
         self.set_attrs()
         super().__init__(*args, **kwargs)
@@ -293,12 +294,9 @@ class RateLimiter(SchemaExtension):
         except RateLimitError as e:
             response.status_code = e.status_code
             self.execution_context.result = GraphQLExecutionResult(
-                data=None,
-                errors=[GraphQLError(e.message)],
+                data=None, errors=[GraphQLError(e.message)]
             )
         yield  # any logic after yield for post operation
-
-
 
 
 SCHEMA = strawberry.Schema(

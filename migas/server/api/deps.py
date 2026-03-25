@@ -21,6 +21,7 @@ async def require_root(request: Request) -> None:
     if not valid or not projects:
         raise HTTPException(status_code=401, detail='Invalid or insufficient token.')
 
+
 async def rate_limit(request: Request) -> None:
     try:
         await check_rate_limit(request)

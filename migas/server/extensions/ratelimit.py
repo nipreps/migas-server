@@ -29,16 +29,10 @@ async def check_request_size(request: Request, max_size: int = None) -> None:
 
     body = await request.body()
     if len(body) > max_size:
-        raise RequestTooLargeError(
-            f'Request body ({len(body)}) exceeds maximum size ({max_size})'
-        )
+        raise RequestTooLargeError(f'Request body ({len(body)}) exceeds maximum size ({max_size})')
 
 
-async def check_rate_limit(
-    request: Request,
-    window: int = None,
-    max_requests: int = None,
-) -> None:
+async def check_rate_limit(request: Request, window: int = None, max_requests: int = None) -> None:
     if os.getenv('MIGAS_BYPASS_RATE_LIMIT'):
         return
 

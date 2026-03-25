@@ -43,7 +43,9 @@ async def add_breadcrumb(
     wait: bool = False,
 ):
     if '/' not in body.project:
-        raise HTTPException(status_code=400, detail='Invalid project format (expected owner/repo).')
+        raise HTTPException(
+            status_code=400, detail='Invalid project format (expected owner/repo).'
+        )
 
     if not await project_exists(body.project):
         raise HTTPException(status_code=400, detail='Project is not registered.')
@@ -82,9 +84,7 @@ async def add_breadcrumb(
 
 
 @router.post(
-    '/admin/register',
-    response_model=RegisterResponse,
-    dependencies=[Depends(require_root)],
+    '/admin/register', response_model=RegisterResponse, dependencies=[Depends(require_root)]
 )
 async def register_project(body: RegisterRequest):
     if await project_exists(body.project):
@@ -94,12 +94,11 @@ async def register_project(body: RegisterRequest):
 
 
 @router.get(
-    '/admin/list-tokens',
-    response_model=ListTokensResponse,
-    dependencies=[Depends(require_root)],
+    '/admin/list-tokens', response_model=ListTokensResponse, dependencies=[Depends(require_root)]
 )
 async def list_tokens(project: str | None = None):
     from .models import TokenModel
+
     db_tokens = await get_tokens(project)
     tokens = [
         TokenModel(
@@ -115,15 +114,11 @@ async def list_tokens(project: str | None = None):
 
 
 @router.post(
-    '/admin/issue-token',
-    response_model=TokenResponse,
-    dependencies=[Depends(require_root)],
+    '/admin/issue-token', response_model=TokenResponse, dependencies=[Depends(require_root)]
 )
 async def issue_token(body: IssueTokenRequest):
     if body.project == 'master':
-        raise HTTPException(
-            status_code=400, detail='Cannot issue tokens for the master project.'
-        )
+        raise HTTPException(status_code=400, detail='Cannot issue tokens for the master project.')
     if not await project_exists(body.project):
         raise HTTPException(status_code=400, detail='Project is not registered.')
     token = await create_token(body.project, body.description)
@@ -131,9 +126,7 @@ async def issue_token(body: IssueTokenRequest):
 
 
 @router.post(
-    '/admin/revoke-token',
-    response_model=RevokeTokenResponse,
-    dependencies=[Depends(require_root)],
+    '/admin/revoke-token', response_model=RevokeTokenResponse, dependencies=[Depends(require_root)]
 )
 async def revoke_token_endpoint(body: RevokeTokenRequest):
     revoked = await revoke_token(body.token)
