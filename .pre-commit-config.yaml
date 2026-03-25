@@ -1,19 +1,31 @@
+exclude: ".*/data/.*|.maint/.*_author.*.py|.vscode/.*.json"
 repos:
--   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.1.0
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
     hooks:
-    -   id: check-yaml
-    -   id: end-of-file-fixer
-    -   id: trailing-whitespace
-    -   id: pretty-format-json
--   repo: https://github.com/psf/black
-    rev: 22.3.0
+      - id: trailing-whitespace
+        exclude: '.*\.svg'
+      - id: end-of-file-fixer
+        exclude: '.*\.svg'
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-added-large-files
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.7
     hooks:
-    -   id: black
-        exclude: src/server/_version.py
-- repo: https://github.com/pycqa/isort
-  rev: 5.10.1
-  hooks:
-    -   id: isort
-        exclude: src/server/_version.py
-        name: isort (python)
+      - id: ruff-check
+        args: [ --fix, --show-fixes ]
+      - id: ruff-format
+
+  - repo: https://github.com/djlint/djLint
+    rev: v1.36.4
+    hooks:
+      - id: djlint-reformat-django
+        args: ["--profile", "jinja"]
+      - id: djlint-django
+        args: ["--profile", "jinja"]
+
+ci:
+  autoupdate_schedule: monthly
