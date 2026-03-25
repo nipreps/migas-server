@@ -2,7 +2,7 @@ import typing
 import strawberry
 from strawberry.permission import BasePermission
 
-from ..database import verify_token
+from ..database import authenticate_token
 
 
 class RequireRoot(BasePermission):
@@ -17,5 +17,5 @@ class RequireRoot(BasePermission):
             return False
 
         token = auth_header.split(" ", 1)[1]
-        valid, projects = await verify_token(token, require_root=True)
+        valid, projects = await authenticate_token(token, require_root=True)
         return valid and len(projects) > 0

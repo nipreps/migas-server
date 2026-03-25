@@ -18,7 +18,7 @@ from .database import (
     project_exists,
     query_projects,
     query_usage_by_datetimes,
-    verify_token,
+    authenticate_token,
     add_new_project,
     create_token,
     revoke_token,
@@ -91,7 +91,7 @@ class Query:
 
     @strawberry.field
     async def login(self, token: str) -> AuthenticationResult:
-        valid, projects = await verify_token(token)
+        valid, projects = await authenticate_token(token)
         if not valid:
             success = False
             msg = 'Authentication Error: token is either invalid or expired.'
@@ -113,7 +113,7 @@ class Query:
             raise Exception('Token required.')
 
         if token and not (os.getenv("MIGAS_DEBUG") and token == 'dev_token'):
-            _, projects = await verify_token(token)
+            _, projects = await authenticate_token(token)
             if project not in projects:
                 raise Exception('Invalid token.')
         

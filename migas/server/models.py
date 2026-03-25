@@ -63,7 +63,6 @@ class Authentication(Base):
     description = Column(String)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
     last_used = Column(TIMESTAMP(timezone=True), nullable=True)
-    is_active = Column(BOOLEAN, nullable=False, server_default=text("true"))
 
 
 class GeoLoc(Base):
