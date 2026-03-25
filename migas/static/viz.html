@@ -1,104 +1,90 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Migas | Visualization Portal</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
-          rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/viz.css">
-  </head>
-  <body class="login-page">
-    <div class="card login-card">
-      <span class="nav-brand login-logo">migas</span>
-      <h1 style="font-size: 1.5rem; margin-bottom: 0.5rem;">Welcome Back</h1>
-      <p style="color: var(--text-secondary); margin-bottom: 2rem;">Access your project usage visualizations</p>
-      <div class="input-group">
+{% extends "base.html" %}
+
+{% block title %}Migas | Visualization Portal{% endblock %}
+
+{% block body_class %}login-page{% endblock %}
+
+{% block content %}
+<div class="card login-card">
+    <span class="nav-brand login-logo">migas</span>
+    <h1 style="font-size: 1.5rem; margin-bottom: 0.5rem;">Welcome Back</h1>
+    <p style="color: var(--text-secondary); margin-bottom: 2rem;">Access your project usage visualizations</p>
+    <div class="input-group">
         <label class="input-label" for="token">Access Token</label>
-        <input type="password"
-               class="form-control"
-               placeholder="Enter your token"
-               id="token"
-               style="width: 100%">
-      </div>
-      <div style="display: flex; flex-direction: column; gap: 1rem;">
-        <button class="btn btn-primary"
-                id="submit"
-                type="button"
-                onclick="submitToken()"
-                style="width: 100%">Login</button>
-        <button class="btn"
-                onclick="skipLogin()"
-                style="background: transparent;
+        <input type="password" class="form-control" placeholder="Enter your token" id="token" style="width: 100%">
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 1rem;">
+        <button class="btn btn-primary" id="submit" type="button" onclick="submitToken()"
+            style="width: 100%">Login</button>
+        <button class="btn" onclick="skipLogin()" style="background: transparent;
                        color: var(--text-secondary);
                        text-decoration: underline">Skip for now (Dev Mode)</button>
-      </div>
-      <div id="status"
-           style="margin-top: 1.5rem;
+    </div>
+    <div id="status" style="margin-top: 1.5rem;
                   font-size: 0.9rem;
                   display: none"></div>
-    </div>
-    <script>
-        function setStatus(msg, type) {
-            const status = document.getElementById("status");
-            status.innerHTML = `<span class="status-badge ${type}">${msg}</span>`;
-            status.style.display = "block";
-        }
+</div>
+{% endblock %}
 
-        async function submitToken() {
-            const token = document.getElementById("token").value;
-            if (!token) return setStatus("Token required", "error");
+{% block extra_scripts %}
+<script>
+    function setStatus(msg, type) {
+        const status = document.getElementById("status");
+        status.innerHTML = `<span class="status-badge ${type}">${msg}</span>`;
+        status.style.display = "block";
+    }
 
-            try {
-                const res = await fetch('/graphql', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                        query: `{ login(token: "${token}") { success projects message } }`
-                    })
-                });
-                const data = await res.json();
-                const auth = data.data.login;
+    async function submitToken() {
+        const token = document.getElementById("token").value;
+        if (!token) return setStatus("Token required", "error");
 
-                if (!auth.success) {
-                    setStatus(auth.message, "error");
-                    return;
-                }
+        try {
+            const res = await fetch('/graphql', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    query: `{ login(token: "${token}") { success projects message } }`
+                })
+            });
+            const data = await res.json();
+            const auth = data.data.login;
 
-                localStorage.setItem("migas_token", token);
-                localStorage.setItem("migas_projects", auth.projects.join(','));
-                window.location.href = "/viz/dashboard";
-            } catch (err) {
-                setStatus("Connection error", "error");
+            if (!auth.success) {
+                setStatus(auth.message, "error");
+                return;
             }
-        }
 
-        async function skipLogin() {
-            // Dev mode bypass
-            try {
-                const res = await fetch('/graphql', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query: '{ get_projects }' })
-                });
-                const data = await res.json();
-                const projects = data.data.get_projects;
-
-                localStorage.setItem("migas_token", "dev_token");
-                localStorage.setItem("migas_projects", projects.join(','));
-                window.location.href = "/viz/dashboard";
-            } catch (err) {
-                // Fallback if fetch fails
-                localStorage.setItem("migas_token", "dev_token");
-                localStorage.setItem("migas_projects", "nipreps/migas-server");
-                window.location.href = "/viz/dashboard";
-            }
+            localStorage.setItem("migas_token", token);
+            localStorage.setItem("migas_projects", auth.projects.join(','));
+            window.location.href = "/viz/dashboard";
+        } catch (err) {
+            setStatus("Connection error", "error");
         }
-    </script>
-  </body>
-</html>
+    }
+
+    async function skipLogin() {
+        // Dev mode bypass
+        try {
+            const res = await fetch('/graphql', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: '{ get_projects }' })
+            });
+            const data = await res.json();
+            const projects = data.data.get_projects;
+
+            localStorage.setItem("migas_token", "dev_token");
+            localStorage.setItem("migas_projects", projects.join(','));
+            window.location.href = "/viz/dashboard";
+        } catch (err) {
+            // Fallback if fetch fails
+            localStorage.setItem("migas_token", "dev_token");
+            localStorage.setItem("migas_projects", "nipreps/migas-server");
+            window.location.href = "/viz/dashboard";
+        }
+    }
+</script>
+{% endblock %}

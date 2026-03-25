@@ -1,11 +1,110 @@
-<!DOCTYPE html>
-<html lang="eng">
-    <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width" />
-        <title>Migas Telemetry</title>
-    </head>
-    <body>
-        <p>Migas collects anonymized usage information across projects.</p>
-    </body>
-</html>
+{% extends "base.html" %}
+
+{% block title %}Migas | Telemetry Server{% endblock %}
+
+{% block body_class %}login-page{% endblock %}
+
+{% block extra_head %}
+    <style>
+      body {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        overflow-y: auto;
+      }
+      .hero {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 4rem 2rem;
+      }
+      .hero-title {
+        display: inline-block;
+        font-size: 5rem;
+        font-weight: 800;
+        margin-bottom: 0.25rem;
+        letter-spacing: -3px;
+        line-height: 1.2;
+        padding-bottom: 0.1em;
+      }
+      .hero-tagline {
+        font-size: 1.25rem;
+        color: var(--text-secondary);
+        margin-bottom: 1.5rem;
+        font-weight: 400;
+        letter-spacing: 0.5px;
+      }
+      .cta-group {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        margin-top: 1rem;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        height: 48px;
+        min-width: 200px;
+        font-size: 0.95rem;
+      }
+      .btn-secondary {
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--text-primary);
+        border: 1px solid var(--border);
+      }
+      .btn-secondary:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: var(--text-secondary);
+      }
+      .info-section {
+        margin-top: 5rem;
+        max-width: 600px;
+        font-size: 0.85rem;
+      }
+      .info-section p {
+        color: var(--text-secondary);
+        margin-bottom: 0.5rem;
+      }
+      .info-section a {
+        color: var(--primary);
+        text-decoration: none;
+        font-weight: 600;
+      }
+      .info-section a:hover {
+        text-decoration: underline;
+      }
+      @media (max-width: 600px) {
+        .hero-title { font-size: 3.5rem; }
+        .cta-group { flex-direction: column; width: 100%; }
+        .btn { width: 100%; }
+      }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <section class="hero">
+      <span class="nav-brand hero-title">migas</span>
+      <p class="hero-tagline">application telemetry and visualization</p>
+      
+      <div class="cta-group">
+        <a href="/viz" class="btn btn-primary">
+          Open Visualization Portal
+        </a>
+        <a href="https://github.com/nipreps/migas-server/wiki" target="_blank" class="btn btn-secondary">
+          Read the Wiki
+        </a>
+      </div>
+
+      <section class="info-section">
+        <p>Interested in tracking your project?</p>
+        <a href="mailto:nipreps@gmail.com">Contact the Nipreps Developers</a>
+      </section>
+    </section>
+{% endblock %}

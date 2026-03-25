@@ -1,19 +1,12 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
 
-<head>
-    <meta charset="UTF-8" />
-    <title>Migas | Analytics Dashboard</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/viz.css">
+{% block title %}Migas | Analytics Dashboard{% endblock %}
+
+{% block extra_head %}
     <link rel="stylesheet" href="/static/css/dashboard.css">
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-</head>
+{% endblock %}
 
-<body>
+{% block content %}
     <div class="container">
         <header class="nav">
             <div class="nav-brand">migas</div>
@@ -92,7 +85,10 @@
             </div>
         </div>
     </div>
+{% endblock %}
 
+{% block extra_scripts %}
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <script>
         // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -503,6 +499,4 @@
         // ── Initial load ───────────────────────────────────────────────────────────
         updateDashboard();
     </script>
-</body>
-
-</html>
+{% endblock %}

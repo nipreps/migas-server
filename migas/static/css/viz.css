@@ -24,6 +24,15 @@ body {
   background-color: var(--background);
   color: var(--text-primary);
   line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .container {
@@ -233,12 +242,13 @@ body {
 }
 
 /* Login Page Styles */
-.login-page {
-  height: 100vh;
-  display: flex;
+body.login-page {
+  background: radial-gradient(circle at center, #1a237e 0%, #121212 100%);
+}
+
+body.login-page main {
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at center, #1a237e 0%, #121212 100%);
 }
 
 .login-card {
@@ -351,4 +361,39 @@ body {
 .btn-reset:hover {
   background: var(--primary);
   color: white;
+}
+
+/* --- Footer --- */
+footer {
+  padding: 2rem;
+  text-align: center;
+  border-top: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.footer-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.version-tag {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.github-link {
+  color: inherit;
+  text-decoration: none;
+}
+.github-link:hover {
+  text-decoration: underline;
 }
