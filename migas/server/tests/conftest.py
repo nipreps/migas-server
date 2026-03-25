@@ -13,13 +13,16 @@ from ..connection_context import set_connection_context, ConnectionContext
 TEST_PROJECT = 'nipreps/migas-server'
 
 
-async def create_db(app):
+
+async def create_db(_):
     """Helper function to register a project on application startup."""
     from ..connections import get_redis_connection
+    from ..database import add_new_project
 
     cache = await get_redis_connection()
     await cache.flushdb()
     await add_new_project(TEST_PROJECT)
+
 
 queries = {
     'add_project': f'mutation {{ add_project(p: {{project: "{TEST_PROJECT}", project_version: "0.5.0", language: "python", language_version: "3.12"}}) }}',

@@ -12,6 +12,7 @@ from fastapi.templating import Jinja2Templates
 from strawberry.fastapi import GraphQLRouter
 
 from . import __version__, __root__
+from .api.routes import router as api_router
 from .connections import (
     get_db_engine,
     get_redis_connection,
@@ -79,6 +80,7 @@ def create_app(lifespan_func=lifespan, **lifespan_kwargs) -> FastAPI:
     )
     graphql_app = GraphQLRouter(SCHEMA)
     app.include_router(graphql_app, prefix='/graphql')
+    app.include_router(api_router)
 
     app.add_middleware(
         CORSMiddleware, allow_origins=['*'], allow_methods=['*'], allow_headers=['*']
