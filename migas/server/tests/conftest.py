@@ -13,7 +13,6 @@ from ..connection_context import set_connection_context, ConnectionContext
 TEST_PROJECT = 'nipreps/migas-server'
 
 
-
 async def create_db(_):
     """Helper function to register a project on application startup."""
     from ..connections import get_redis_connection
@@ -43,7 +42,11 @@ def _postgres_available():
     if not (
         os.getenv('DATABASE_URL')
         or all(
-            [os.getenv('DATABASE_USER'), os.getenv('DATABASE_PASSWORD'), os.getenv('DATABASE_NAME')]
+            [
+                os.getenv('DATABASE_USER'),
+                os.getenv('DATABASE_PASSWORD'),
+                os.getenv('DATABASE_NAME'),
+            ]
         )
     ):
         pytest.skip('Could not establish postgres connection')
@@ -112,8 +115,11 @@ def mock_geoloc_db(request, tmp_path):
     if request.node.get_closest_marker('geoloc'):
         if not request.node.get_closest_marker('network'):
             from pathlib import Path
+
             if not Path('asn.mmdb').exists() or not Path('city.mmdb').exists():
-                pytest.fail("Geolocation tests require the database files to exist locally. Run with `@pytest.mark.network` to download them, or download them manually.")
+                pytest.fail(
+                    'Geolocation tests require the database files to exist locally. Run with `@pytest.mark.network` to download them, or download them manually.'
+                )
         yield None, None
         return
 

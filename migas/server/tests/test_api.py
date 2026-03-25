@@ -67,12 +67,9 @@ class TestAdminRegister:
 
     def test_success(self, client: TestClient, master_token):
         import uuid
+
         project = f'new-org/new-repo-{uuid.uuid4().hex[:6]}'
-        res = client.post(
-            self.url,
-            json={'project': project},
-            headers=_auth_header(master_token),
-        )
+        res = client.post(self.url, json={'project': project}, headers=_auth_header(master_token))
         assert res.status_code == 200
         data = res.json()
         assert data['success'] is True
@@ -80,9 +77,7 @@ class TestAdminRegister:
 
     def test_already_exists(self, client: TestClient, master_token):
         res = client.post(
-            self.url,
-            json={'project': TEST_PROJECT},
-            headers=_auth_header(master_token),
+            self.url, json={'project': TEST_PROJECT}, headers=_auth_header(master_token)
         )
         assert res.status_code == 200
         assert 'already registered' in res.json()['message']
@@ -105,16 +100,13 @@ class TestAdminListTokens:
 
     def test_list_filtered(self, client: TestClient, master_token):
         import uuid
+
         project = f'test/project-{uuid.uuid4().hex[:6]}'
         client.post(
-            '/api/admin/register',
-            json={'project': project},
-            headers=_auth_header(master_token),
+            '/api/admin/register', json={'project': project}, headers=_auth_header(master_token)
         )
         client.post(
-            '/api/admin/issue-token',
-            json={'project': project},
-            headers=_auth_header(master_token),
+            '/api/admin/issue-token', json={'project': project}, headers=_auth_header(master_token)
         )
 
         res = client.get(f'{self.url}?project={project}', headers=_auth_header(master_token))
@@ -134,9 +126,7 @@ class TestAdminIssueToken:
 
     def test_success(self, client: TestClient, master_token):
         res = client.post(
-            self.url,
-            json={'project': TEST_PROJECT},
-            headers=_auth_header(master_token),
+            self.url, json={'project': TEST_PROJECT}, headers=_auth_header(master_token)
         )
         assert res.status_code == 200
         data = res.json()
@@ -144,11 +134,7 @@ class TestAdminIssueToken:
         assert data['token'].startswith('m_')
 
     def test_master_project_rejected(self, client: TestClient, master_token):
-        res = client.post(
-            self.url,
-            json={'project': 'master'},
-            headers=_auth_header(master_token),
-        )
+        res = client.post(self.url, json={'project': 'master'}, headers=_auth_header(master_token))
         assert res.status_code == 400
 
     def test_no_auth(self, client: TestClient):
@@ -168,19 +154,13 @@ class TestAdminRevokeToken:
         issued_token = issue_res.json()['token']
 
         res = client.post(
-            self.url,
-            json={'token': issued_token},
-            headers=_auth_header(master_token),
+            self.url, json={'token': issued_token}, headers=_auth_header(master_token)
         )
         assert res.status_code == 200
         assert res.json()['success'] is True
 
     def test_nonexistent_token(self, client: TestClient, master_token):
-        res = client.post(
-            self.url,
-            json={'token': 'NaN'},
-            headers=_auth_header(master_token),
-        )
+        res = client.post(self.url, json={'token': 'NaN'}, headers=_auth_header(master_token))
         assert res.status_code == 200
         assert res.json()['success'] is False
 
@@ -202,16 +182,13 @@ class TestAdminListTokens:
 
     def test_list_filtered(self, client: TestClient, master_token):
         import uuid
+
         project = f'test/project-{uuid.uuid4().hex[:6]}'
         client.post(
-            '/api/admin/register',
-            json={'project': project},
-            headers=_auth_header(master_token),
+            '/api/admin/register', json={'project': project}, headers=_auth_header(master_token)
         )
         client.post(
-            '/api/admin/issue-token',
-            json={'project': project},
-            headers=_auth_header(master_token),
+            '/api/admin/issue-token', json={'project': project}, headers=_auth_header(master_token)
         )
 
         res = client.get(f'{self.url}?project={project}', headers=_auth_header(master_token))
