@@ -1,13 +1,12 @@
 FROM python:3.13-slim
 ARG BUILDTYPE=test-latest
 ARG DEPLOYSERVER=uvicorn
-ARG VERSION
+ARG VERSION="0.0.0dev"
 ENV YARL_NO_EXTENSIONS=1 \
     MULTIDICT_NO_EXTENSIONS=1 \
     DEPLOYSERVER=${DEPLOYSERVER} \
     SETUPTOOLS_SCM_PRETEND_VERSION=${VERSION} \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
+    UV_COMPILE_BYTECODE=1 \
     UV_NO_CACHE=1 \
     PATH="/src/.venv/bin:$PATH"
 
@@ -15,16 +14,16 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 # Build uv sync flags from BUILDTYPE
 RUN if [ "$BUILDTYPE" = "release" ]; then \
-      echo "--locked --no-dev" > /tmp/uv-flags; \
+      echo "--locked --extra prod --no-dev" > /tmp/uv-flags; \
     elif [ "$BUILDTYPE" = "test" ]; then \
       echo "--locked --extra test" > /tmp/uv-flags; \
     else \
       echo "--extra test" > /tmp/uv-flags; \
     fi
 
-# Install dependencies first (cached unless pyproject.toml or uv.lock change)
+# Install dependencies first (cached unless core metadata/lockfile changes)
 WORKDIR /src/
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock LICENSE README.md ./
 RUN uv sync $(cat /tmp/uv-flags) --no-install-project
 
 # Copy source and install the project
