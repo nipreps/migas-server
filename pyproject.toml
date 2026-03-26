@@ -47,6 +47,7 @@ dev = [
     "pre-commit",
     "hatch",
     "ruff",
+    "djlint",
 ]
 migrations = [
     "alembic",
@@ -73,7 +74,6 @@ version-file = "migas/server/_version.py"
 [tool.hatch.build.targets.wheel.force-include]
 "migas/static" = "migas/static"
 
-
 [tool.pytest.ini_options]
 markers = [
     "network: tests that require real network connectivity",
@@ -86,3 +86,7 @@ line-length = 99
 [tool.ruff.format]
 quote-style = "single"
 skip-magic-trailing-comma = true
+
+[tool.djlint]
+ignore = "H021,D018,T003,H030,H031,D004,J004,J018"
+profile = "jinja"
