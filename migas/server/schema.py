@@ -1,4 +1,6 @@
 import os
+from datetime import datetime
+from packaging.version import Version as _Version
 
 import strawberry
 from graphql import ExecutionResult as GraphQLExecutionResult
@@ -36,6 +38,9 @@ from .types import (
     Project,
     ProjectInput,
     TokenResult,
+    Version,
+    DateTimeScalar,
+    VersionScalar,
 )
 from .utils import now
 
@@ -292,5 +297,13 @@ SCHEMA = strawberry.Schema(
     query=Query,
     mutation=Mutation,
     extensions=[RateLimiter, LoggingExtension],
-    config=StrawberryConfig(auto_camel_case=False),
+    config=StrawberryConfig(
+        auto_camel_case=False,
+        scalar_map={
+            DateTime: DateTimeScalar,
+            Version: VersionScalar,
+            datetime: DateTimeScalar,
+            _Version: VersionScalar,
+        },
+    ),
 )

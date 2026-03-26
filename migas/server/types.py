@@ -9,14 +9,13 @@ import strawberry
 from packaging.version import Version as _Version
 from packaging.version import _BaseVersion
 from packaging.version import parse as parse_version
-from strawberry import scalar
 
 from .utils import dt_to_str, str_to_dt
 
 # Strawberry has a Date object, but migas's time format
 # slightly differs from datetime.datetime.isoformat()
-DateTime = scalar(
-    datetime,
+DateTime = typing.NewType('DateTime', datetime)
+DateTimeScalar = strawberry.scalar(
     name='DateTime',
     description='Date and time information in UTC, compliant with ISO-8601',
     serialize=dt_to_str,
@@ -24,8 +23,8 @@ DateTime = scalar(
 )
 
 # Version must be PEP440 compliant
-Version = scalar(
-    _Version,
+Version = typing.NewType('Version', _Version)
+VersionScalar = strawberry.scalar(
     name='Version',
     description='Version information (PEP440 compliant)',
     serialize=lambda v: str(v),
