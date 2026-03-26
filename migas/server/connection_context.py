@@ -5,6 +5,7 @@ import contextvars
 from dataclasses import dataclass
 from typing import Any
 
+
 @dataclass
 class ConnectionContext:
     mem_cache: Any = None

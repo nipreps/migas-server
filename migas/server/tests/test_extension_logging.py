@@ -1,8 +1,6 @@
-import pytest
 from graphql import parse
 
 from ..extensions.logging import LoggingExtension
-from ..graphql import _extract_field, _extract_from_ast
 from .conftest import TEST_PROJECT, queries
 
 
@@ -29,6 +27,7 @@ def test_extension_log_format(caplog):
     async def run_extension():
         async for _ in ext.on_operation():
             pass
+
     asyncio.run(run_extension())
 
     log_messages = [rec.message for rec in caplog.records if rec.name == 'migas.server']
@@ -40,14 +39,14 @@ def test_logging_extension(client, caplog):
     import logging
 
     # Set level to INFO to capture our logs
-    caplog.set_level(logging.INFO, logger="migas.server")
+    caplog.set_level(logging.INFO, logger='migas.server')
 
     query = queries['get_usage']
-    res = client.post("/graphql", json={"query": query})
+    res = client.post('/graphql', json={'query': query})
     assert res.status_code == 200
 
     # Check if the log message is present
     # Format: QUERY [get_usage] | project=nipreps/migas-server | project_version=None | status=None
-    log_messages = [rec.message for rec in caplog.records if rec.name == "migas.server"]
-    assert any("QUERY [get_usage]" in msg for msg in log_messages)
-    assert any(f"project={TEST_PROJECT}" in msg for msg in log_messages)
+    log_messages = [rec.message for rec in caplog.records if rec.name == 'migas.server']
+    assert any('QUERY [get_usage]' in msg for msg in log_messages)
+    assert any(f'project={TEST_PROJECT}' in msg for msg in log_messages)

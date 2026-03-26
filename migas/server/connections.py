@@ -9,6 +9,8 @@ from aiohttp import ClientSession, ClientTimeout
 import redis.asyncio as redis
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
+from .connection_context import get_connection_context
+
 _UNSET = object()
 
 try:  # do not define unless necessary, to avoid overwriting established sessions
@@ -24,8 +26,6 @@ except NameError:
     DB_ENGINE = _UNSET
     GEOLOC_CITY = _UNSET
     GEOLOC_ASN = _UNSET
-
-from .connection_context import get_connection_context
 
 
 def _get_val(name):

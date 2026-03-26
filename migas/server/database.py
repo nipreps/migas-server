@@ -1,11 +1,11 @@
 import typing as ty
 from datetime import datetime
 
-from sqlalchemy import distinct, func, select, case, cast, update
-from sqlalchemy.dialects.postgresql import insert, INET
+from sqlalchemy import distinct, func, select
+from sqlalchemy.dialects.postgresql import insert
 
 from .connections import inject_db_session, gen_session, AsyncSession
-from .models import Table, get_project_tables, projects, GeoLoc, Projects, Authentication
+from .models import Table, get_project_tables, projects, GeoLoc, Authentication
 from .types import Project, serialize
 from .utils import now
 
@@ -94,7 +94,6 @@ async def insert_query_geoloc(ip: str) -> int | None:
     Query geolocation database, and insert result into geoloc table if new.
     """
     from .fetchers import geoloc
-    from .models import GeoLoc
 
     if not ip or ip == 'testclient':
         return None
@@ -119,13 +118,7 @@ async def insert_query_geoloc(ip: str) -> int | None:
                 lon=info.get('lon'),
             )
             .on_conflict_do_update(
-                index_elements=[
-                    'country_code',
-                    'state_province_name',
-                    'city_name',
-                    'lat',
-                    'lon',
-                ],
+                index_elements=['country_code', 'state_province_name', 'city_name', 'lat', 'lon'],
                 set_={'asn': info.get('asn'), 'asn_org': info.get('aso')},
             )
             .returning(GeoLoc.idx)
@@ -236,12 +229,7 @@ async def get_viz_data(
     date_str = func.to_char(date_trunc, 'YYYY-MM-DD')
 
     subq0 = (
-        select(
-            project.c.version,
-            project.c.session_id,
-            date_str.label('date'),
-            project.c.status
-        )
+        select(project.c.version, project.c.session_id, date_str.label('date'), project.c.status)
         .distinct(project.c.session_id)
         .where(project.c.status is not None)
     )
@@ -256,12 +244,7 @@ async def get_viz_data(
     subq0 = subq0.subquery()
 
     query = (
-        select(
-            subq0.c.version,
-            subq0.c.date,
-            subq0.c.status,
-            func.count().label("count")
-        )
+        select(subq0.c.version, subq0.c.date, subq0.c.status, func.count().label('count'))
         .group_by(subq0.c.status, subq0.c.date, subq0.c.version)
         .order_by(subq0.c.date.desc(), subq0.c.version.desc())
     )
@@ -269,12 +252,7 @@ async def get_viz_data(
     async with gen_session() as session:
         res = await session.execute(query)
         return [
-            {
-                "version": row[0],
-                "date": row[1],
-                "status": row[2],
-                "count": row[3],
-            }
+            {'version': row[0], 'date': row[1], 'status': row[2], 'count': row[3]}
             for row in res.all()
         ]
 
@@ -317,7 +295,7 @@ async def authenticate_token(token: str, require_root: bool = False) -> tuple[bo
             return valid, projects
 
         auth.last_used = now()
-        if auth.project == "master":
+        if auth.project == 'master':
             projects = await query_projects()
             valid = True
         elif not require_root:
@@ -344,18 +322,14 @@ async def create_token(project: str, description: str | None = None) -> str:
     """Generate a new secure token and store its hash."""
     from secrets import token_urlsafe
 
-    if project == "master":
-        raise ValueError("Cannot create new master tokens via this API.")
+    if project == 'master':
+        raise ValueError('Cannot create new master tokens via this API.')
 
-    raw_token = f"m_{token_urlsafe(32)}"
+    raw_token = f'm_{token_urlsafe(32)}'
     hashed = hash_token(raw_token)
 
     async with gen_session() as session:
-        new_auth = Authentication(
-            project=project,
-            token=hashed,
-            description=description,
-        )
+        new_auth = Authentication(project=project, token=hashed, description=description)
         session.add(new_auth)
         await session.commit()
 
@@ -366,7 +340,7 @@ async def revoke_token(token: str) -> bool:
     """Deactivate a token."""
     async with gen_session() as session:
         auth = await _get_auth_by_token(token, session)
-        if auth and auth.project != "master":
+        if auth and auth.project != 'master':
             await session.delete(auth)
             await session.commit()
             return True

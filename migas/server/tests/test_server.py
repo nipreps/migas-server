@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from .conftest import queries
 
+
 def test_server_info(client: TestClient) -> None:
     res = client.get('/info')
     assert res.status_code == 200

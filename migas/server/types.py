@@ -1,14 +1,11 @@
 """Custom types"""
 
-import json
 import typing
 from datetime import datetime
 from enum import Enum
-from uuid import UUID
 
 # from strawberry.scalars import Base64, JSON
 import strawberry
-from graphql.utilities import value_from_ast_untyped
 from packaging.version import Version as _Version
 from packaging.version import _BaseVersion
 from packaging.version import parse as parse_version
@@ -189,7 +186,7 @@ class AuthenticationResult:
 class TokenResult:
     token: str | None = None
     success: bool
-    message: str = ""
+    message: str = ''
 
 
 @strawberry.type

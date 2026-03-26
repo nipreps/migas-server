@@ -1,6 +1,5 @@
 from pathlib import Path
 import typing as ty
-import os
 import gzip
 from functools import wraps
 
