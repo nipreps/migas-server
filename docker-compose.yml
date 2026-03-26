@@ -44,7 +44,7 @@ services:
       MIGAS_MAX_REQUEST_SIZE:
       MIGAS_BYPASS_RATE_LIMIT:
       MIGAS_DEBUG: 1
-      MIGAS_TESTING:
+      MIGAS_DEV: 1
       PYTEST_ADDOPTS: "-p no:cacheprovider"
 
   # Redis in-memory db

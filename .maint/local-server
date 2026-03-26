@@ -8,7 +8,7 @@ export MIGAS_BYPASS_RATE_LIMIT=1
 export MIGAS_MAX_REQUEST_SIZE=3000
 
 if [ "$1" == "test" ]; then
-    export MIGAS_TESTING=1
+    export MIGAS_DEV=1
     echo "Running in test mode..."
     uv run pytest -vrs ${2:-"migas/"}
 else

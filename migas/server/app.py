@@ -104,14 +104,13 @@ def create_app(lifespan_func=lifespan, **lifespan_kwargs) -> FastAPI:
             'version': __version__,
             'message': 'Visit /graphql for GraphiQL interface',
             'geoloc_enabled': bool(os.getenv('MIGAS_ENABLE_GEOLOC')),
+            'dev_mode': bool(os.getenv('MIGAS_DEV')),
         }
 
     @app.get('/viz', response_class=HTMLResponse)
     async def viz(request: Request):
         return templates.TemplateResponse(
-            request,
-            'viz.html',
-            {'version': __version__, 'dev_mode': bool(os.getenv('MIGAS_TESTING'))},
+            request, 'viz.html', {'version': __version__, 'dev_mode': bool(os.getenv('MIGAS_DEV'))}
         )
 
     @app.get('/viz/dashboard', response_class=HTMLResponse)
@@ -119,7 +118,7 @@ def create_app(lifespan_func=lifespan, **lifespan_kwargs) -> FastAPI:
         return templates.TemplateResponse(
             request,
             'dashboard.html',
-            {'version': __version__, 'dev_mode': bool(os.getenv('MIGAS_TESTING'))},
+            {'version': __version__, 'dev_mode': bool(os.getenv('MIGAS_DEV'))},
         )
 
     return app

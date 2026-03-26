@@ -12,6 +12,7 @@ def test_server_info(client: TestClient) -> None:
     obj = res.json()
     assert obj['package'] == 'migas'
     assert obj['geoloc_enabled'] is False
+    assert 'dev_mode' in obj
 
 
 def test_server_landing(client: TestClient) -> None:
