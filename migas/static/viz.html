@@ -1,90 +1,83 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Migas | Visualization Portal</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
-          rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/viz.css">
-  </head>
-  <body class="login-page">
+{% extends "base.html" %}
+{% block title %}
+    Migas | Visualization Portal
+{% endblock title %}
+{% block body_class %}
+    login-page
+{% endblock body_class %}
+{% block content %}
     <div class="card login-card">
-      <span class="nav-brand login-logo">migas</span>
-      <h1 style="font-size: 1.5rem; margin-bottom: 0.5rem;">Welcome Back</h1>
-      <p style="color: var(--text-secondary); margin-bottom: 2rem;">Access your project usage visualizations</p>
-      <div class="input-group">
-        <label class="input-label" for="token">Access Token</label>
-        <input type="password"
-               class="form-control"
-               placeholder="Enter your token"
-               id="token"
-               style="width: 100%">
-      </div>
-      <div style="display: flex; flex-direction: column; gap: 1rem;">
-        <button class="btn btn-primary"
-                id="submit"
-                type="button"
-                onclick="submitToken()"
-                style="width: 100%">Login</button>
-        <button class="btn"
-                onclick="skipLogin()"
-                style="background: transparent;
-                       color: var(--text-secondary);
-                       text-decoration: underline">Skip for now (Dev Mode)</button>
-      </div>
-      <div id="status"
-           style="margin-top: 1.5rem;
-                  font-size: 0.9rem;
-                  display: none"></div>
+        <span class="nav-brand login-logo">migas</span>
+        <h1 class="login-title">Welcome Back</h1>
+        <p class="login-subtitle">Access your project usage visualizations</p>
+        <div class="input-group">
+            <label class="input-label" for="token">Access Token</label>
+            <input type="password"
+                   class="form-control w-full"
+                   placeholder="Enter your token"
+                   id="token">
+        </div>
+        <div class="flex-column">
+            <button class="btn btn-primary w-full"
+                    id="submit"
+                    type="button"
+                    onclick="submitToken()">Login</button>
+            {% if dev_mode %}<button class="btn btn-skip" onclick="skipLogin()">Skip for now (Dev Mode)</button>{% endif %}
+        </div>
+        <div id="status" class="status-container"></div>
     </div>
+{% endblock content %}
+{% block extra_scripts %}
     <script>
-        function setStatus(msg, type) {
-            const status = document.getElementById("status");
-            status.innerHTML = `<span class="status-badge ${type}">${msg}</span>`;
-            status.style.display = "block";
-        }
+    function setStatus(msg, type) {
+        const status = document.getElementById("status");
+        status.innerHTML = `<span class="status-badge ${type}">${msg}</span>`;
+        status.style.display = "block";
+    }
 
-        async function submitToken() {
-            const token = document.getElementById("token").value;
-            if (!token) return setStatus("Token required", "error");
+    async function submitToken() {
+        const token = document.getElementById("token").value;
+        if (!token) return setStatus("Token required", "error");
 
-            try {
-                const res = await fetch('/graphql', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                        query: `{ login(token: "${token}") { success projects message } }`
-                    })
-                });
-                const data = await res.json();
-                const auth = data.data.login;
+        try {
+            const res = await fetch('/graphql', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    query: `{ login(token: "${token}") { success projects message } }`
+                })
+            });
+            const data = await res.json();
+            const auth = data.data.login;
 
-                if (!auth.success) {
-                    setStatus(auth.message, "error");
-                    return;
-                }
-
-                localStorage.setItem("migas_token", token);
-                localStorage.setItem("migas_projects", auth.projects.join(','));
-                window.location.href = "/viz/dashboard";
-            } catch (err) {
-                setStatus("Connection error", "error");
+            if (!auth.success) {
+                setStatus(auth.message, "error");
+                return;
             }
-        }
 
+            localStorage.setItem("migas_token", token);
+            localStorage.setItem("migas_projects", auth.projects.join(','));
+            window.location.href = "/viz/dashboard";
+        } catch (err) {
+            setStatus("Connection error", "error");
+        }
+    }
+
+    {% if dev_mode %}
         async function skipLogin() {
             // Dev mode bypass
             try {
                 const res = await fetch('/graphql', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query: '{ get_projects }' })
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        query: '{ get_projects }'
+                    })
                 });
                 const data = await res.json();
                 const projects = data.data.get_projects;
@@ -99,6 +92,6 @@
                 window.location.href = "/viz/dashboard";
             }
         }
+    {% endif %}
     </script>
-  </body>
-</html>
+{% endblock extra_scripts %}

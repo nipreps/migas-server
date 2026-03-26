@@ -1,19 +1,12 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8" />
-    <title>Migas | Analytics Dashboard</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/viz.css">
-    <link rel="stylesheet" href="/static/css/dashboard.css">
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-</head>
-
-<body>
+{% extends "base.html" %}
+{% block title %}
+    Migas | Analytics Dashboard
+{% endblock title %}
+{% block extra_head %}
+    <link rel="stylesheet"
+          href="{{ url_for('static', path='css/dashboard.css') }}">
+{% endblock extra_head %}
+{% block content %}
     <div class="container">
         <header class="nav">
             <div class="nav-brand">migas</div>
@@ -21,12 +14,10 @@
                 <a href="#" class="logout-link" onclick="logout(event)">Logout</a>
             </div>
         </header>
-
         <div class="filter-row">
             <div class="filter-group">
                 <span class="filter-label">Project</span>
                 <select id="project-select" class="project-name" onchange="updateDashboard()"></select>
-
                 <span class="filter-label interval-label">Interval</span>
                 <div class="toggle-group" id="interval-toggle-group">
                     <input type="radio" name="interval" value="day" id="int-day">
@@ -39,7 +30,6 @@
                     <label for="int-year">Year</label>
                 </div>
             </div>
-
             <div class="filter-group" id="version-filter-row">
                 <span class="filter-label">Version</span>
                 <div class="toggle-group" id="version-toggle-group">
@@ -49,7 +39,6 @@
                 </div>
             </div>
         </div>
-
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-value" id="total-runs">0</div>
@@ -68,31 +57,28 @@
                 <div class="stat-label">Last Activity</div>
             </div>
         </div>
-
         <div class="dashboard-grid">
             <div class="card full-width">
                 <div class="card-title">
                     <span>Usage Analytics</span>
                     <span id="range-indicator" class="card-title-meta"></span>
-                    <button id="reset-zoom-btn" class="btn-reset" onclick="resetZoom()" style="display:none">
-                        Reset View
-                    </button>
+                    <button id="reset-zoom-btn" class="btn-reset hidden" onclick="resetZoom()">Reset View</button>
                 </div>
-                <div id="usage-chart" class="chart-container" style="height:400px;"></div>
+                <div id="usage-chart" class="chart-container chart-h-400"></div>
             </div>
-
             <div class="card">
                 <div class="card-title">Status Distribution</div>
                 <div id="status-donut-chart" class="chart-container"></div>
             </div>
-
             <div class="card">
                 <div class="card-title">Popular Versions</div>
                 <div id="version-bar-chart" class="chart-container"></div>
             </div>
         </div>
     </div>
-
+{% endblock content %}
+{% block extra_scripts %}
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <script>
         // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -503,6 +489,4 @@
         // ── Initial load ───────────────────────────────────────────────────────────
         updateDashboard();
     </script>
-</body>
-
-</html>
+{% endblock extra_scripts %}
