@@ -1,9 +1,6 @@
-from collections import defaultdict
 import os
-import typing as ty
 
 import strawberry
-from fastapi import Request, Response
 from graphql import ExecutionResult as GraphQLExecutionResult
 from graphql import GraphQLError
 from strawberry.extensions import SchemaExtension
@@ -11,7 +8,8 @@ from strawberry.scalars import JSON
 from strawberry.schema.config import StrawberryConfig
 from strawberry.types import Info
 
-from .connections import get_redis_connection
+from .extensions.ratelimit import RateLimitError, check_rate_limit, check_request_size
+
 from .database import (
     get_viz_data,
     ingest_project,
@@ -251,15 +249,6 @@ class Mutation:
         Revoke an existing token.
         """
         return await revoke_token(token)
-
-
-from .extensions.ratelimit import (
-    RateLimitError,
-    RateLimitExceededError,
-    RequestTooLargeError,
-    check_rate_limit,
-    check_request_size,
-)
 
 
 class RateLimiter(SchemaExtension):

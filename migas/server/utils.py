@@ -1,6 +1,5 @@
 """Utility functions"""
 
-import os
 from datetime import date, datetime, time, timezone
 
 DATETIME_FMT = '%Y-%m-%dT%H:%M:%SZ'

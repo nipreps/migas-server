@@ -16,7 +16,6 @@ TEST_PROJECT = 'nipreps/migas-server'
 async def create_db(_):
     """Helper function to register a project on application startup."""
     from ..connections import get_redis_connection
-    from ..database import add_new_project
 
     cache = await get_redis_connection()
     await cache.flushdb()

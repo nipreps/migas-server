@@ -1,6 +1,4 @@
-import typing as ty
-
-from sqlalchemy import Column, MetaData, Table, UniqueConstraint, text
+from sqlalchemy import Column, MetaData, Table, UniqueConstraint
 from sqlalchemy.dialects.postgresql import ENUM, UUID
 from sqlalchemy.ext.asyncio import AsyncConnection
 from sqlalchemy.orm import declarative_base
@@ -56,7 +54,7 @@ projects = Projects.__table__
 
 
 class Authentication(Base):
-    __tablename__ = "auth"
+    __tablename__ = 'auth'
     idx = Column(INTEGER, primary_key=True)
     project = Column(String(length=140), nullable=False)
     token = Column(String, unique=True, nullable=False, index=True)
@@ -107,12 +105,8 @@ async def get_project_tables(project: str, create: bool = False) -> tuple[Table,
         if project_table is None and users_table is None:
             # Dynamically create project and project/users table,
             # and create a relationship between them
-            ProjectModel = type(
-                project_class_name, (Project,), {'__tablename__': project_tablename}
-            )
-            UsersModel = type(
-                users_class_name, (ProjectUsers,), {'__tablename__': users_tablename}
-            )
+            type(project_class_name, (Project,), {'__tablename__': project_tablename})
+            type(users_class_name, (ProjectUsers,), {'__tablename__': users_tablename})
             # # assign relationships once both are defined
             # ProjectModel.users = relationship(users_class_name, back_populates='project')
             # UsersModel.project = relationship(project_class_name, back_populates='users')

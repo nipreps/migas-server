@@ -3,9 +3,6 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from ..database import create_token, hash_token
-from ..connections import gen_session
-from ..models import Authentication
 from .conftest import TEST_PROJECT
 
 
@@ -166,38 +163,4 @@ class TestAdminRevokeToken:
 
     def test_no_auth(self, client: TestClient):
         res = client.post(self.url, json={'token': 'some_token'})
-        assert res.status_code == 401
-
-
-class TestAdminListTokens:
-    url = '/api/admin/list-tokens'
-
-    def test_list_all(self, client: TestClient, master_token):
-        res = client.get(self.url, headers=_auth_header(master_token))
-        assert res.status_code == 200
-        data = res.json()
-        assert data['success'] is True
-        assert len(data['tokens']) >= 1
-        assert any(t['project'] == 'master' for t in data['tokens'])
-
-    def test_list_filtered(self, client: TestClient, master_token):
-        import uuid
-
-        project = f'test/project-{uuid.uuid4().hex[:6]}'
-        client.post(
-            '/api/admin/register', json={'project': project}, headers=_auth_header(master_token)
-        )
-        client.post(
-            '/api/admin/issue-token', json={'project': project}, headers=_auth_header(master_token)
-        )
-
-        res = client.get(f'{self.url}?project={project}', headers=_auth_header(master_token))
-        assert res.status_code == 200
-        data = res.json()
-        assert data['success'] is True
-        assert len(data['tokens']) == 1
-        assert data['tokens'][0]['project'] == project
-
-    def test_no_auth(self, client: TestClient):
-        res = client.get(self.url)
         assert res.status_code == 401

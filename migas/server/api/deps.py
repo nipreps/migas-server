@@ -1,6 +1,6 @@
 """FastAPI dependencies for REST API endpoints."""
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import HTTPException, Request
 
 from ..database import authenticate_token
 from ..extensions.ratelimit import RateLimitError, check_rate_limit, check_request_size
