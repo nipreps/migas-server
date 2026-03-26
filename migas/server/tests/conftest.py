@@ -55,13 +55,9 @@ def _postgres_available():
 def client(_redis_available, _postgres_available) -> Iterator[TestClient]:
     import os
 
-    original_values = {
-        'MIGAS_BYPASS_RATE_LIMIT': os.getenv('MIGAS_BYPASS_RATE_LIMIT'),
-        'MIGAS_TESTING': os.getenv('MIGAS_TESTING'),
-    }
+    original_values = {'MIGAS_BYPASS_RATE_LIMIT': os.getenv('MIGAS_BYPASS_RATE_LIMIT')}
 
     os.environ['MIGAS_BYPASS_RATE_LIMIT'] = '1'
-    os.environ['MIGAS_TESTING'] = '1'
 
     # Create isolated context for this test
     test_context = ConnectionContext()

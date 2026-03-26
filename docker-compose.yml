@@ -16,10 +16,26 @@ services:
       - migas
     command:
       --proxy-headers --port 8080 --host 0.0.0.0 --header X-Backend-Server:migas --reload
-    volumes:
-      - ./migas:/src/migas
-      - ./asn.mmdb:/src/asn.mmdb
-      - ./city.mmdb:/src/city.mmdb
+    develop:
+      watch:
+        - action: sync
+          path: .
+          target: /src/
+          ignore:
+            - .venv/
+            - .git/
+            - .maint/
+            - .pytest_cache/
+            - .ruff_cache/
+            - __pycache__/
+            - dump.rdb
+            - mounts/
+        - action: rebuild
+          path: ./uv.lock
+        - action: rebuild
+          path: ./pyproject.toml
+        - action: rebuild
+          path: ./Dockerfile
     environment:
       MIGAS_REDIS_URI: "redis://cache:6379"
       DATABASE_URL: "postgresql+asyncpg://postgres:crumbs@postgres:5432/migas"
@@ -28,7 +44,7 @@ services:
       MIGAS_MAX_REQUEST_SIZE:
       MIGAS_BYPASS_RATE_LIMIT:
       MIGAS_DEBUG: 1
-      MIGAS_TESTING:
+      MIGAS_DEV: 1
       PYTEST_ADDOPTS: "-p no:cacheprovider"
 
   # Redis in-memory db
