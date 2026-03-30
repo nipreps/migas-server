@@ -88,7 +88,7 @@ class Query:
             message = f'Project "{project}" is not being tracked'
         else:
             project_table, _ = await get_project_tables(project, create=False)
-            count = await query_usage_by_datetimes(project_table, start, end, unique)
+            count = await query_usage_by_datetimes(project_table, start, end, unique=unique)
             message = ''
         return {'hits': count, 'message': message, 'unique': unique, 'success': exists}
 

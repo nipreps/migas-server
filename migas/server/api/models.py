@@ -3,19 +3,20 @@
 from datetime import datetime
 
 from pydantic import BaseModel
+from ..types import Status, User, Container
 
 
 class ContextPayload(BaseModel):
     user_id: str | None = None
     session_id: str | None = None
-    user_type: str = 'general'
+    user_type: User = User.general
     platform: str = 'unknown'
-    container: str = 'unknown'
+    container: Container = Container.unknown
     is_ci: bool = False
 
 
 class ProcessPayload(BaseModel):
-    status: str = 'R'
+    status: Status = Status.R
     status_desc: str | None = None
     error_type: str | None = None
     error_desc: str | None = None
