@@ -64,7 +64,7 @@ class Authentication(Base):
 
 class GeoLoc(Base):
     __tablename__ = 'geoloc'
-    table_args = (
+    __table_args__ = (
         UniqueConstraint(
             'country_code', 'state_province_name', 'city_name', 'lat', 'lon', name='unique_loc_idx'
         ),
@@ -163,12 +163,16 @@ async def init_db(session: AsyncSession | None = None) -> None:
     3) If projects table exists, ensure all tracked projects have Project/ProjectUsers tables.
     """
     from sqlalchemy.schema import CreateSchema
+    from .connections import get_db_engine
 
-    async with gen_session(session) as session:
-        conn = await session.connection()
-        await conn.execute(CreateSchema('migas', if_not_exists=True))
+    engine = await get_db_engine()
+    # 1) Ensure schema exists and is committed
+    async with engine.begin() as conn:
+        await conn.execute(CreateSchema(SCHEMA, if_not_exists=True))
 
-        # if project is already being monitored, create it
-        await populate_base(session=session)
-        # create all tables
+    # 2) Create all tables currently defined in metadata (geoloc, projects, auth)
+    async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # 3) Populate dynamic project tables
+    await populate_base()
