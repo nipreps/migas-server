@@ -135,9 +135,8 @@ async def gen_session(
     try:
         yield session
         await session.commit()
-    except Exception as e:
+    except Exception:
         await session.rollback()
-        print(f'Transaction failed. Rolling back the session. Error: {e}')
         raise
     finally:
         await session.close()
