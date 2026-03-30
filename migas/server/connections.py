@@ -117,8 +117,19 @@ async def get_db_engine() -> AsyncEngine:
 
 
 @asynccontextmanager
-async def gen_session() -> AsyncGenerator[AsyncSession, None]:
-    """Generate a database session, and close once finished."""
+async def gen_session(
+    current_session: AsyncSession | None = None,
+) -> AsyncGenerator[AsyncSession, None]:
+    """Generate a database session, and close once finished.
+
+    If a session is provided, it is yielded as-is.
+    If no session is provided, a new one is created, committed on success,
+    rolled back on error, and closed when finished.
+    """
+    if current_session:
+        yield current_session
+        return
+
     # do not expire on commit to allow use of data afterwards
     session = AsyncSession(await get_db_engine(), future=True, expire_on_commit=False)
     try:
@@ -127,66 +138,9 @@ async def gen_session() -> AsyncGenerator[AsyncSession, None]:
     except Exception as e:
         await session.rollback()
         print(f'Transaction failed. Rolling back the session. Error: {e}')
+        raise
     finally:
         await session.close()
-
-
-def inject_sync_conn(func):
-    """
-    Decorator to run async database functions synchronously.
-    """
-
-    @wraps(func)
-    async def wrapper(*args, **kwargs):
-        conn = kwargs.get('conn')
-        if conn:
-            return await conn.run_sync(func, *args, **kwargs)
-
-        engine = await get_db_engine()
-        async with engine.begin() as conn:
-            return await conn.run_sync(func, *args, **kwargs)
-
-    return wrapper
-
-
-def inject_db_conn(func):
-    """
-    Decorator that creates a connection.
-
-    Generally used when ORM mapping is not needed.
-    """
-
-    @wraps(func)
-    async def wrapper(*args, **kwargs):
-        conn = kwargs.get('conn')
-        if conn:
-            return await func(*args, **kwargs)
-
-        engine = await get_db_engine()
-        async with engine.begin() as conn:
-            return await func(*args, conn=conn, **kwargs)
-
-    return wrapper
-
-
-def inject_db_session(func):
-    """
-    Decorator that creates a session for database interaction.
-
-    This is generally used when working with ORM level transactions.
-    """
-
-    @wraps(func)
-    async def wrapper(*args, **kwargs):
-        cur_session = kwargs.get('session')
-        if cur_session:
-            # if chaining, committing and closing need to be handled
-            return await func(*args, **kwargs)
-
-        async with gen_session() as session:
-            return await func(*args, session=session, **kwargs)
-
-    return wrapper
 
 
 def inject_aiohttp_session(func):
