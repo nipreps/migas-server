@@ -1,11 +1,10 @@
 from sqlalchemy import Column, MetaData, Table, UniqueConstraint
 from sqlalchemy.dialects.postgresql import ENUM, UUID
-from sqlalchemy.ext.asyncio import AsyncConnection
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.sql import func
 from sqlalchemy.types import BOOLEAN, INTEGER, TIMESTAMP, String, CHAR, DOUBLE_PRECISION
 
-from .connections import inject_db_conn
+from .connections import gen_session, AsyncSession
 
 SCHEMA = 'migas'
 
@@ -65,7 +64,7 @@ class Authentication(Base):
 
 class GeoLoc(Base):
     __tablename__ = 'geoloc'
-    table_args = (
+    __table_args__ = (
         UniqueConstraint(
             'country_code', 'state_province_name', 'city_name', 'lat', 'lon', name='unique_loc_idx'
         ),
@@ -82,7 +81,9 @@ class GeoLoc(Base):
     lon = Column(DOUBLE_PRECISION)
 
 
-async def get_project_tables(project: str, create: bool = False) -> tuple[Table, Table]:
+async def get_project_tables(
+    project: str, create: bool = False, session: AsyncSession | None = None
+) -> tuple[Table, Table]:
     """
     Return `Project` and `Users` tables pertaining to input `project`.
 
@@ -119,37 +120,40 @@ async def get_project_tables(project: str, create: bool = False) -> tuple[Table,
             raise RuntimeError(f'Missing required table for {project}')
 
     if tables_to_create:
-        await create_tables(tables_to_create)
+        await create_tables(tables_to_create, session=session)
 
     return project_table, users_table
 
 
-@inject_db_conn
-async def create_tables(tables: list, conn: AsyncConnection) -> None:
-    def _create_tables(conn) -> None:
-        return Base.metadata.create_all(conn, tables=tables)
+async def create_tables(tables: list, session: AsyncSession | None = None) -> None:
+    async with gen_session(session) as session:
+        conn = await session.connection()
 
-    await conn.run_sync(_create_tables)
+        def _create_tables(sync_conn) -> None:
+            return Base.metadata.create_all(sync_conn, tables=tables)
+
+        await conn.run_sync(_create_tables)
 
 
-@inject_db_conn
-async def populate_base(conn: AsyncConnection) -> None:
+async def populate_base(session: AsyncSession | None = None) -> None:
     """Populate declarative class definitions with dynamically created tables."""
 
-    def _has_master_table(conn) -> bool:
-        from sqlalchemy import inspect
+    async with gen_session(session) as session:
+        conn = await session.connection()
 
-        return inspect(conn).has_table('projects', schema=SCHEMA)
+        def _has_master_table(sync_conn) -> bool:
+            from sqlalchemy import inspect
 
-    if await conn.run_sync(_has_master_table):
-        from .database import query_projects
+            return inspect(sync_conn).has_table('projects', schema=SCHEMA)
 
-        for project in await query_projects():
-            await get_project_tables(project)
+        if await conn.run_sync(_has_master_table):
+            from .database import query_projects
+
+            for project in await query_projects(session=session):
+                await get_project_tables(project, session=session)
 
 
-@inject_db_conn
-async def init_db(conn: AsyncConnection) -> None:
+async def init_db(session: AsyncSession | None = None) -> None:
     """
     Initialize the database.
 
@@ -159,10 +163,16 @@ async def init_db(conn: AsyncConnection) -> None:
     3) If projects table exists, ensure all tracked projects have Project/ProjectUsers tables.
     """
     from sqlalchemy.schema import CreateSchema
+    from .connections import get_db_engine
 
-    await conn.execute(CreateSchema('migas', if_not_exists=True))
+    engine = await get_db_engine()
+    # 1) Ensure schema exists and is committed
+    async with engine.begin() as conn:
+        await conn.execute(CreateSchema(SCHEMA, if_not_exists=True))
 
-    # if project is already being monitored, create it
-    await populate_base(conn=conn)
-    # create all tables
-    await conn.run_sync(Base.metadata.create_all)
+    # 2) Create all tables currently defined in metadata (geoloc, projects, auth)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    # 3) Populate dynamic project tables
+    await populate_base()
