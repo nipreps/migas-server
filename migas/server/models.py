@@ -150,7 +150,7 @@ async def populate_base(session: AsyncSession | None = None) -> None:
             from .database import query_projects
 
             for project in await query_projects(session=session):
-                await get_project_tables(project, session=session)
+                await get_project_tables(project, create=True, session=session)
 
 
 async def init_db(session: AsyncSession | None = None) -> None:

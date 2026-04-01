@@ -137,7 +137,7 @@ async def ingest_project(project: Project, ip: str | None = None) -> None:
             print(f'Shortening {project.project} version: {data[vers]}')
             data[vers] = data[vers][:24]
 
-    ptable, utable = await get_project_tables(project.project)
+    ptable, utable = await get_project_tables(project.project, create=True)
     if ptable is None or utable is None:
         # Don't error but complain loudly
         # TODO: Log > print
