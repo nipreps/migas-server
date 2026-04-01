@@ -7,19 +7,9 @@ from fastapi.testclient import TestClient
 # Import modules to ensure they can be patched
 from .. import fetchers, connections
 from ..app import create_app
-from ..database import add_new_project
 from ..connection_context import set_connection_context, ConnectionContext
 
-TEST_PROJECT = 'nipreps/migas-server'
-
-
-async def create_db(_):
-    """Helper function to register a project on application startup."""
-    from ..connections import get_redis_connection
-
-    cache = await get_redis_connection()
-    await cache.flushdb()
-    await add_new_project(TEST_PROJECT)
+TEST_PROJECT = 'nipreps/nipreps'
 
 
 queries = {
@@ -64,7 +54,7 @@ def client(_redis_available, _postgres_available) -> Iterator[TestClient]:
     original_context = set_connection_context(test_context)
 
     try:
-        app = create_app(on_startup=create_db)
+        app = create_app()
         with TestClient(app) as c:
             yield c
     finally:
