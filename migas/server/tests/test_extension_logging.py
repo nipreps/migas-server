@@ -46,7 +46,7 @@ def test_logging_extension(client, caplog):
     assert res.status_code == 200
 
     # Check if the log message is present
-    # Format: QUERY [get_usage] | project=nipreps/migas-server | project_version=None | status=None
+    # Format: QUERY [get_usage] | project=nipreps/nipreps | project_version=None | status=None
     log_messages = [rec.message for rec in caplog.records if rec.name == 'migas.server']
     assert any('QUERY [get_usage]' in msg for msg in log_messages)
     assert any(f'project={TEST_PROJECT}' in msg for msg in log_messages)
