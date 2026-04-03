@@ -241,7 +241,8 @@ async def get_viz_data(
     subq0 = (
         select(project.c.version, project.c.session_id, date_str.label('date'), project.c.status)
         .distinct(project.c.session_id)
-        .where(project.c.status is not None)
+        .where(project.c.status.is_not(None))
+        .order_by(project.c.session_id, project.c.timestamp.desc())
     )
 
     if version:
