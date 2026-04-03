@@ -66,10 +66,18 @@ jobs:
       run: docker compose up -d --wait
     - name: Test the things
       run: |
-        PYTEST_ARGS=""
+        PYTEST_ARGS="--cov=migas --cov-report=xml:/tmp/coverage.xml"
         if [[ "${{ github.ref_type }}" != "tag" ]] && [[ "${{ github.event_name }}" != "schedule" ]] && [[ "${{ github.event.inputs.test-network }}" != "true" ]]; then
-          PYTEST_ARGS="-m 'not network'"
+          PYTEST_ARGS="$PYTEST_ARGS -m 'not network'"
         fi
-        docker exec app bash -c "pytest $PYTEST_ARGS /src/migas/server"
+        docker exec -e COVERAGE_FILE=/tmp/.coverage app bash -c "pytest $PYTEST_ARGS /src/migas/server"
+    - name: Extract coverage report
+      run: docker cp app:/tmp/coverage.xml .
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: ./coverage.xml
+        fail_ci_if_error: true
     - name: Stop all the things
       run: docker compose down

@@ -54,6 +54,7 @@ migrations = [
 ]
 test = [
     "pytest",
+    "pytest-cov",
 ]
 prod = [
     "migas_server[migrations]"
