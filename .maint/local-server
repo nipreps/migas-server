@@ -3,7 +3,7 @@
 # Common environment variables
 export MIGAS_REDIS_URI='redis://localhost:6379'
 export DATABASE_URL='postgresql+asyncpg://localhost/migas'
-export MIGAS_DEBUG=1
+export MIGAS_DEV=1
 export MIGAS_BYPASS_RATE_LIMIT=1
 export MIGAS_MAX_REQUEST_SIZE=3000
 
