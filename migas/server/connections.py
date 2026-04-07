@@ -111,7 +111,7 @@ async def get_db_engine() -> AsyncEngine:
         if gcp_conn := os.getenv('GCP_SQL_CONNECTION'):
             db_url = db_url.set(query={'host': f'/cloudsql/{gcp_conn}/.s.PGSQL.5432'})
 
-        db_engine = create_async_engine(db_url, echo=bool(os.getenv('MIGAS_DEBUG')))
+        db_engine = create_async_engine(db_url, echo=bool(os.getenv('MIGAS_DEV')))
         _set_val('db_engine', db_engine)
     return _get_val('db_engine')
 
