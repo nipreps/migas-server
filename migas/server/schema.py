@@ -112,13 +112,17 @@ class Query:
         date_group: str = 'day',  # TODO: ty.Literal incompatibility with strawberry - enum?
     ) -> JSON:
         "Generate different usage information"
-        if not os.getenv('MIGAS_DEBUG') and not token:
-            raise Exception('Token required.')
+        is_dev = os.getenv('MIGAS_DEV') in ('1', 'true', 'True')
 
-        if token and not (os.getenv('MIGAS_DEBUG') and token == 'dev_token'):
+        if token == 'dev_token' and is_dev:
+            # Allow access in dev mode with the dev_token
+            pass
+        elif token:
             _, projects = await authenticate_token(token)
             if project not in projects:
                 raise Exception('Invalid token.')
+        else:
+            raise Exception('Token required.')
 
         usage = await get_viz_data(project, version, date_group)
         return usage
