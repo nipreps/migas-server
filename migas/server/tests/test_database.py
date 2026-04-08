@@ -1,6 +1,6 @@
 import pytest
 from datetime import datetime, timezone, timedelta
-from migas.server.database import get_viz_data, get_project_tables, insert_project
+from migas.server.database import get_viz_data, insert_crumb, insert_user, add_new_project
 from migas.server.connections import gen_session
 
 
@@ -11,8 +11,8 @@ async def test_get_viz_data_functionality(client):
     """
     project_name = 'test/viz-data'
 
-    # 1. Ensure tables exist
-    ptable, _ = await get_project_tables(project_name, create=True)
+    # 1. Register project
+    await add_new_project(project_name)
 
     # 2. Insert test data:
     # Session 1: Start (R) only
@@ -24,9 +24,19 @@ async def test_get_viz_data_functionality(client):
     two_min_ago = now - timedelta(minutes=2)
 
     async with gen_session() as session:
+        # Insert users first (FK targets for crumbs.user_id)
+        for i in range(1, 4):
+            await insert_user(
+                user_id=f'00000000-0000-0000-0000-00000000000{i}',
+                user_type='hash',
+                platform='Linux-5.15.0-88-generic',
+                container='unknown',
+                geoloc_idx=None,
+                session=session,
+            )
         # Session 1: Only Start
-        await insert_project(
-            ptable,
+        await insert_crumb(
+            project_name,
             version='1.0.0',
             language='python',
             language_version='3.12',
@@ -42,8 +52,8 @@ async def test_get_viz_data_functionality(client):
         )
 
         # Session 2: Start -> Complete
-        await insert_project(
-            ptable,
+        await insert_crumb(
+            project_name,
             version='1.0.0',
             language='python',
             language_version='3.12',
@@ -57,8 +67,8 @@ async def test_get_viz_data_functionality(client):
             is_ci=False,
             session=session,
         )
-        await insert_project(
-            ptable,
+        await insert_crumb(
+            project_name,
             version='1.0.0',
             language='python',
             language_version='3.12',
@@ -74,8 +84,8 @@ async def test_get_viz_data_functionality(client):
         )
 
         # Session 3: Start -> Fail
-        await insert_project(
-            ptable,
+        await insert_crumb(
+            project_name,
             version='1.0.0',
             language='python',
             language_version='3.12',
@@ -89,8 +99,8 @@ async def test_get_viz_data_functionality(client):
             is_ci=False,
             session=session,
         )
-        await insert_project(
-            ptable,
+        await insert_crumb(
+            project_name,
             version='1.0.0',
             language='python',
             language_version='3.12',
