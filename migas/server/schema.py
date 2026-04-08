@@ -25,7 +25,6 @@ from .database import (
 )
 from .extensions import LoggingExtension, RequireRoot
 from .fetchers import fetch_project_info
-from .models import get_project_tables
 from .types import (
     AuthenticationResult,
     BreadcrumbResult,
@@ -87,8 +86,7 @@ class Query:
             count = 0
             message = f'Project "{project}" is not being tracked'
         else:
-            project_table, _ = await get_project_tables(project, create=True)
-            count = await query_usage_by_datetimes(project_table, start, end, unique=unique)
+            count = await query_usage_by_datetimes(project, start, end, unique=unique)
             message = ''
         return {'hits': count, 'message': message, 'unique': unique, 'success': exists}
 
@@ -233,7 +231,6 @@ class Mutation:
         Register a project to be used with the service.
         """
         if await project_exists(project):
-            await get_project_tables(project, create=True)
             return {'success': True, 'message': 'Project is already registered.'}
         await add_new_project(project)
         return {'success': True, 'message': 'Project is now registered.'}
