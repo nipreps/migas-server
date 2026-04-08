@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, Index, MetaData, UniqueConstraint
+from sqlalchemy import Column, ForeignKey, Index, MetaData, UniqueConstraint, desc
 from sqlalchemy.dialects.postgresql import ENUM, UUID
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.sql import func
@@ -33,8 +33,15 @@ class Crumb(Base):
     __tablename__ = 'crumbs'
     __mapper_args__ = {'eager_defaults': True}
     __table_args__ = (
-        Index('ix_crumbs_project', 'project'),
         Index('ix_crumbs_project_timestamp', 'project', 'timestamp'),
+        Index(
+            'ix_crumbs_project_session',
+            'project',
+            'session_id',
+            desc('timestamp'),
+            postgresql_include=['version', 'status'],
+        ),
+        Index('ix_crumbs_project_user', 'project', 'user_id'),
     )
 
     idx = Column(INTEGER, primary_key=True)
@@ -45,7 +52,9 @@ class Crumb(Base):
     timestamp = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
     session_id = Column(UUID)
     user_id = Column(UUID, ForeignKey(f'{SCHEMA}.users.user_id'), nullable=True)
-    status = Column(ENUM('R', 'C', 'F', 'S', name='status'), nullable=False, server_default='R')
+    status = Column(
+        ENUM('R', 'C', 'F', 'S', name='status', schema=SCHEMA), nullable=False, server_default='R'
+    )
     status_desc = Column(String)
     error_type = Column(String)
     error_desc = Column(String)
