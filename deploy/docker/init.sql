@@ -13,7 +13,7 @@ ON CONFLICT (project) DO NOTHING;
 
 -- Status Enum (used by crumbs)
 DO $$ BEGIN
-    CREATE TYPE status AS ENUM ('R', 'C', 'F', 'S');
+    CREATE TYPE migas.status AS ENUM ('R', 'C', 'F', 'S');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS migas.crumbs (
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
     session_id UUID,
     user_id UUID REFERENCES migas.users(user_id),
-    status status NOT NULL DEFAULT 'R',
+    status migas.status NOT NULL DEFAULT 'R',
     status_desc TEXT,
     error_type TEXT,
     error_desc TEXT,
