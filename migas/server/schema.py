@@ -124,8 +124,8 @@ class Query:
             # Allow access in dev mode with the dev_token
             pass
         elif token:
-            _, projects = await authenticate_token(token)
-            if project not in projects:
+            valid, projects = await authenticate_token(token)
+            if not valid or projects is None or project not in projects:
                 raise Exception('Invalid token.')
         else:
             raise Exception('Token required.')
