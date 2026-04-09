@@ -1,20 +1,17 @@
 import typing as ty
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import distinct, func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from .connections import gen_session, AsyncSession
-from .models import Table, get_project_tables, projects, GeoLoc, Authentication
+from .models import User, Crumb, projects, GeoLoc, Authentication
 from .types import Project, serialize
 from .utils import now
 
 
 async def add_new_project(project: str) -> bool:
-    """Create new tables, and add project to master projects table."""
-    ptable, utable = await get_project_tables(project, create=True)
-    if ptable is None or utable is None:
-        return False
+    """Add project to master projects table."""
     await insert_master(project)
     return True
 
@@ -26,8 +23,8 @@ async def insert_master(project: str, session: AsyncSession | None = None) -> No
         await session.execute(insert(projects).on_conflict_do_nothing(), {'project': project})
 
 
-async def insert_project(
-    table: Table,
+async def insert_crumb(
+    project: str,
     *,
     version: str,
     language: str,
@@ -42,11 +39,12 @@ async def insert_project(
     is_ci: bool,
     session: AsyncSession | None = None,
 ) -> None:
-    """Add to project table"""
+    """Add to crumbs table"""
     async with gen_session(session) as session:
         await session.execute(
-            table.insert(),
+            insert(Crumb),
             {
+                'project': project,
                 'version': version,
                 'language': language,
                 'language_version': language_version,
@@ -63,27 +61,23 @@ async def insert_project(
 
 
 async def insert_user(
-    users: Table,
     *,
     user_id: str,
     user_type: str,
     platform: str,
     container: str,
-    asn_idx: int | None,
-    city_idx: int | None,
     geoloc_idx: int | None,
     session: AsyncSession | None = None,
 ) -> None:
+    """Add to users table (global users)"""
     async with gen_session(session) as session:
         await session.execute(
-            insert(users).on_conflict_do_nothing(),
+            insert(User).on_conflict_do_nothing(),
             {
                 'user_id': user_id,
                 'user_type': user_type,
                 'platform': platform,
                 'container': container,
-                'asn_idx': asn_idx,
-                'city_idx': city_idx,
                 'geoloc_idx': geoloc_idx,
             },
         )
@@ -137,17 +131,26 @@ async def ingest_project(project: Project, ip: str | None = None) -> None:
             print(f'Shortening {project.project} version: {data[vers]}')
             data[vers] = data[vers][:24]
 
-    ptable, utable = await get_project_tables(project.project, create=True)
-    if ptable is None or utable is None:
-        # Don't error but complain loudly
-        # TODO: Log > print
-        print(f'One or more missing tables:\n\n"Project table: {ptable}\nUsers table: {utable}')
+    if not await project_exists(project.project):
+        print(f'Project {project.project} is not registered.')
         return
 
     geoloc_idx = await insert_query_geoloc(ip)
     async with gen_session() as session:
-        await insert_project(
-            ptable,
+        # 1. Upsert user (for foreign key availability)
+        if data['context']['user_id'] is not None:
+            await insert_user(
+                user_id=data['context']['user_id'],
+                user_type=data['context']['user_type'],
+                platform=data['context']['platform'],
+                container=data['context']['container'],
+                geoloc_idx=geoloc_idx,
+                session=session,
+            )
+
+        # 2. Insert crumb
+        await insert_crumb(
+            project.project,
             version=data['project_version'],
             language=data['language'],
             language_version=data['language_version'],
@@ -161,55 +164,50 @@ async def ingest_project(project: Project, ip: str | None = None) -> None:
             is_ci=data['context']['is_ci'],
             session=session,
         )
-        if data['context']['user_id'] is not None:
-            await insert_user(
-                utable,
-                user_id=data['context']['user_id'],
-                user_type=data['context']['user_type'],
-                platform=data['context']['platform'],
-                container=data['context']['container'],
-                asn_idx=None,  # TODO: Remove these two
-                city_idx=None,
-                geoloc_idx=geoloc_idx,
-                session=session,
-            )
 
 
 async def query_usage_by_datetimes(
-    project: Table,
+    project_name: str,
     start: datetime,
     end: datetime,
     session: AsyncSession | None = None,
     unique: bool = False,
 ) -> int:
     async with gen_session(session) as session:
-        query = select(func.count()).where(
-            project.c.timestamp >= start, project.c.timestamp <= end
-        )
         if unique:
-            query = select(func.count(distinct(project.c.user_id))).where(
-                project.c.timestamp.between(start, end)
+            query = select(func.count(distinct(Crumb.user_id))).where(
+                Crumb.project == project_name, Crumb.timestamp.between(start, end)
+            )
+        else:
+            query = select(func.count()).where(
+                Crumb.project == project_name, Crumb.timestamp >= start, Crumb.timestamp <= end
             )
         res = await session.execute(query)
         return res.scalar_one_or_none() or 0
 
 
-async def query_usage(project: Table, session: AsyncSession | None = None) -> int:
+async def query_usage(project_name: str, session: AsyncSession | None = None) -> int:
     async with gen_session(session) as session:
-        res = await session.execute(select(func.count(project.c.idx)))
+        res = await session.execute(
+            select(func.count(Crumb.idx)).where(Crumb.project == project_name)
+        )
         return res.scalars().one()
 
 
-async def query_usage_unique(project: Table, session: AsyncSession | None = None) -> int:
-    """TODO: What to do with all NULLs (unique users)?"""
+async def query_usage_unique(project_name: str, session: AsyncSession | None = None) -> int:
     async with gen_session(session) as session:
-        res = await session.execute(select(func.count(distinct(project.c.user_id))))
+        res = await session.execute(
+            select(func.count(distinct(Crumb.user_id))).where(Crumb.project == project_name)
+        )
         return res.scalars().one()
 
 
 async def query_projects(session: AsyncSession | None = None) -> list[str]:
     async with gen_session(session) as session:
-        res = await session.execute(select(projects.c.project))
+        # Exclude sentinel 'master' project from general queries
+        res = await session.execute(
+            select(projects.c.project).where(projects.c.project != 'master')
+        )
         return res.scalars().all()
 
 
@@ -223,39 +221,41 @@ async def get_viz_data(
     project_name: str,
     version: str | None = None,
     date_group: ty.Literal['day', 'week', 'month', 'year'] = 'month',
+    days: int = 90,
     session: AsyncSession | None = None,
 ) -> list:
     """
     Filter project usage into groups, based on versions and dates.
     """
-    project, _ = await get_project_tables(project_name, create=True, session=session)
+    # date_trunc returns the first day of the period
+    date_trunc = func.date_trunc(date_group, Crumb.timestamp)
 
-    if project is None:
-        return []
+    subq0 = select(
+        date_trunc.label('date'), Crumb.session_id, Crumb.version, Crumb.status, Crumb.timestamp
+    ).where(Crumb.project == project_name)
 
-    # Always use YYYY-MM-DD for the frontend to parse easily
-    # date_trunc already returns the first day of the period
-    date_trunc = func.date_trunc(date_group, project.c.timestamp)
-    date_str = func.to_char(date_trunc, 'YYYY-MM-DD')
+    if days > 0:
+        start_date = datetime.utcnow() - timedelta(days=days)
+        subq0 = subq0.where(Crumb.timestamp >= start_date)
 
-    subq0 = (
-        select(project.c.version, project.c.session_id, date_str.label('date'), project.c.status)
-        .distinct(project.c.session_id)
-        .where(project.c.status.is_not(None))
-        .order_by(project.c.session_id, project.c.timestamp.desc())
-    )
+    subq0 = subq0.distinct(Crumb.session_id).order_by(Crumb.session_id, Crumb.timestamp.desc())
 
     if version:
-        subq0 = subq0.where(project.c.version == version)
+        subq0 = subq0.where(Crumb.version == version)
     else:
         # Filter out "unofficial" versions
-        subq0 = subq0.where(project.c.version.not_like('%+%')).where(
-            project.c.version.not_like('%rc%')
-        )
+        subq0 = subq0.where(Crumb.version.not_like('%+%')).where(Crumb.version.not_like('%rc%'))
     subq0 = subq0.subquery()
 
+    date_str = func.to_char(subq0.c.date, 'YYYY-MM-DD').label('date')
+
     query = (
-        select(subq0.c.version, subq0.c.date, subq0.c.status, func.count().label('count'))
+        select(
+            subq0.c.version.label('version'),
+            date_str,
+            subq0.c.status.label('status'),
+            func.count().label('count'),
+        )
         .group_by(subq0.c.status, subq0.c.date, subq0.c.version)
         .order_by(subq0.c.date.desc(), subq0.c.version.desc())
     )
@@ -263,7 +263,7 @@ async def get_viz_data(
     async with gen_session(session) as session:
         res = await session.execute(query)
         return [
-            {'version': row[0], 'date': row[1], 'status': row[2], 'count': row[3]}
+            {'version': row.version, 'date': row.date, 'status': row.status, 'count': row.count}
             for row in res.all()
         ]
 

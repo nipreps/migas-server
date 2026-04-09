@@ -8,7 +8,6 @@ from ..database import (
     project_exists,
     revoke_token,
 )
-from ..models import get_project_tables
 from ..types import Context, Process, Project
 from ..utils import now
 from .deps import rate_limit, require_root
@@ -89,7 +88,6 @@ async def add_breadcrumb(
 )
 async def register_project(body: RegisterRequest):
     if await project_exists(body.project):
-        await get_project_tables(body.project, create=True)
         return RegisterResponse(success=True, message='Project is already registered.')
     await add_new_project(body.project)
     return RegisterResponse(success=True, message='Project is now registered.')
