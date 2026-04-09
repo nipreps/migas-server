@@ -1,5 +1,5 @@
 import typing as ty
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import distinct, func, select
 from sqlalchemy.dialects.postgresql import insert
@@ -221,23 +221,24 @@ async def get_viz_data(
     project_name: str,
     version: str | None = None,
     date_group: ty.Literal['day', 'week', 'month', 'year'] = 'month',
+    days: int = 90,
     session: AsyncSession | None = None,
 ) -> list:
     """
     Filter project usage into groups, based on versions and dates.
     """
-    # Always use YYYY-MM-DD for the frontend to parse easily
-    # date_trunc already returns the first day of the period
+    # date_trunc returns the first day of the period
     date_trunc = func.date_trunc(date_group, Crumb.timestamp)
-    date_str = func.to_char(date_trunc, 'YYYY-MM-DD')
 
-    subq0 = (
-        select(Crumb.version, Crumb.session_id, date_str.label('date'), Crumb.status)
-        .distinct(Crumb.session_id)
-        .where(Crumb.project == project_name)
-        .where(Crumb.status.is_not(None))
-        .order_by(Crumb.session_id, Crumb.timestamp.desc())
-    )
+    subq0 = select(
+        date_trunc.label('date'), Crumb.session_id, Crumb.version, Crumb.status, Crumb.timestamp
+    ).where(Crumb.project == project_name)
+
+    if days > 0:
+        start_date = datetime.utcnow() - timedelta(days=days)
+        subq0 = subq0.where(Crumb.timestamp >= start_date)
+
+    subq0 = subq0.distinct(Crumb.session_id).order_by(Crumb.session_id, Crumb.timestamp.desc())
 
     if version:
         subq0 = subq0.where(Crumb.version == version)
@@ -246,8 +247,15 @@ async def get_viz_data(
         subq0 = subq0.where(Crumb.version.not_like('%+%')).where(Crumb.version.not_like('%rc%'))
     subq0 = subq0.subquery()
 
+    date_str = func.to_char(subq0.c.date, 'YYYY-MM-DD').label('date')
+
     query = (
-        select(subq0.c.version, subq0.c.date, subq0.c.status, func.count().label('count'))
+        select(
+            subq0.c.version.label('version'),
+            date_str,
+            subq0.c.status.label('status'),
+            func.count().label('count'),
+        )
         .group_by(subq0.c.status, subq0.c.date, subq0.c.version)
         .order_by(subq0.c.date.desc(), subq0.c.version.desc())
     )
@@ -255,7 +263,7 @@ async def get_viz_data(
     async with gen_session(session) as session:
         res = await session.execute(query)
         return [
-            {'version': row[0], 'date': row[1], 'status': row[2], 'count': row[3]}
+            {'version': row.version, 'date': row.date, 'status': row.status, 'count': row.count}
             for row in res.all()
         ]
 
