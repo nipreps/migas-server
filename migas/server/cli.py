@@ -19,7 +19,6 @@ def get_parser():
         '--headers',
         nargs='*',
         type=_fmt_kv_pairs,
-        default=[['X-Backend-Server', 'migas']],
         help="Custom HTTP response headers as 'Name:Value' pairs",
     )
     return parser

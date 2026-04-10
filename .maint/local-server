@@ -8,6 +8,10 @@ export MIGAS_BYPASS_RATE_LIMIT=1
 export MIGAS_MAX_REQUEST_SIZE=3000
 export MIGAS_GEOLOC=1
 
+MAINT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+export MIGAS_GEOLOC_DIR="$MAINT_DIR/../geoloc"
+
+
 if [ "$1" == "test" ]; then
     export MIGAS_DEV=1
     echo "Running in test mode..."
@@ -18,6 +22,6 @@ else
         --host 0.0.0.0 \
         --port 8080 \
         --reload \
-        --proxy-headers \
-        --header X-Backend-Server:migas
+        --reload-dir migas/server \
+        --proxy-headers
 fi

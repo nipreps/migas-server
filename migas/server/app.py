@@ -22,7 +22,6 @@ from .connections import (
 )
 from .models import init_db
 from .schema import SCHEMA
-from .utils import env_to_bool
 
 
 LOGGING_CONFIG = {
@@ -82,6 +81,15 @@ def create_app(lifespan_func=lifespan, **lifespan_kwargs) -> FastAPI:
         CORSMiddleware, allow_origins=['*'], allow_methods=['*'], allow_headers=['*']
     )
 
+    @app.middleware('http')
+    async def add_backend_header(request: Request, call_next):
+        from . import get_default_headers
+
+        response = await call_next(request)
+        for name, value in get_default_headers().items():
+            response.headers[name] = value
+        return response
+
     # only add scout monitoring if environment variables are present
     if all(os.getenv(x) for x in ('SCOUT_NAME', 'SCOUT_MONITOR', 'SCOUT_KEY')):
         from scout_apm.async_.starlette import ScoutMiddleware
@@ -95,30 +103,18 @@ def create_app(lifespan_func=lifespan, **lifespan_kwargs) -> FastAPI:
 
     @app.get('/', response_class=HTMLResponse)
     async def home(request: Request):
-        return templates.TemplateResponse(request, 'home.html', {'version': __version__})
-
-    @app.get('/info')
-    async def info():
-        return {
-            'package': 'migas',
-            'version': __version__,
-            'message': 'Visit /graphql for GraphiQL interface',
-            'geoloc_enabled': env_to_bool('MIGAS_GEOLOC'),
-            'dev_mode': env_to_bool('MIGAS_DEV'),
-        }
+        return templates.TemplateResponse(request, 'home.html')
 
     @app.get('/viz', response_class=HTMLResponse)
     async def viz(request: Request):
         return templates.TemplateResponse(
-            request, 'viz.html', {'version': __version__, 'dev_mode': bool(os.getenv('MIGAS_DEV'))}
+            request, 'viz.html', {'dev_mode': bool(os.getenv('MIGAS_DEV'))}
         )
 
     @app.get('/viz/dashboard', response_class=HTMLResponse)
     async def viz_dashboard(request: Request):
         return templates.TemplateResponse(
-            request,
-            'dashboard.html',
-            {'version': __version__, 'dev_mode': bool(os.getenv('MIGAS_DEV'))},
+            request, 'dashboard.html', {'dev_mode': bool(os.getenv('MIGAS_DEV'))}
         )
 
     return app
