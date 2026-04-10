@@ -82,6 +82,15 @@ def create_app(lifespan_func=lifespan, **lifespan_kwargs) -> FastAPI:
         CORSMiddleware, allow_origins=['*'], allow_methods=['*'], allow_headers=['*']
     )
 
+    @app.middleware('http')
+    async def add_backend_header(request: Request, call_next):
+        from packaging.version import Version
+
+        response = await call_next(request)
+        v = Version(__version__)
+        response.headers['X-Backend-Server'] = f'migas-{v.major}.{v.minor}'
+        return response
+
     # only add scout monitoring if environment variables are present
     if all(os.getenv(x) for x in ('SCOUT_NAME', 'SCOUT_MONITOR', 'SCOUT_KEY')):
         from scout_apm.async_.starlette import ScoutMiddleware
