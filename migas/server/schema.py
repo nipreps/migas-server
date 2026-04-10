@@ -25,7 +25,6 @@ from .database import (
 )
 from .extensions import LoggingExtension, RequireRoot
 from .fetchers import fetch_project_info
-from .models import get_project_tables
 from .types import (
     AuthenticationResult,
     BreadcrumbResult,
@@ -87,8 +86,7 @@ class Query:
             count = 0
             message = f'Project "{project}" is not being tracked'
         else:
-            project_table, _ = await get_project_tables(project, create=True)
-            count = await query_usage_by_datetimes(project_table, start, end, unique=unique)
+            count = await query_usage_by_datetimes(project, start, end, unique=unique)
             message = ''
         return {'hits': count, 'message': message, 'unique': unique, 'success': exists}
 
@@ -106,25 +104,33 @@ class Query:
     @strawberry.field
     async def usage_stats(
         self,
+        info: Info,
         project: str,
-        token: str | None = None,
         version: str | None = None,
         date_group: str = 'day',  # TODO: ty.Literal incompatibility with strawberry - enum?
+        days: int = 365,
     ) -> JSON:
         "Generate different usage information"
         is_dev = os.getenv('MIGAS_DEV') in ('1', 'true', 'True')
+
+        # Extract token from Authorization header
+        request = info.context['request']
+        auth_header = request.headers.get('Authorization')
+        token = None
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header.split(' ', 1)[1]
 
         if token == 'dev_token' and is_dev:
             # Allow access in dev mode with the dev_token
             pass
         elif token:
-            _, projects = await authenticate_token(token)
-            if project not in projects:
+            valid, projects = await authenticate_token(token)
+            if not valid or projects is None or project not in projects:
                 raise Exception('Invalid token.')
         else:
             raise Exception('Token required.')
 
-        usage = await get_viz_data(project, version, date_group)
+        usage = await get_viz_data(project, version, date_group, days=days)
         return usage
 
 
@@ -233,7 +239,6 @@ class Mutation:
         Register a project to be used with the service.
         """
         if await project_exists(project):
-            await get_project_tables(project, create=True)
             return {'success': True, 'message': 'Project is already registered.'}
         await add_new_project(project)
         return {'success': True, 'message': 'Project is now registered.'}

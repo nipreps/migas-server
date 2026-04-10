@@ -3,7 +3,7 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from fastapi.testclient import TestClient
 
-from .conftest import queries
+from .conftest import TEST_PROJECT, queries
 from .utils import env_to_bool
 
 
@@ -30,6 +30,22 @@ def test_graphql_add_project(query: str, client: TestClient) -> None:
     assert output['success'] is True
     for k in ('bad_versions', 'cached', 'latest_version', 'message'):
         assert k in output
+
+
+def test_graphql_usage_stats(client: TestClient) -> None:
+    auth_header = {'Authorization': 'Bearer my_test_token'}
+    query = f'query {{ usage_stats(project: "{TEST_PROJECT}") }}'
+    res = client.post('/graphql', json={'query': query})
+    assert 'Token required' in res.json()['errors'][0]['message']
+
+    res = client.post('/graphql', json={'query': query}, headers=auth_header)
+    assert res.status_code == 200
+    assert 'usage_stats' in res.json()['data']
+
+    query_days = f'query {{ usage_stats(project: "{TEST_PROJECT}", days: 30) }}'
+    res = client.post('/graphql', json={'query': query_days}, headers=auth_header)
+    assert res.status_code == 200
+    assert 'usage_stats' in res.json()['data']
 
 
 def test_graphql_big_request(client: TestClient) -> None:

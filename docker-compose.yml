@@ -54,7 +54,7 @@ services:
     hostname: "redis"
     restart: always
     ports:
-      - "6379:6379"
+      - "6380:6379"
     networks:
       - migas
     command: redis-server
@@ -71,7 +71,7 @@ services:
     hostname: "postgres"
     restart: always
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - ./mounts/db:/var/lib/postgresql/data/
       - ./deploy/docker/init.sql:/docker-entrypoint-initdb.d/init.sql
