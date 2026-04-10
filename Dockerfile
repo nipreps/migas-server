@@ -37,6 +37,7 @@ RUN if [ "$DEPLOYSERVER" = "gunicorn" ]; then \
 
 RUN adduser --disabled-password --no-create-home appuser
 USER appuser
+WORKDIR /tmp
 EXPOSE 8080
 
-ENTRYPOINT ["./deploy/docker/run.sh"]
+ENTRYPOINT ["/src/deploy/docker/run.sh"]
