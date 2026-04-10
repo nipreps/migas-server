@@ -4,7 +4,7 @@ from _pytest.monkeypatch import MonkeyPatch
 from fastapi.testclient import TestClient
 
 from .conftest import TEST_PROJECT, queries
-from .utils import env_to_bool
+from ..utils import env_to_bool
 
 
 def test_server_info(client: TestClient) -> None:
