@@ -44,19 +44,18 @@ jobs:
       id: cache-geoloc
       uses: actions/cache@v5
       with:
-        path: |
-          asn.mmdb
-          city.mmdb
+        path: geodb/
         key: geoloc-${{ runner.os }}-${{ hashFiles('migas/server/constants.py') }}
     - name: Download geolocation databases
       if: steps.cache-geoloc.outputs.cache-hit != 'true'
       run: |
+        mkdir -p geodb
         ASN_URL=$(grep "LOC_ASN_URL =" migas/server/constants.py | cut -d"'" -f2)
         CITY_URL=$(grep "LOC_CITY_URL =" migas/server/constants.py | cut -d"'" -f2)
-        curl -L -o asn.mmdb.gz "$ASN_URL"
-        curl -L -o city.mmdb.gz "$CITY_URL"
-        gunzip -f asn.mmdb.gz
-        gunzip -f city.mmdb.gz
+        curl -L -o geodb/asn.mmdb.gz "$ASN_URL"
+        curl -L -o geodb/city.mmdb.gz "$CITY_URL"
+        gunzip -f geodb/asn.mmdb.gz
+        gunzip -f geodb/city.mmdb.gz
     - name: Build the image (${{ matrix.deps }} deps)
       run: |
         VERSION=$(uvx --with hatch-vcs hatch version | tail -n1)

@@ -35,7 +35,9 @@ RUN if [ "$DEPLOYSERVER" = "gunicorn" ]; then \
       uv pip install --no-cache gunicorn; \
     fi
 
-RUN adduser --disabled-password --no-create-home appuser
+RUN mkdir -p geodb && adduser --disabled-password --no-create-home appuser
+COPY geodb/*.mmdb /tmp/
+RUN chown appuser /tmp/*.mmdb || true
 USER appuser
 WORKDIR /tmp
 EXPOSE 8080

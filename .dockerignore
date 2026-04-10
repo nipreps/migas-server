@@ -9,3 +9,4 @@ mounts/
 dump.rdb
 .pre-commit-config.yaml
 .venv/
+geodb/

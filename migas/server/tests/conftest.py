@@ -110,7 +110,8 @@ def mock_geoloc_db(request, tmp_path):
 
     with (
         patch.object(fetchers, 'download_geoloc_db', new_callable=AsyncMock) as mock_download,
-        patch.object(connections, 'get_mmdb_reader', new_callable=AsyncMock) as mock_reader,
+        patch.object(connections, 'get_mmdb_reader', new_callable=AsyncMock) as mock_reader_conn,
+        patch('migas.server.app.get_mmdb_reader', new_callable=AsyncMock) as mock_reader_app,
     ):
         # Return a dummy path for download
         dummy_db = tmp_path / 'dummy.mmdb'
@@ -118,6 +119,7 @@ def mock_geoloc_db(request, tmp_path):
         mock_download.return_value = dummy_db
 
         # Return None, None for readers to disable geoloc info but avoid errors
-        mock_reader.return_value = (None, None)
+        mock_reader_conn.return_value = (None, None)
+        mock_reader_app.return_value = (None, None)
 
-        yield mock_download, mock_reader
+        yield mock_download, mock_reader_conn
