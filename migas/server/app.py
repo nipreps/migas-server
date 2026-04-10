@@ -104,7 +104,7 @@ def create_app(lifespan_func=lifespan, **lifespan_kwargs) -> FastAPI:
             'package': 'migas',
             'version': __version__,
             'message': 'Visit /graphql for GraphiQL interface',
-            'geoloc_enabled': env_to_bool('MIGAS_ENABLE_GEOLOC'),
+            'geoloc_enabled': env_to_bool('MIGAS_GEOLOC'),
             'dev_mode': env_to_bool('MIGAS_DEV'),
         }
 

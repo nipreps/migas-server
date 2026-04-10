@@ -6,7 +6,7 @@ from migas.server.connections import get_mmdb_reader
 
 
 def test_geoloc_disabled_by_default():
-    # Ensure MIGAS_ENABLE_GEOLOC is not set
+    # Ensure MIGAS_GEOLOC is not set
     with patch.dict(os.environ, {}, clear=True):
         with patch('migas.server.connections._get_val', return_value=None):
             city, asn = asyncio.run(get_mmdb_reader())
@@ -17,7 +17,7 @@ def test_geoloc_disabled_by_default():
 def test_geoloc_enabled_truthy():
     # Mock download_geoloc_db and maxminddb
     for truthy in ('t', 'true', '1', 'yes', 'on', 'y'):
-        with patch.dict(os.environ, {'MIGAS_ENABLE_GEOLOC': truthy}):
+        with patch.dict(os.environ, {'MIGAS_GEOLOC': truthy}):
             with (
                 patch('migas.server.connections._get_val', return_value=None),
                 patch('migas.server.connections._set_val') as mock_set,
@@ -36,7 +36,7 @@ def test_geoloc_enabled_truthy():
 
 def test_geoloc_fail_fast():
     # Test that it raises RuntimeError on failure when enabled
-    with patch.dict(os.environ, {'MIGAS_ENABLE_GEOLOC': '1'}):
+    with patch.dict(os.environ, {'MIGAS_GEOLOC': '1'}):
         with (
             patch('migas.server.connections._get_val', return_value=None),
             patch(

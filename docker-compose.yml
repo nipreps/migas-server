@@ -43,7 +43,7 @@ services:
       MIGAS_MAX_REQUESTS_PER_WINDOW:
       MIGAS_MAX_REQUEST_SIZE:
       MIGAS_BYPASS_RATE_LIMIT:
-      MIGAS_ENABLE_GEOLOC:
+      MIGAS_GEOLOC:
       MIGAS_DEV: 1
       PYTEST_ADDOPTS: "-p no:cacheprovider"
 

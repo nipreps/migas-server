@@ -65,7 +65,7 @@ jobs:
     - name: Start all the things
       run: docker compose up -d --wait
       env:
-        MIGAS_ENABLE_GEOLOC: 1
+        MIGAS_GEOLOC: 1
     - name: Test the things
       run: |
         PYTEST_ARGS="--cov=migas --cov-report=xml:/tmp/coverage.xml"

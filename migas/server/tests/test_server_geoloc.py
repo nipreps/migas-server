@@ -37,11 +37,11 @@ if not (
 def client() -> ty.Iterator[TestClient]:
     original_values = {
         'MIGAS_BYPASS_RATE_LIMIT': os.getenv('MIGAS_BYPASS_RATE_LIMIT'),
-        'MIGAS_ENABLE_GEOLOC': os.getenv('MIGAS_ENABLE_GEOLOC'),
+        'MIGAS_GEOLOC': os.getenv('MIGAS_GEOLOC'),
     }
 
     os.environ['MIGAS_BYPASS_RATE_LIMIT'] = '1'
-    os.environ['MIGAS_ENABLE_GEOLOC'] = '1'
+    os.environ['MIGAS_GEOLOC'] = '1'
 
     # Create isolated context for this test
     test_context = ConnectionContext()

@@ -166,7 +166,7 @@ async def get_mmdb_reader():
     geoloc_city = _get_val('geoloc_city')
     geoloc_asn = _get_val('geoloc_asn')
 
-    if not env_to_bool('MIGAS_ENABLE_GEOLOC'):
+    if not env_to_bool('MIGAS_GEOLOC'):
         _set_val('geoloc_city', None)
         _set_val('geoloc_asn', None)
         return None, None
