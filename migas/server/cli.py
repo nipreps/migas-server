@@ -1,7 +1,5 @@
 import sys
 
-from . import __version__
-
 
 def get_parser():
     from argparse import ArgumentParser
@@ -17,14 +15,13 @@ def get_parser():
     parser.add_argument(
         '--proxy-headers', action='store_true', help='Accept incoming proxy headers'
     )
-    from packaging.version import Version
+    from . import get_default_headers
 
-    v = Version(__version__)
     parser.add_argument(
         '--headers',
         nargs='*',
         type=_fmt_kv_pairs,
-        default=[['X-Backend-Server', f'migas-{v.major}.{v.minor}']],
+        default=[[k, v] for k, v in get_default_headers().items()],
         help="Custom HTTP response headers as 'Name:Value' pairs",
     )
     return parser

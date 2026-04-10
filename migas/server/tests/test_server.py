@@ -10,6 +10,8 @@ from ..utils import env_to_bool
 def test_server_info(client: TestClient) -> None:
     res = client.get('/info')
     assert res.status_code == 200
+    assert 'X-Backend-Server' in res.headers
+    assert res.headers['X-Backend-Server'].startswith('migas-')
     obj = res.json()
     assert obj['package'] == 'migas'
     assert obj['geoloc_enabled'] is env_to_bool('MIGAS_GEOLOC')
@@ -19,6 +21,7 @@ def test_server_info(client: TestClient) -> None:
 def test_server_landing(client: TestClient) -> None:
     res = client.get('/')
     assert res.status_code == 200
+    assert 'X-Backend-Server' in res.headers
     assert 'html' in res.headers.get('Content-Type')
 
 

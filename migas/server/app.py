@@ -84,11 +84,11 @@ def create_app(lifespan_func=lifespan, **lifespan_kwargs) -> FastAPI:
 
     @app.middleware('http')
     async def add_backend_header(request: Request, call_next):
-        from packaging.version import Version
+        from . import get_default_headers
 
         response = await call_next(request)
-        v = Version(__version__)
-        response.headers['X-Backend-Server'] = f'migas-{v.major}.{v.minor}'
+        for name, value in get_default_headers().items():
+            response.headers[name] = value
         return response
 
     # only add scout monitoring if environment variables are present

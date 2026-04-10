@@ -13,7 +13,7 @@ def test_parser_defaults():
 @pytest.mark.parametrize(
     'input,output',
     [
-        ([], [['X-Backend-Server', 'migas']]),
+        ([], None),  # None signals we should check the dynamic default
         (['Hello:There'], [['Hello', 'There']]),
         (['X-Backend-Server:migas', 'X-Test:1'], [['X-Backend-Server', 'migas'], ['X-Test', '1']]),
     ],
@@ -22,4 +22,10 @@ def test_parser_headers(input, output):
     if input:
         input = ['--headers'] + input
     opts = get_parser().parse_args(input)
+
+    if output is None:
+        from .. import get_default_headers
+
+        output = [[k, v] for k, v in get_default_headers().items()]
+
     assert opts.headers == output
