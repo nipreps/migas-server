@@ -49,7 +49,7 @@ def test_geoloc_fail_fast():
 
 
 def test_geoloc_explicit_off():
-    with patch.dict(os.environ, {'MIGAS_ENABLE_GEOLOC': 'false'}):
+    with patch.dict(os.environ, {'MIGAS_GEOLOC': 'false'}):
         with patch('migas.server.connections._get_val', return_value=None):
             city, asn = asyncio.run(get_mmdb_reader())
             assert city is None
