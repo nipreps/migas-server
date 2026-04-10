@@ -1,21 +1,24 @@
 services:
   # Migas API server
-  app:
+  migas-server:
     build:
       context: .
-    image: "migas:latest"
-    container_name: "app"
+    image: "migas-server:latest"
+    container_name: "migas-server"
     ports:
       - "8081:8080"
     depends_on:
       database:
         condition: service_healthy
-      cache:
+      hotmem:
         condition: service_healthy
     networks:
       - migas
     command:
-      --proxy-headers --port 8080 --host 0.0.0.0 --header X-Backend-Server:migas --reload
+      --proxy-headers --port 8080 --host 0.0.0.0 --reload --reload-dir /src
+    volumes:
+      - .:/src
+      - /src/.venv/
     develop:
       watch:
         - action: sync
@@ -37,7 +40,7 @@ services:
         - action: rebuild
           path: ./Dockerfile
     environment:
-      MIGAS_REDIS_URI: "redis://cache:6379"
+      MIGAS_REDIS_URI: "redis://hotmem:6379"
       DATABASE_URL: "postgresql+asyncpg://postgres:crumbs@postgres:5432/migas"
       MIGAS_REQUEST_WINDOW:
       MIGAS_MAX_REQUESTS_PER_WINDOW:
@@ -48,7 +51,7 @@ services:
       PYTEST_ADDOPTS: "-p no:cacheprovider"
 
   # Redis in-memory db
-  cache:
+  hotmem:
     image: "redis:7.0.2-alpine3.16"
     container_name: "redis"
     hostname: "redis"
