@@ -66,9 +66,9 @@ jobs:
         if [[ "${{ github.ref_type }}" != "tag" ]] && [[ "${{ github.event_name }}" != "schedule" ]] && [[ "${{ github.event.inputs.test-network }}" != "true" ]]; then
           PYTEST_ARGS="$PYTEST_ARGS -m 'not network'"
         fi
-        docker exec -w /src -e COVERAGE_FILE=/tmp/.coverage -e MIGAS_GEOLOC=1 app bash -c "pytest $PYTEST_ARGS migas/server"
+        docker exec -w /src -e COVERAGE_FILE=/tmp/.coverage -e MIGAS_GEOLOC=1 migas-server bash -c "pytest $PYTEST_ARGS migas/server"
     - name: Extract coverage report
-      run: docker cp app:/tmp/coverage.xml .
+      run: docker cp migas-server:/tmp/coverage.xml .
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
       with:
