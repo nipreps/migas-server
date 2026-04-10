@@ -44,19 +44,13 @@ jobs:
       id: cache-geoloc
       uses: actions/cache@v5
       with:
-        path: |
-          asn.mmdb
-          city.mmdb
+        path: geodb/
         key: geoloc-${{ runner.os }}-${{ hashFiles('migas/server/constants.py') }}
+    - name: Ensure geodb directory exists
+      run: mkdir -p geodb
     - name: Download geolocation databases
       if: steps.cache-geoloc.outputs.cache-hit != 'true'
-      run: |
-        ASN_URL=$(grep "LOC_ASN_URL =" migas/server/constants.py | cut -d"'" -f2)
-        CITY_URL=$(grep "LOC_CITY_URL =" migas/server/constants.py | cut -d"'" -f2)
-        curl -L -o asn.mmdb.gz "$ASN_URL"
-        curl -L -o city.mmdb.gz "$CITY_URL"
-        gunzip -f asn.mmdb.gz
-        gunzip -f city.mmdb.gz
+      run: uv run scripts/download_geodbs.py geodb
     - name: Build the image (${{ matrix.deps }} deps)
       run: |
         VERSION=$(uvx --with hatch-vcs hatch version | tail -n1)
@@ -64,13 +58,15 @@ jobs:
         docker compose build --build-arg BUILDTYPE=${{ matrix.buildtype }} --build-arg DEPLOYSERVER=uvicorn --build-arg VERSION=$VERSION
     - name: Start all the things
       run: docker compose up -d --wait
+      env:
+        MIGAS_GEOLOC: 1
     - name: Test the things
       run: |
         PYTEST_ARGS="--cov=migas --cov-report=xml:/tmp/coverage.xml"
         if [[ "${{ github.ref_type }}" != "tag" ]] && [[ "${{ github.event_name }}" != "schedule" ]] && [[ "${{ github.event.inputs.test-network }}" != "true" ]]; then
           PYTEST_ARGS="$PYTEST_ARGS -m 'not network'"
         fi
-        docker exec -e COVERAGE_FILE=/tmp/.coverage app bash -c "pytest $PYTEST_ARGS /src/migas/server"
+        docker exec -w /src -e COVERAGE_FILE=/tmp/.coverage -e MIGAS_GEOLOC=1 app bash -c "pytest $PYTEST_ARGS migas/server"
     - name: Extract coverage report
       run: docker cp app:/tmp/coverage.xml .
     - name: Upload coverage to Codecov

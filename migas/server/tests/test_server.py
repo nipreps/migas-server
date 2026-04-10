@@ -4,6 +4,7 @@ from _pytest.monkeypatch import MonkeyPatch
 from fastapi.testclient import TestClient
 
 from .conftest import TEST_PROJECT, queries
+from ..utils import env_to_bool
 
 
 def test_server_info(client: TestClient) -> None:
@@ -11,7 +12,7 @@ def test_server_info(client: TestClient) -> None:
     assert res.status_code == 200
     obj = res.json()
     assert obj['package'] == 'migas'
-    assert obj['geoloc_enabled'] is False
+    assert obj['geoloc_enabled'] is env_to_bool('MIGAS_GEOLOC')
     assert 'dev_mode' in obj
 
 

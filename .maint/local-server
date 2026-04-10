@@ -6,6 +6,7 @@ export DATABASE_URL='postgresql+asyncpg://localhost/migas'
 export MIGAS_DEV=1
 export MIGAS_BYPASS_RATE_LIMIT=1
 export MIGAS_MAX_REQUEST_SIZE=3000
+export MIGAS_GEOLOC=1
 
 if [ "$1" == "test" ]; then
     export MIGAS_DEV=1

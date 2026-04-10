@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 
 # Import modules to ensure they can be patched
-from .. import fetchers, connections
+from .. import fetchers
 from ..app import create_app
 from ..connection_context import set_connection_context, ConnectionContext
 
@@ -71,13 +71,10 @@ def client(_redis_available, _postgres_available) -> Iterator[TestClient]:
 @pytest.fixture(autouse=True)
 def mock_fetchers(request):
     if request.node.get_closest_marker('network'):
-        yield None, None
+        yield None
         return
 
-    with (
-        patch.object(fetchers, 'fetch_response', new_callable=AsyncMock) as mock_resp,
-        patch.object(fetchers, 'fetch_gzipped_bytes', new_callable=AsyncMock) as mock_gzip,
-    ):
+    with patch.object(fetchers, 'fetch_response', new_callable=AsyncMock) as mock_resp:
 
         async def fetch_response_side_effect(url, **kwargs):
             if 'releases/latest' in url:
@@ -89,35 +86,5 @@ def mock_fetchers(request):
             return 200, {}
 
         mock_resp.side_effect = fetch_response_side_effect
-        mock_gzip.return_value = b''
 
-        yield mock_resp, mock_gzip
-
-
-@pytest.fixture(autouse=True)
-def mock_geoloc_db(request, tmp_path):
-    """Bypass geolocation database downloads and loading in tests if missing."""
-    if request.node.get_closest_marker('geoloc'):
-        if not request.node.get_closest_marker('network'):
-            from pathlib import Path
-
-            if not Path('asn.mmdb').exists() or not Path('city.mmdb').exists():
-                pytest.fail(
-                    'Geolocation tests require the database files to exist locally. Run with `@pytest.mark.network` to download them, or download them manually.'
-                )
-        yield None, None
-        return
-
-    with (
-        patch.object(fetchers, 'download_geoloc_db', new_callable=AsyncMock) as mock_download,
-        patch.object(connections, 'get_mmdb_reader', new_callable=AsyncMock) as mock_reader,
-    ):
-        # Return a dummy path for download
-        dummy_db = tmp_path / 'dummy.mmdb'
-        dummy_db.write_bytes(b'')
-        mock_download.return_value = dummy_db
-
-        # Return None, None for readers to disable geoloc info but avoid errors
-        mock_reader.return_value = (None, None)
-
-        yield mock_download, mock_reader
+        yield mock_resp
