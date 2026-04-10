@@ -23,6 +23,7 @@ from .connections import (
 from .fetchers import fetch_loc_dbs
 from .models import init_db
 from .schema import SCHEMA
+from .utils import env_to_bool
 
 
 LOGGING_CONFIG = {
@@ -103,8 +104,8 @@ def create_app(lifespan_func=lifespan, **lifespan_kwargs) -> FastAPI:
             'package': 'migas',
             'version': __version__,
             'message': 'Visit /graphql for GraphiQL interface',
-            'geoloc_enabled': bool(os.getenv('MIGAS_ENABLE_GEOLOC')),
-            'dev_mode': bool(os.getenv('MIGAS_DEV')),
+            'geoloc_enabled': env_to_bool('MIGAS_ENABLE_GEOLOC'),
+            'dev_mode': env_to_bool('MIGAS_DEV'),
         }
 
     @app.get('/viz', response_class=HTMLResponse)

@@ -1,5 +1,6 @@
 """Utility functions"""
 
+import os
 from datetime import date, datetime, time, timezone
 
 DATETIME_FMT = '%Y-%m-%dT%H:%M:%SZ'
@@ -21,3 +22,10 @@ def dt_to_str(dt) -> str:
 def now() -> str | datetime:
     """Return current datetime timestamp. ISO-8601 string"""
     return datetime.now(timezone.utc).replace(microsecond=0)  # ms seems excessive
+
+
+def env_to_bool(key: str | None) -> bool:
+    val = os.getenv(key)
+    if val is None:
+        return False
+    return val.lower() in ('t', 'true', '1', 'yes', 'on', 'y')

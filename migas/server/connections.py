@@ -10,6 +10,7 @@ import redis.asyncio as redis
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from .connection_context import get_connection_context
+from .utils import env_to_bool
 
 _UNSET = object()
 
@@ -165,12 +166,12 @@ async def get_mmdb_reader():
     geoloc_city = _get_val('geoloc_city')
     geoloc_asn = _get_val('geoloc_asn')
 
-    import maxminddb
-
-    if os.getenv('MIGAS_DISABLE_GEOLOC'):
+    if not env_to_bool('MIGAS_ENABLE_GEOLOC'):
         _set_val('geoloc_city', None)
         _set_val('geoloc_asn', None)
         return None, None
+
+    import maxminddb
 
     from .fetchers import download_geoloc_db
 
@@ -187,8 +188,10 @@ async def get_mmdb_reader():
             geoloc_city = maxminddb.open_database(city, mode=maxminddb.MODE_MMAP_EXT)
             _set_val('geoloc_city', geoloc_city)
         except Exception as e:
-            print(f'Failed to establish city MMDB: {e}')
+            msg = f'Failed to establish city MMDB: {e}'
+            print(msg)
             _set_val('geoloc_city', None)
+            raise RuntimeError(msg) from e
 
     if _get_val('geoloc_asn') in (None, _UNSET):
         print('Downloading asn MMDB')
@@ -201,8 +204,10 @@ async def get_mmdb_reader():
             geoloc_asn = maxminddb.open_database(asn, mode=maxminddb.MODE_MMAP_EXT)
             _set_val('geoloc_asn', geoloc_asn)
         except Exception as e:
-            print(f'Failed to establish asn MMDB: {e}')
+            msg = f'Failed to establish asn MMDB: {e}'
+            print(msg)
             _set_val('geoloc_asn', None)
+            raise RuntimeError(msg) from e
 
     return _get_val('geoloc_city'), _get_val('geoloc_asn')
 
