@@ -64,6 +64,8 @@ jobs:
         docker compose build --build-arg BUILDTYPE=${{ matrix.buildtype }} --build-arg DEPLOYSERVER=uvicorn --build-arg VERSION=$VERSION
     - name: Start all the things
       run: docker compose up -d --wait
+      env:
+        MIGAS_ENABLE_GEOLOC: 1
     - name: Test the things
       run: |
         PYTEST_ARGS="--cov=migas --cov-report=xml:/tmp/coverage.xml"
