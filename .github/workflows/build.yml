@@ -46,16 +46,11 @@ jobs:
       with:
         path: geodb/
         key: geoloc-${{ runner.os }}-${{ hashFiles('migas/server/constants.py') }}
+    - name: Ensure geodb directory exists
+      run: mkdir -p geodb
     - name: Download geolocation databases
       if: steps.cache-geoloc.outputs.cache-hit != 'true'
-      run: |
-        mkdir -p geodb
-        ASN_URL=$(grep "LOC_ASN_URL =" migas/server/constants.py | cut -d"'" -f2)
-        CITY_URL=$(grep "LOC_CITY_URL =" migas/server/constants.py | cut -d"'" -f2)
-        curl -L -o geodb/asn.mmdb.gz "$ASN_URL"
-        curl -L -o geodb/city.mmdb.gz "$CITY_URL"
-        gunzip -f geodb/asn.mmdb.gz
-        gunzip -f geodb/city.mmdb.gz
+      run: uv run scripts/download_geodbs.py geodb
     - name: Build the image (${{ matrix.deps }} deps)
       run: |
         VERSION=$(uvx --with hatch-vcs hatch version | tail -n1)
@@ -71,7 +66,7 @@ jobs:
         if [[ "${{ github.ref_type }}" != "tag" ]] && [[ "${{ github.event_name }}" != "schedule" ]] && [[ "${{ github.event.inputs.test-network }}" != "true" ]]; then
           PYTEST_ARGS="$PYTEST_ARGS -m 'not network'"
         fi
-        docker exec -e COVERAGE_FILE=/tmp/.coverage app bash -c "pytest $PYTEST_ARGS /src/migas/server"
+        docker exec -e COVERAGE_FILE=/tmp/.coverage -e MIGAS_GEOLOC=1 app bash -c "pytest $PYTEST_ARGS /src/migas/server"
     - name: Extract coverage report
       run: docker cp app:/tmp/coverage.xml .
     - name: Upload coverage to Codecov

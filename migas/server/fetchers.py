@@ -1,6 +1,3 @@
-from pathlib import Path
-import typing as ty
-import gzip
 from functools import wraps
 
 import aiohttp
@@ -92,32 +89,6 @@ async def fetch_project_info(project: str) -> dict:
     }
 
 
-@inject_aiohttp_session
-async def fetch_gzipped_bytes(
-    url: str, *, timeout: int = 20, session: ClientSession
-) -> bytes | None:
-    """Get the already processed database file"""
-    async with session.get(url, timeout=timeout) as resp:
-        if resp.status != 200:
-            return
-        content = await resp.read()
-    return gzip.decompress(content)
-
-
-async def download_geoloc_db(url: str, db: ty.Literal['asn', 'city']) -> Path:
-    out_file = Path(f'{db}.mmdb').absolute()
-    if out_file.exists() and out_file.stat().st_size > 0:
-        print(f'File {out_file} already exists, skipping download.')
-        return out_file
-
-    file_bytes = await fetch_gzipped_bytes(url)
-    if not file_bytes:
-        raise RuntimeError(f'Failed to download {db} database from {url}')
-    out_file.write_bytes(file_bytes)
-    print(f'File {out_file} ({len(file_bytes)} bytes) ready for lookups.')
-    return out_file
-
-
 async def geoloc(ip: str, lang: str = 'en') -> dict | None:
     from .connections import get_mmdb_reader
 
@@ -145,9 +116,3 @@ async def geoloc(ip: str, lang: str = 'en') -> dict | None:
     info['asn'] = ainfo['autonomous_system_number']
     info['aso'] = ainfo['autonomous_system_organization']
     return info
-
-
-async def fetch_loc_dbs(app=None) -> None:
-    from .connections import get_mmdb_reader
-
-    await get_mmdb_reader()

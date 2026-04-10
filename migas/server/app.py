@@ -20,7 +20,6 @@ from .connections import (
     get_mmdb_reader,
     close_geoloc_dbs,
 )
-from .fetchers import fetch_loc_dbs
 from .models import init_db
 from .schema import SCHEMA
 from .utils import env_to_bool
@@ -125,4 +124,4 @@ def create_app(lifespan_func=lifespan, **lifespan_kwargs) -> FastAPI:
     return app
 
 
-app = create_app(on_startup=fetch_loc_dbs)
+app = create_app()

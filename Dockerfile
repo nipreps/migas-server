@@ -8,7 +8,8 @@ ENV YARL_NO_EXTENSIONS=1 \
     SETUPTOOLS_SCM_PRETEND_VERSION=${VERSION} \
     UV_COMPILE_BYTECODE=1 \
     UV_NO_CACHE=1 \
-    PATH="/src/.venv/bin:$PATH"
+    PATH="/src/.venv/bin:$PATH" \
+    MIGAS_GEOLOC_DIR=/tmp
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
@@ -35,8 +36,8 @@ RUN if [ "$DEPLOYSERVER" = "gunicorn" ]; then \
       uv pip install --no-cache gunicorn; \
     fi
 
-RUN mkdir -p geodb && adduser --disabled-password --no-create-home appuser
-COPY geodb/*.mmdb /tmp/
+RUN mkdir -p geodb && adduser --disabled-password --no-create-home --gecos "" appuser
+COPY geod[b]/*.mmd[b] /tmp/
 RUN chown appuser /tmp/*.mmdb || true
 USER appuser
 WORKDIR /tmp

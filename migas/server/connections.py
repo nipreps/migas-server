@@ -172,42 +172,37 @@ async def get_mmdb_reader():
         return None, None
 
     import maxminddb
-
-    from .fetchers import download_geoloc_db
+    from pathlib import Path
 
     print('Establishing geolocation databases')
 
+    geodb_dir = Path(os.getenv('MIGAS_GEOLOC_DIR', '.'))
+
     if _get_val('geoloc_city') in (None, _UNSET):
-        print('Downloading city MMDB')
-        city_url = os.getenv('MIGAS_GEOLOC_CITY_URL')
-        if not city_url:
-            from .constants import LOC_CITY_URL as city_url
+        city_db = geodb_dir / 'city.mmdb'
+        if not city_db.exists():
+            raise RuntimeError(
+                f'Geolocation city database not found at {city_db}. Please download it or disable MIGAS_GEOLOC.'
+            )
 
         try:
-            city = await download_geoloc_db(city_url, 'city')
-            geoloc_city = maxminddb.open_database(city, mode=maxminddb.MODE_MMAP_EXT)
+            geoloc_city = maxminddb.open_database(str(city_db), mode=maxminddb.MODE_MMAP_EXT)
             _set_val('geoloc_city', geoloc_city)
         except Exception as e:
-            msg = f'Failed to establish city MMDB: {e}'
-            print(msg)
-            _set_val('geoloc_city', None)
-            raise RuntimeError(msg) from e
+            raise RuntimeError(f'Failed to open city MMDB at {city_db}: {e}') from e
 
     if _get_val('geoloc_asn') in (None, _UNSET):
-        print('Downloading asn MMDB')
-        asn_url = os.getenv('MIGAS_GEOLOC_ASN_URL')
-        if not asn_url:
-            from .constants import LOC_ASN_URL as asn_url
+        asn_db = geodb_dir / 'asn.mmdb'
+        if not asn_db.exists():
+            raise RuntimeError(
+                f'Geolocation ASN database not found at {asn_db}. Please download it or disable MIGAS_GEOLOC.'
+            )
 
         try:
-            asn = await download_geoloc_db(asn_url, 'asn')
-            geoloc_asn = maxminddb.open_database(asn, mode=maxminddb.MODE_MMAP_EXT)
+            geoloc_asn = maxminddb.open_database(str(asn_db), mode=maxminddb.MODE_MMAP_EXT)
             _set_val('geoloc_asn', geoloc_asn)
         except Exception as e:
-            msg = f'Failed to establish asn MMDB: {e}'
-            print(msg)
-            _set_val('geoloc_asn', None)
-            raise RuntimeError(msg) from e
+            raise RuntimeError(f'Failed to open ASN MMDB at {asn_db}: {e}') from e
 
     return _get_val('geoloc_city'), _get_val('geoloc_asn')
 

@@ -26,6 +26,4 @@ def now() -> str | datetime:
 
 def env_to_bool(key: str | None) -> bool:
     val = os.getenv(key)
-    if val is None:
-        return False
-    return val.lower() in ('t', 'true', '1', 'yes', 'on', 'y')
+    return bool(val and val.lower() in ('t', 'true', '1', 'yes', 'on', 'y'))

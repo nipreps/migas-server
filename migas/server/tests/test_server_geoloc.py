@@ -1,11 +1,11 @@
 import os
 import typing as ty
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 from ..app import create_app
-from ..fetchers import fetch_loc_dbs
 from ..connection_context import set_connection_context, ConnectionContext
 
 from .conftest import queries
@@ -15,10 +15,19 @@ pytestmark = pytest.mark.geoloc
 
 async def setup_geoloc_test(app):
     from ..connections import get_redis_connection
+    from ..connections import get_mmdb_reader
 
     cache = await get_redis_connection()
     await cache.flushdb()
-    await fetch_loc_dbs(app)
+
+    # Trust the environment if files already exist
+    geodb_dir = Path(os.getenv('MIGAS_GEOLOC_DIR', 'geodb')).absolute()
+    if not (geodb_dir / 'city.mmdb').exists():
+        import subprocess
+
+        subprocess.run(['python3', 'scripts/download_geodbs.py', str(geodb_dir)], check=True)
+
+    await get_mmdb_reader()
 
 
 if not os.getenv('MIGAS_REDIS_URI'):
@@ -38,10 +47,16 @@ def client() -> ty.Iterator[TestClient]:
     original_values = {
         'MIGAS_BYPASS_RATE_LIMIT': os.getenv('MIGAS_BYPASS_RATE_LIMIT'),
         'MIGAS_GEOLOC': os.getenv('MIGAS_GEOLOC'),
+        'MIGAS_GEOLOC_DIR': os.getenv('MIGAS_GEOLOC_DIR'),
     }
 
     os.environ['MIGAS_BYPASS_RATE_LIMIT'] = '1'
     os.environ['MIGAS_GEOLOC'] = '1'
+
+    # Only override if not already set to a valid directory (as in Docker)
+    geodb_dir = os.getenv('MIGAS_GEOLOC_DIR')
+    if not geodb_dir or not (Path(geodb_dir) / 'city.mmdb').exists():
+        os.environ['MIGAS_GEOLOC_DIR'] = str(Path('geodb').absolute())
 
     # Create isolated context for this test
     test_context = ConnectionContext()
