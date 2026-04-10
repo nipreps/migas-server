@@ -8,7 +8,7 @@ except ImportError:
     __version__ = 'unknown'
 
 
-def _version_series() -> str:
+def version_series() -> str:
     from packaging.version import Version
 
     if __version__ == 'unknown':
@@ -19,4 +19,10 @@ def _version_series() -> str:
 
 
 def get_default_headers() -> dict[str, str]:
-    return {'X-Backend-Server': f'migas-{_version_series()}'}
+    from .utils import env_to_bool
+
+    return {
+        'X-Backend-Server': f'migas@{version_series()}',
+        'X-Backend-Geolocation': str(env_to_bool('MIGAS_GEOLOC')).lower(),
+        'X-Backend-Mode': 'dev' if env_to_bool('MIGAS_DEV') else 'production',
+    }

@@ -22,7 +22,6 @@ from .connections import (
 )
 from .models import init_db
 from .schema import SCHEMA
-from .utils import env_to_bool
 
 
 LOGGING_CONFIG = {
@@ -105,16 +104,6 @@ def create_app(lifespan_func=lifespan, **lifespan_kwargs) -> FastAPI:
     @app.get('/', response_class=HTMLResponse)
     async def home(request: Request):
         return templates.TemplateResponse(request, 'home.html', {'version': __version__})
-
-    @app.get('/info')
-    async def info():
-        return {
-            'package': 'migas',
-            'version': __version__,
-            'message': 'Visit /graphql for GraphiQL interface',
-            'geoloc_enabled': env_to_bool('MIGAS_GEOLOC'),
-            'dev_mode': env_to_bool('MIGAS_DEV'),
-        }
 
     @app.get('/viz', response_class=HTMLResponse)
     async def viz(request: Request):

@@ -78,10 +78,9 @@ def client() -> ty.Iterator[TestClient]:
 
 
 def test_geoloc_enabled(client: TestClient):
-    res = client.get('/info')
+    res = client.get('/')
     assert res.status_code == 200
-    obj = res.json()
-    assert obj['geoloc_enabled'] is True
+    assert res.headers.get('X-Backend-Geolocation') == 'true'
 
 
 @pytest.mark.parametrize('query', [queries['add_project']])

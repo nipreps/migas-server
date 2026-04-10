@@ -23,9 +23,4 @@ def test_parser_headers(input, output):
         input = ['--headers'] + input
     opts = get_parser().parse_args(input)
 
-    if output is None:
-        from .. import get_default_headers
-
-        output = [[k, v] for k, v in get_default_headers().items()]
-
     assert opts.headers == output
