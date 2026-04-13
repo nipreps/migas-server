@@ -48,8 +48,15 @@ if [[ -z $SQL_EXISTS ]]; then
     gcloud sql databases create migas --instance=migas-postgres
 fi
 
+# Step 1.5: Pre-download geolocation databases to optimize production image boot times
+echo "Preparing geolocation databases..."
+# Only download if missing
+if [ ! -f geodb/asn.mmdb ] || [ ! -f geodb/city.mmdb ]; then
+  uv run scripts/download_geodbs.py
+fi
+
 # Step 2: Build the service image
-VERSION=`hatch version`
+VERSION=`uv hatch version`
 if [ ${#VERSION} -gt 11 ]; then
     echo "Version $VERSION needs to be shortened"
     VERSION=`echo $VERSION | sed 's/+..*$//g'`
@@ -80,23 +87,14 @@ DEPLOY_CMD="gcloud run deploy $CLOUD_RUN_SERVICE_NAME \
     --image=$GCR_TAG \
     --platform=managed \
     --min-instances=1 \
-    --max-instances=3 \
+    --max-instances=2 \
     --ingress=all \
     --allow-unauthenticated \
     --set-cloudsql-instances=$CLOUD_SQL_INSTANCE_ID \
     --memory=512Mi \
     --cpu=2 \
-    --args=--host,0.0.0.0,--port,8080,--proxy-headers,--header,X-Backend-Server:migas \
+    --args=--host,0.0.0.0,--port,8080,--proxy-headers \
     --cpu-throttling \
     $ENV_VARS"
 
 $DEPLOY_CMD
-
-# # Step 4: Map service to custom domain (only needs to be done once)
-# ROOT_DOMAIN=nipreps.org  # The root domain name
-# TARGET_DOMAIN=migas.nipreps.org  # The target domain, including any subdomains
-
-# gcloud domains verify $ROOT_DOMAIN
-# gcloud beta run domain-mappings create --service $CLOUD_RUN_SERVICE_NAME --domain $TARGET_DOMAIN
-# # Generate DNS record
-# gcloud beta run domain-mappings describe --domain $TARGET_DOMAIN
