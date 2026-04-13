@@ -56,7 +56,7 @@ if [ ! -f geodb/asn.mmdb ] || [ ! -f geodb/city.mmdb ]; then
 fi
 
 # Step 2: Build the service image
-VERSION=`uv hatch version`
+VERSION=`uv run hatch version`
 if [ ${#VERSION} -gt 11 ]; then
     echo "Version $VERSION needs to be shortened"
     VERSION=`echo $VERSION | sed 's/+..*$//g'`
