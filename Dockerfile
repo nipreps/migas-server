@@ -19,7 +19,7 @@ RUN if [ "$BUILDTYPE" = "release" ]; then \
     elif [ "$BUILDTYPE" = "test" ]; then \
       echo "--locked --extra test" > /tmp/uv-flags; \
     else \
-      echo "--extra test" > /tmp/uv-flags; \
+      echo "--extra test --upgrade" > /tmp/uv-flags; \
     fi
 
 # Install dependencies first (cached unless core metadata/lockfile changes)
