@@ -95,6 +95,7 @@ DEPLOY_CMD="gcloud run deploy $CLOUD_RUN_SERVICE_NAME \
     --cpu=2 \
     --args=--host,0.0.0.0,--port,8080,--proxy-headers \
     --cpu-throttling \
+    --set-env-vars=MIGAS_GEOLOC=1 \
     $ENV_VARS"
 
 $DEPLOY_CMD
