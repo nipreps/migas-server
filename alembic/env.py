@@ -2,11 +2,16 @@ import asyncio
 import os
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config, pool
-from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import AsyncEngine
-
 from alembic import context
+from dotenv import load_dotenv
+from sqlalchemy import pool
+from sqlalchemy.engine import Connection
+
+from migas.server.models import Base
+
+# Load from a specific file if provided, otherwise default to .env
+env_file = os.getenv('MIGAS_ENV_FILE', '.env')
+load_dotenv(env_file)
 
 
 class MissingEnvironmentVariable(Exception):
@@ -35,6 +40,8 @@ def get_db_url() -> str:
             drivername='postgresql+asyncpg',
             username=os.getenv('DATABASE_USER'),
             password=os.getenv('DATABASE_PASSWORD'),
+            host=os.getenv('DATABASE_HOST', 'localhost'),
+            port=int(os.getenv('DATABASE_PORT', 5432)),
             database=os.getenv('DATABASE_NAME'),
         )
 
@@ -56,8 +63,6 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-from migas.server.models import Base
-
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
@@ -97,20 +102,28 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 async def run_migrations_online() -> None:
-    """Run migrations in 'online' mode.
+    """Run migrations in 'online' mode."""
+    from sqlalchemy.ext.asyncio import create_async_engine
+    import asyncpg
 
-    In this scenario we need to create an Engine
-    and associate a connection with the context.
-
-    """
-    # populate dynamically created tables
-    connectable = AsyncEngine(
-        engine_from_config(
-            config.get_section(config.config_ini_section),
-            prefix='sqlalchemy.',
-            poolclass=pool.NullPool,
-            future=True,
+    # NOTE: Future migrations through Cloud SQL Proxy
+    # SQLAlchemy's URL-string generation can mangle passwords,
+    # and asyncpg is particularly sensitive to this when using SCRAM-SHA-256.
+    # We use an async_creator to pass raw environment variables directly to the
+    # asyncpg driver, bypassing all URL-string parsing and escaping issues.
+    async def async_creator(*args, **kwargs):
+        return await asyncpg.connect(
+            user=os.getenv('DATABASE_USER'),
+            password=os.getenv('DATABASE_PASSWORD'),
+            host=os.getenv('DATABASE_HOST', 'localhost'),
+            port=int(os.getenv('DATABASE_PORT', 5432)),
+            database=os.getenv('DATABASE_NAME'),
         )
+
+    connectable = create_async_engine(
+        'postgresql+asyncpg://',  # Refined dummy URL
+        async_creator=async_creator,
+        poolclass=pool.NullPool,
     )
 
     async with connectable.connect() as connection:
