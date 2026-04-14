@@ -44,7 +44,9 @@ async def check_rate_limit(request: Request, window: int = None, max_requests: i
     if (cache := await get_redis_connection()) is None:
         return
 
-    host = request.client.host if request.client else 'no-client'
+    from ..utils import get_client_ip
+
+    host = get_client_ip(request)
     key = f'rate-limit-{host}'
     time_ = time.time()
 

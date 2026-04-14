@@ -41,7 +41,7 @@ from .types import (
     DateTimeScalar,
     VersionScalar,
 )
-from .utils import now
+from .utils import get_client_ip, now
 
 
 @strawberry.type
@@ -179,7 +179,7 @@ class Mutation:
         )
 
         request = info.context['request']
-        ip = request.client.host
+        ip = get_client_ip(request)
         bg_tasks = info.context['background_tasks']
         bg_tasks.add_task(ingest_project, project, ip)
         return BreadcrumbResult(success=True)
@@ -220,7 +220,7 @@ class Mutation:
         fetched = await fetch_project_info(p.project)
 
         request = info.context['request']
-        ip = request.client.host
+        ip = get_client_ip(request)
         # return project info ASAP, assign data ingestion as background tasks
         bg_tasks = info.context['background_tasks']
         bg_tasks.add_task(ingest_project, project, ip)
