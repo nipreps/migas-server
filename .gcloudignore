@@ -14,3 +14,6 @@ mounts/
 .pytest_cache/
 .mypy_cache/
 **/.env
+
+# Ensure geolocation databases are uploaded
+!geodb/*.mmdb

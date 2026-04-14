@@ -31,37 +31,58 @@ jobs:
         uses: 'google-github-actions/setup-gcloud@v3'
       - name: Get gcloud information
         run: gcloud info
+      - name: Check if image already exists
+        id: check-image
+        run: |
+          IMAGE_PATH="gcr.io/${{ secrets.PROJECT_ID }}/migas-server"
+          TAG="${{ github.ref_name }}"
+          echo "Checking for $IMAGE_PATH:$TAG..."
+
+          # describe returns the full sha256:digest
+          DIGEST=$(gcloud container images describe "$IMAGE_PATH:$TAG" --format="value(digest)" 2>/dev/null || true)
+
+          if [[ -n "$DIGEST" ]]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "digest=$DIGEST" >> $GITHUB_OUTPUT
+            echo "Found existing image: $IMAGE_PATH@$DIGEST"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Image not found. A new build will be triggered."
+          fi
       - name: Download Geolocation Databases to geodb/
+        if: steps.check-image.outputs.exists != 'true'
         run: uv run scripts/download_geodbs.py
       # Cloud Build + Cloud Run
       - name: Submit to Cloud Build
+        if: steps.check-image.outputs.exists != 'true'
         id: cloudbuild
         run: |
           gcloud builds submit --config deploy/gcp/cloudbuild.yml --substitutions=TAG_NAME=${{ github.ref_name }}
-      - name: Create environment file for Cloud Run
-        env:
-          ENV_FILE_CONTENT: ${{ secrets.CLOUD_RUN_ENV_FILE }}
-        run: echo "$ENV_FILE_CONTENT" > .env
       - name: Deploy to Cloud Run
         id: cloudrun
         run: |
+          ENV_VARS="^|^MIGAS_GEOLOC=1"
+          ENV_VARS="$ENV_VARS|MIGAS_MAX_REQUEST_SIZE=${{ secrets.MAX_REQUEST_SIZE }}"
+          ENV_VARS="$ENV_VARS|MIGAS_REDIS_URI=${{ secrets.REDIS_URI }}"
+          ENV_VARS="$ENV_VARS|DATABASE_USER=${{ secrets.DATABASE_USER }}"
+          ENV_VARS="$ENV_VARS|DATABASE_PASSWORD=${{ secrets.DATABASE_PASSWORD }}"
+          ENV_VARS="$ENV_VARS|DATABASE_NAME=${{ secrets.DATABASE_NAME }}"
+          ENV_VARS="$ENV_VARS|GCP_SQL_CONNECTION=${{ secrets.GCP_SQL_CONNECTION }}"
+
           gcloud run deploy migas-server \
             --region=us-central1 \
-            --image=${{ env.GCR_TAG }} \
+            --image="${{ steps.check-image.outputs.exists == 'true' && format('gcr.io/{0}/migas-server@{1}', secrets.PROJECT_ID, steps.check-image.outputs.digest) || env.GCR_TAG }}" \
             --platform=managed \
             --min-instances=1 \
             --max-instances=3 \
             --ingress=all \
             --allow-unauthenticated \
-            --set-cloudsql-instances=${{ secrets.SQL_INSTANCE_NAME }} \
+            --set-cloudsql-instances="${{ secrets.GCP_SQL_CONNECTION }}" \
             --memory=512Mi \
             --cpu=2 \
             --args=--host,0.0.0.0,--port,8080,--proxy-headers \
             --no-cpu-throttling \
-            --set-env-vars=MIGAS_GEOLOC=1 \
-            --env-vars-file=.env
-      - name: Cleanup env file
-        run: rm -f .env
+            --set-env-vars="$ENV_VARS"
 
   release:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
