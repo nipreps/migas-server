@@ -1,8 +1,11 @@
+import logging
 from functools import wraps
 
 import aiohttp
 
 from .connections import get_redis_connection, get_requests_session, ClientSession
+
+logger = logging.getLogger('migas')
 
 GITHUB_RELEASE_URL = 'https://api.github.com/repos/{project}/releases/latest'
 GITHUB_TAG_URL = 'https://api.github.com/repos/{project}/tags'
@@ -99,7 +102,7 @@ async def geoloc(ip: str, lang: str = 'en') -> dict | None:
     info = {}
     cinfo = city.get(ip)
     if not cinfo:
-        print(f'No geolocation info for IP: {ip}')
+        logger.debug(f'No geolocation info for IP: {ip}')
         return
     info['city'] = cinfo['city']['names'][lang]
     info['continent_code'] = cinfo['continent']['code']
@@ -111,7 +114,7 @@ async def geoloc(ip: str, lang: str = 'en') -> dict | None:
 
     ainfo = asn.get(ip)
     if not ainfo:
-        print(f'No geolocation info for IP: {ip}')
+        logger.debug(f'No geolocation info for IP: {ip}')
         return info
     info['asn'] = ainfo['autonomous_system_number']
     info['aso'] = ainfo['autonomous_system_organization']
