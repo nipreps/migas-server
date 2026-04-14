@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1] - 2026-04-13
+
+A bug-fix release to ensure client IPs are properly forwarded to the application.
+
+---
+*For a full list of changes, see the [commit history](https://github.com/nipreps/migas-server/compare/0.6.0...0.6.1).*
+
 ## [0.6.0] - 2026-04-13
 
 ### Enhancements
@@ -28,4 +35,4 @@
 - Consolidated MIGAS_DEBUG and MIGAS_TESTING into a more robust MIGAS_DEV environment flag.
 
 ---
-*For a full list of changes, see the [commit history](https://github.com/nipreps/migas-server/compare/0.5.0...HEAD).*
+*For a full list of changes, see the [commit history](https://github.com/nipreps/migas-server/compare/0.5.0...0.6.0).*
