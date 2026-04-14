@@ -1,3 +1,4 @@
+import logging
 import typing as ty
 from datetime import datetime, timedelta
 
@@ -8,6 +9,8 @@ from .connections import gen_session, AsyncSession
 from .models import User, Crumb, projects, GeoLoc, Authentication
 from .types import Project, serialize
 from .utils import now
+
+logger = logging.getLogger('migas')
 
 
 async def add_new_project(project: str) -> bool:
@@ -128,11 +131,11 @@ async def ingest_project(project: Project, ip: str | None = None) -> None:
     # check version lengths
     for vers in ('project_version', 'language_version'):
         if len(data[vers]) > 24:
-            print(f'Shortening {project.project} version: {data[vers]}')
+            logger.warning(f'Shortening {project.project} version: {data[vers]}')
             data[vers] = data[vers][:24]
 
     if not await project_exists(project.project):
-        print(f'Project {project.project} is not registered.')
+        logger.warning(f'Project {project.project} is not registered.')
         return
 
     geoloc_idx = await insert_query_geoloc(ip)

@@ -1,8 +1,8 @@
-"""Consolidate dynamic tables to crumbs and users
+"""create_core_tables
 
-Revision ID: 642a3d0dda0a
+Revision ID: 62e97b5309be
 Revises: 46d0762cf6ab
-Create Date: 2026-04-08 15:32:19.155338
+Create Date: 2026-04-14 14:25:32.483612
 
 """
 
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = '642a3d0dda0a'
+revision = '62e97b5309be'
 down_revision = '46d0762cf6ab'
 branch_labels = None
 depends_on = None
@@ -33,6 +33,7 @@ def upgrade() -> None:
     )
 
     # 2. Move status enum from public to migas schema
+    # Note: If this fails because it's already in migas (from a previous dry run), ignore
     op.execute(sa.text('ALTER TYPE public.status SET SCHEMA migas'))
 
     # 3. Create crumbs table
@@ -75,7 +76,7 @@ def upgrade() -> None:
         schema='migas',
     )
 
-    # 3. Create geoloc table
+    # 4. Create geoloc table
     op.create_table(
         'geoloc',
         sa.Column('idx', sa.Integer(), nullable=False),
@@ -94,58 +95,10 @@ def upgrade() -> None:
         schema='migas',
     )
 
-    # 4. Update auth table
-    # Add columns first
-    op.add_column('auth', sa.Column('idx', sa.Integer(), autoincrement=True), schema='migas')
-    op.add_column('auth', sa.Column('description', sa.String(), nullable=True), schema='migas')
-    op.add_column(
-        'auth',
-        sa.Column(
-            'created_at',
-            sa.TIMESTAMP(timezone=True),
-            server_default=sa.text('now()'),
-            nullable=False,
-        ),
-        schema='migas',
-    )
-    op.add_column(
-        'auth', sa.Column('last_used', sa.TIMESTAMP(timezone=True), nullable=True), schema='migas'
-    )
-
-    # Switch PK
-    op.drop_constraint('auth_pkey', 'auth', schema='migas', type_='primary')
-    # Use a sequence for the new idx column
-    op.execute(sa.text('CREATE SEQUENCE IF NOT EXISTS migas.auth_idx_seq'))
-    op.execute(sa.text("UPDATE migas.auth SET idx = nextval('migas.auth_idx_seq')"))
-    op.execute(sa.text('ALTER TABLE migas.auth ALTER COLUMN idx SET NOT NULL'))
-    op.execute(
-        sa.text(
-            "ALTER TABLE migas.auth ALTER COLUMN idx SET DEFAULT nextval('migas.auth_idx_seq')"
-        )
-    )
-    op.create_primary_key('auth_pkey', 'auth', ['idx'], schema='migas')
-    op.create_index('ix_auth_token', 'auth', ['token'], unique=True, schema='migas')
-
-    # 5. Add 'master' sentinel project
-    op.execute("INSERT INTO migas.projects (project) VALUES ('master') ON CONFLICT DO NOTHING")
-
-    # 6. Add FK to auth.project
-    op.create_foreign_key(
-        'fk_auth_project',
-        'auth',
-        'projects',
-        ['project'],
-        ['project'],
-        source_schema='migas',
-        referent_schema='migas',
-    )
-
 
 def downgrade() -> None:
-    # Breaking change, downgrade will drop the consolidated data.
-    op.drop_constraint('fk_auth_project', 'auth', schema='migas', type_='foreignkey')
+    op.drop_table('geoloc', schema='migas')
     op.drop_index('ix_crumbs_project_timestamp', table_name='crumbs', schema='migas')
     op.drop_index('ix_crumbs_project', table_name='crumbs', schema='migas')
     op.drop_table('crumbs', schema='migas')
     op.drop_table('users', schema='migas')
-    op.execute("DELETE FROM migas.projects WHERE project = 'master'")

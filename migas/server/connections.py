@@ -1,6 +1,7 @@
 """Module to faciliate connections to migas's helper services"""
 
 import os
+import logging
 from functools import wraps
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
@@ -12,6 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from .connection_context import get_connection_context
 from .utils import env_to_bool
 
+logger = logging.getLogger('migas')
+
 _UNSET = object()
 
 try:  # do not define unless necessary, to avoid overwriting established sessions
@@ -21,7 +24,7 @@ try:  # do not define unless necessary, to avoid overwriting established session
     GEOLOC_CITY
     GEOLOC_ASN
 except NameError:
-    print('Connections and sessions have not yet been initialized')
+    logger.debug('Connections and sessions have not yet been initialized')
     MEM_CACHE = _UNSET
     REQUESTS_SESSION = _UNSET
     DB_ENGINE = _UNSET
@@ -51,7 +54,7 @@ async def get_redis_connection() -> redis.Redis:
     """
     mem_cache = _get_val('mem_cache')
     if mem_cache is None or mem_cache is _UNSET:
-        print('Creating new redis connection')
+        logger.info('Creating new redis connection')
 
         # Check for both REDIS_TLS_URL (prioritized) and MIGAS_REDIS_URI
         if (uri := os.getenv('REDIS_TLS_URL')) is None and (
@@ -77,7 +80,7 @@ async def get_requests_session() -> ClientSession:
     """Initialize within an async function, since sync initialization is deprecated."""
     requests_session = _get_val('requests_session')
     if requests_session is None or requests_session is _UNSET:
-        print('Creating new aiohttp session')
+        logger.info('Creating new aiohttp session')
         requests_session = ClientSession(
             timeout=ClientTimeout(total=3)  # maximum wait time for a request
         )
@@ -174,11 +177,10 @@ async def get_mmdb_reader():
     import maxminddb
     from pathlib import Path
 
-    print('Establishing geolocation databases')
-
     geodb_dir = Path(os.getenv('MIGAS_GEOLOC_DIR', '.'))
 
     if _get_val('geoloc_city') in (None, _UNSET):
+        logger.info('Establishing geolocation databases')
         city_db = geodb_dir / 'city.mmdb'
         if not city_db.exists():
             raise RuntimeError(
