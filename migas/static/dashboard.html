@@ -10,15 +10,16 @@
     <div class="container">
         <header class="nav">
             <div class="nav-brand">migas</div>
+            <div class="nav-project">
+                <select id="project-select" class="project-name" onchange="updateDashboard()"></select>
+            </div>
             <div class="nav-controls">
                 <a href="#" class="logout-link" onclick="logout(event)">Logout</a>
             </div>
         </header>
         <div class="filter-row">
-            <div class="filter-group">
-                <span class="filter-label">Project</span>
-                <select id="project-select" class="project-name" onchange="updateDashboard()"></select>
-                <span class="filter-label interval-label">Interval</span>
+            <div class="filter-item">
+                <span class="filter-label">Sampling Frequency</span>
                 <div class="toggle-group" id="interval-toggle-group">
                     <input type="radio" name="interval" value="day" id="int-day">
                     <label for="int-day">Day</label>
@@ -28,7 +29,7 @@
                     <label for="int-month">Month</label>
                 </div>
             </div>
-            <div class="filter-group" id="version-filter-row">
+            <div class="filter-item">
                 <span class="filter-label">Version</span>
                 <div class="toggle-group" id="version-toggle-group">
                     <!-- Dynamically populated -->
@@ -37,26 +38,16 @@
                 </div>
             </div>
         </div>
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-value" id="total-runs">0</div>
-                <div class="stat-label">Total Runs</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="success-rate">0%</div>
-                <div class="stat-label">Success Rate</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="active-versions">0</div>
-                <div class="stat-label"># Tracked Versions</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="last-update">--</div>
-                <div class="stat-label">Last Activity</div>
-            </div>
-        </div>
         <div class="dashboard-grid">
-            <div class="card full-width">
+            <div class="card" id="status-card">
+                <div class="card-title">Status Distribution</div>
+                <div id="status-donut-chart" class="chart-container"></div>
+            </div>
+            <div class="card" id="version-card">
+                <div class="card-title">Popular Versions</div>
+                <div id="version-bar-chart" class="chart-container"></div>
+            </div>
+            <div class="card usage-card" id="usage-analytics-card">
                 <div class="card-title">
                     <span>Usage Analytics</span>
                     <span id="range-indicator" class="card-title-meta"></span>
@@ -72,15 +63,17 @@
                         <button id="reset-zoom-btn" class="btn-reset hidden" onclick="resetZoom()">Reset View</button>
                     </div>
                 </div>
+                <div class="card-subtitle">
+                    <div class="metric-item">
+                        <div class="metric-label"># Versions</div>
+                        <div class="metric-value" id="active-versions">0</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Last Activity</div>
+                        <div class="metric-value" id="last-update">--</div>
+                    </div>
+                </div>
                 <div id="usage-chart" class="chart-container chart-h-400"></div>
-            </div>
-            <div class="card">
-                <div class="card-title">Status Distribution</div>
-                <div id="status-donut-chart" class="chart-container"></div>
-            </div>
-            <div class="card">
-                <div class="card-title">Popular Versions</div>
-                <div id="version-bar-chart" class="chart-container"></div>
             </div>
         </div>
     </div>
@@ -109,15 +102,19 @@
      */
     const INTERVAL_CONFIG = {
         day: { windowSize: 7, shortLabel: '7d' },
-        week: { windowSize: 4, shortLabel: '4w' },
+        week: { windowSize: 1, shortLabel: '1w' },
         month: { windowSize: 3, shortLabel: '3m' },
     };
 
     /** Shared ApexCharts options applied to every chart instance. */
     const CHART_THEME = {
-        foreColor: 'var(--chart-fore)',
-        background: 'transparent',
         theme: { mode: 'dark' },
+        chart: {
+            foreColor: 'var(--chart-fore)',
+            fontFamily: 'var(--font-display)',
+            background: 'transparent',
+            toolbar: { show: false },
+        },
         grid: { borderColor: 'var(--chart-grid)' },
     };
 
@@ -190,9 +187,16 @@
 
     const GRANULARITIES = ['day', 'week', 'month'];
 
+    function setChartsLoading(loading) {
+        document.querySelectorAll('.dashboard-grid .card').forEach(card => {
+            card.classList.toggle('loading', loading);
+        });
+    }
+
     async function prefetchAll(project) {
         dataCache[project] = {};
         setIntervalButtonsLoading(true);
+        setChartsLoading(true);
 
         await Promise.allSettled(
             GRANULARITIES.map(async (g) => {
@@ -202,13 +206,17 @@
                     setIntervalButtonLoaded(g);
                     // If this granularity is currently selected, render immediately
                     const active = document.querySelector('input[name="interval"]:checked')?.value;
-                    if (g === active) renderFromCache(project, g);
+                    if (g === active) {
+                        renderFromCache(project, g);
+                        setChartsLoading(false);
+                    }
                 } catch (err) {
                     setIntervalButtonError(g);
                     console.error(`Failed to load ${g} data:`, err);
                 }
             })
         );
+        setChartsLoading(false);
     }
 
     function renderFromCache(project, dateGroup) {
@@ -270,10 +278,7 @@
         const successful = filtered.filter(r => r.status === 'C').reduce((sum, r) => sum + r.count, 0);
         const versions = new Set(filtered.map(r => r.version)).size;
 
-        document.getElementById('total-runs').innerText = total.toLocaleString();
-        document.getElementById('success-rate').innerText = total > 0
-            ? `${Math.round((successful / total) * 100)}%`
-            : '0%';
+        // Metrics updates
         document.getElementById('active-versions').innerText = versions;
 
         if (filtered.length > 0) {
@@ -399,10 +404,10 @@
         const options = {
             ...CHART_THEME,
             chart: {
-                ...CHART_THEME,
+                ...CHART_THEME.chart,
                 type: 'area',
                 stacked: true,
-                height: 400,
+                height: 350,
                 animations: { enabled: true, easing: 'easeinout', speed: 800 },
                 events: {
                     zoomed: (ctx, args) => onZoomChange(filteredData, args),
@@ -436,7 +441,7 @@
 
         const options = {
             ...CHART_THEME,
-            chart: { ...CHART_THEME, type: 'donut', height: 300 },
+            chart: { ...CHART_THEME.chart, type: 'donut', height: 230 },
             colors: STATUSES.map(s => s.color),
             series: totals,
             labels: STATUSES.map(s => s.label),
@@ -503,9 +508,9 @@
         const options = {
             ...CHART_THEME,
             chart: {
-                ...CHART_THEME,
+                ...CHART_THEME.chart,
                 type: 'bar',
-                height: 300,
+                height: 230,
                 events: {
                     dataPointSelection: (_e, _ctx, { dataPointIndex }) => {
                         setVersionFilter(sortedVersions[dataPointIndex]);
@@ -519,7 +524,8 @@
                 return g >= 0 ? 'var(--success)' : 'var(--error)';
             }),
             plotOptions: { bar: { borderRadius: 4, horizontal: true, distributed: true } },
-            xaxis: { categories: categoriesWithGrowth },
+            xaxis: { categories: categoriesWithGrowth, axisBorder: { show: false }, axisTicks: { show: false }, labels: { show: false } },
+            yaxis: { labels: { style: { fontSize: '0.85rem' } } },
             tooltip: {
                 y: {
                     formatter: (val, { dataPointIndex }) => {
