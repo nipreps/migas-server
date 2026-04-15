@@ -22,12 +22,10 @@
                 <div class="toggle-group" id="interval-toggle-group">
                     <input type="radio" name="interval" value="day" id="int-day">
                     <label for="int-day">Day</label>
-                    <input type="radio" name="interval" value="week" id="int-week">
+                    <input type="radio" name="interval" value="week" id="int-week" checked>
                     <label for="int-week">Week</label>
-                    <input type="radio" name="interval" value="month" id="int-month" checked>
+                    <input type="radio" name="interval" value="month" id="int-month">
                     <label for="int-month">Month</label>
-                    <input type="radio" name="interval" value="year" id="int-year">
-                    <label for="int-year">Year</label>
                 </div>
             </div>
             <div class="filter-group" id="version-filter-row">
@@ -62,7 +60,17 @@
                 <div class="card-title">
                     <span>Usage Analytics</span>
                     <span id="range-indicator" class="card-title-meta"></span>
-                    <button id="reset-zoom-btn" class="btn-reset hidden" onclick="resetZoom()">Reset View</button>
+                    <div style="display: flex; gap: 1rem; align-items: center;">
+                        <label style="display: flex;
+                                      align-items: center;
+                                      gap: 0.5rem;
+                                      cursor: pointer;
+                                      font-size: 0.9rem">
+                            <input type="checkbox" id="lock-yaxis-checkbox" onchange="toggleLockYAxis()">
+                            Lock Y-Axis
+                        </label>
+                        <button id="reset-zoom-btn" class="btn-reset hidden" onclick="resetZoom()">Reset View</button>
+                    </div>
                 </div>
                 <div id="usage-chart" class="chart-container chart-h-400"></div>
             </div>
@@ -80,413 +88,530 @@
 {% block extra_scripts %}
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <script>
-        // ── Constants ──────────────────────────────────────────────────────────────
+    // ── Constants ──────────────────────────────────────────────────────────────
 
-        /**
-         * Single source of truth for every status code used across all three charts.
-         * Adding a new status means editing exactly one place.
-         */
-        // Colors map to existing tokens in dashboard.css: --success, --error, --warning.
-        // --status-incomplete is new (no existing neutral-status token in dashboard.css).
-        const STATUSES = [
-            { code: 'C', label: 'Completed', color: 'var(--success)' },
-            { code: 'F', label: 'Failed', color: 'var(--error)' },
-            { code: 'S', label: 'Suspended', color: 'var(--warning)' },
-            { code: 'R', label: 'Incomplete', color: 'var(--status-incomplete)' },
-        ];
+    /**
+     * Single source of truth for every status code used across all three charts.
+     */
+    // Colors map to existing tokens in dashboard.css: --success, --error, --warning.
+    // --status-incomplete is new (no existing neutral-status token in dashboard.css).
+    const STATUSES = [
+        { code: 'C', label: 'Completed', color: 'var(--success)' },
+        { code: 'F', label: 'Failed', color: 'var(--error)' },
+        { code: 'S', label: 'Suspended', color: 'var(--warning)' },
+        { code: 'R', label: 'Incomplete', color: 'var(--status-incomplete)' },
+    ];
 
-        /**
-         * Maps each interval value to:
-         *   - windowSize: how many periods to use for the growth comparison
-         *   - shortLabel: human-readable label used in tooltips
-         */
-        const INTERVAL_CONFIG = {
-            day: { windowSize: 7, shortLabel: '7d' },
-            week: { windowSize: 4, shortLabel: '4w' },
-            month: { windowSize: 3, shortLabel: '3m' },
-            year: { windowSize: 1, shortLabel: '1y' },
-        };
+    /**
+     * Maps each interval value to:
+     *   - windowSize: how many periods to use for the growth comparison
+     *   - shortLabel: human-readable label used in tooltips
+     */
+    const INTERVAL_CONFIG = {
+        day: { windowSize: 7, shortLabel: '7d' },
+        week: { windowSize: 4, shortLabel: '4w' },
+        month: { windowSize: 3, shortLabel: '3m' },
+    };
 
-        /** Shared ApexCharts options applied to every chart instance. */
-        const CHART_THEME = {
-            foreColor: 'var(--chart-fore)',
-            background: 'transparent',
-            theme: { mode: 'dark' },
-            grid: { borderColor: 'var(--chart-grid)' },
-        };
+    /** Shared ApexCharts options applied to every chart instance. */
+    const CHART_THEME = {
+        foreColor: 'var(--chart-fore)',
+        background: 'transparent',
+        theme: { mode: 'dark' },
+        grid: { borderColor: 'var(--chart-grid)' },
+    };
 
-        // ── Auth ───────────────────────────────────────────────────────────────────
+    // ── Auth ───────────────────────────────────────────────────────────────────
 
-        function requireAuth() {
-            const token = localStorage.getItem('migas_token');
-            const projectsStr = localStorage.getItem('migas_projects');
-            if (!token || !projectsStr) {
-                window.location.href = '/viz';
-            }
-            return { token, projects: projectsStr.split(',') };
-        }
-
-        function logout(e) {
-            if (e) e.preventDefault();
-            localStorage.clear();
+    function requireAuth() {
+        const token = localStorage.getItem('migas_token');
+        const projectsStr = localStorage.getItem('migas_projects');
+        if (!token || !projectsStr) {
             window.location.href = '/viz';
         }
+        return { token, projects: projectsStr.split(',') };
+    }
 
-        // ── App state ──────────────────────────────────────────────────────────────
+    function logout(e) {
+        if (e) e.preventDefault();
+        localStorage.clear();
+        window.location.href = '/viz';
+    }
 
-        const { token, projects } = requireAuth();
+    // ── App state ──────────────────────────────────────────────────────────────
 
-        let usageChart, statusChart, versionChart;
-        let currentRawData = [];
-        let selectedVersion = null;
+    const { token, projects } = requireAuth();
 
-        // ── Bootstrap project selector ─────────────────────────────────────────────
+    const dataCache = {};          // { project: { dateGroup: data[] } }
+    let currentProject = null;     // tracks active project to detect changes
+    let usageChart, statusChart, versionChart;
+    let currentRawData = [];       // set by renderCharts(); used by zoom/version hooks
+    let selectedVersion = null;
+    let yAxisLocked = false;       // whether y-axis scaling is locked
+    let lockedYAxisMax = null;     // the locked y-axis max value
 
-        const projectSelect = document.getElementById('project-select');
-        projects.forEach(p => {
-            const opt = document.createElement('option');
-            opt.text = opt.value = p;
-            projectSelect.add(opt);
+    // ── Bootstrap project selector ─────────────────────────────────────────────
+
+    const projectSelect = document.getElementById('project-select');
+    projects.forEach(p => {
+        const opt = document.createElement('option');
+        opt.text = opt.value = p;
+        projectSelect.add(opt);
+    });
+
+    document.querySelectorAll('input[name="interval"]').forEach(el => {
+        el.addEventListener('change', () => {
+            const project = projectSelect.value;
+            const dateGroup = el.value;
+            renderFromCache(project, dateGroup);
+        });
+    });
+
+    // ── Data fetching ──────────────────────────────────────────────────────────
+
+    async function fetchData(project, dateGroup) {
+        const res = await fetch('/graphql', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+                query: `{ usage_stats(project: "${project}", date_group: "${dateGroup}") }`,
+            }),
         });
 
-        document.querySelectorAll('input[name="interval"]').forEach(el => {
-            el.addEventListener('change', updateDashboard);
+        const { data, errors } = await res.json();
+        if (errors) throw new Error(errors[0].message);
+        return data.usage_stats;
+    }
+
+    // ── Cache and prefetching ───────────────────────────────────────────────────
+
+    const GRANULARITIES = ['day', 'week', 'month'];
+
+    async function prefetchAll(project) {
+        dataCache[project] = {};
+        setIntervalButtonsLoading(true);
+
+        await Promise.allSettled(
+            GRANULARITIES.map(async (g) => {
+                try {
+                    const data = await fetchData(project, g);
+                    dataCache[project][g] = data;
+                    setIntervalButtonLoaded(g);
+                    // If this granularity is currently selected, render immediately
+                    const active = document.querySelector('input[name="interval"]:checked')?.value;
+                    if (g === active) renderFromCache(project, g);
+                } catch (err) {
+                    setIntervalButtonError(g);
+                    console.error(`Failed to load ${g} data:`, err);
+                }
+            })
+        );
+    }
+
+    function renderFromCache(project, dateGroup) {
+        const data = dataCache[project]?.[dateGroup];
+        if (!data) return;  // still loading, skip
+        updateVersionToggles(data);
+        updateMetrics(data);
+        renderCharts(data);
+    }
+
+    function setIntervalButtonsLoading(loading) {
+        document.querySelectorAll('#interval-toggle-group label').forEach(label => {
+            label.classList.toggle('loading', loading);
         });
+        document.querySelectorAll('input[name="interval"]').forEach(radio => {
+            radio.disabled = loading;
+        });
+    }
 
-        // ── Data fetching ──────────────────────────────────────────────────────────
+    function setIntervalButtonLoaded(dateGroup) {
+        const radio = document.getElementById(`int-${dateGroup}`);
+        if (radio) {
+            radio.disabled = false;
+            const label = document.querySelector(`label[for="int-${dateGroup}"]`);
+            if (label) label.classList.remove('loading');
+        }
+    }
 
-        async function fetchData(project) {
-            const date_group = document.querySelector('input[name="interval"]:checked').value;
+    function setIntervalButtonError(dateGroup) {
+        const radio = document.getElementById(`int-${dateGroup}`);
+        if (radio) {
+            radio.disabled = false;
+        }
+        const label = document.querySelector(`label[for="int-${dateGroup}"]`);
+        if (label) label.classList.add('load-error');
+    }
 
-            const res = await fetch('/graphql', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    query: `{ usage_stats(project: "${project}", date_group: "${date_group}") }`,
-                }),
-            });
+    // ── Date-range helper ──────────────────────────────────────────────────────
 
-            const { data, errors } = await res.json();
-            if (errors) throw new Error(errors[0].message);
-            return data.usage_stats;
+    /** Returns only the rows that fall within [minDate, maxDate] (epoch ms). */
+    function filterByDateRange(rows, minDate, maxDate) {
+        if (minDate == null || maxDate == null) return rows;
+        return rows.filter(r => {
+            const t = new Date(r.date).getTime();
+            return t >= minDate && t <= maxDate;
+        });
+    }
+
+    // ── Metrics banner ─────────────────────────────────────────────────────────
+
+    function updateMetrics(data, minDate = null, maxDate = null) {
+        const filtered = filterByDateRange(
+            selectedVersion ? data.filter(r => r.version === selectedVersion) : data,
+            minDate,
+            maxDate,
+        );
+
+        const total = filtered.reduce((sum, r) => sum + r.count, 0);
+        const successful = filtered.filter(r => r.status === 'C').reduce((sum, r) => sum + r.count, 0);
+        const versions = new Set(filtered.map(r => r.version)).size;
+
+        document.getElementById('total-runs').innerText = total.toLocaleString();
+        document.getElementById('success-rate').innerText = total > 0
+            ? `${Math.round((successful / total) * 100)}%`
+            : '0%';
+        document.getElementById('active-versions').innerText = versions;
+
+        if (filtered.length > 0) {
+            const latest = [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date))[0].date;
+            document.getElementById('last-update').innerText = latest;
         }
 
-        // ── Date-range helper ──────────────────────────────────────────────────────
+        // Range indicator + reset button
+        const rangeEl = document.getElementById('range-indicator');
+        const resetBtn = document.getElementById('reset-zoom-btn');
+        const isZoomed = minDate != null && maxDate != null;
 
-        /** Returns only the rows that fall within [minDate, maxDate] (epoch ms). */
-        function filterByDateRange(rows, minDate, maxDate) {
-            if (minDate == null || maxDate == null) return rows;
-            return rows.filter(r => {
-                const t = new Date(r.date).getTime();
-                return t >= minDate && t <= maxDate;
-            });
+        if (isZoomed) {
+            const fmt = d => new Date(d).toLocaleDateString();
+            rangeEl.innerText = `Displaying: ${fmt(minDate)} – ${fmt(maxDate)}`;
+            resetBtn.style.display = 'inline-block';
+        } else {
+            rangeEl.innerText = selectedVersion ? `Filtered by version ${selectedVersion}` : 'All time (selected interval)';
+            resetBtn.style.display = 'none';
         }
+    }
 
-        // ── Metrics banner ─────────────────────────────────────────────────────────
+    // ── Version filter UI ──────────────────────────────────────────────────────
 
-        function updateMetrics(data, minDate = null, maxDate = null) {
-            const filtered = filterByDateRange(
-                selectedVersion ? data.filter(r => r.version === selectedVersion) : data,
-                minDate,
-                maxDate,
-            );
-
-            const total = filtered.reduce((sum, r) => sum + r.count, 0);
-            const successful = filtered.filter(r => r.status === 'C').reduce((sum, r) => sum + r.count, 0);
-            const versions = new Set(filtered.map(r => r.version)).size;
-
-            document.getElementById('total-runs').innerText = total.toLocaleString();
-            document.getElementById('success-rate').innerText = total > 0
-                ? `${Math.round((successful / total) * 100)}%`
-                : '0%';
-            document.getElementById('active-versions').innerText = versions;
-
-            if (filtered.length > 0) {
-                const latest = [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date))[0].date;
-                document.getElementById('last-update').innerText = latest;
-            }
-
-            // Range indicator + reset button
-            const rangeEl = document.getElementById('range-indicator');
-            const resetBtn = document.getElementById('reset-zoom-btn');
-            const isZoomed = minDate != null && maxDate != null;
-
-            if (isZoomed) {
-                const fmt = d => new Date(d).toLocaleDateString();
-                rangeEl.innerText = `Displaying: ${fmt(minDate)} – ${fmt(maxDate)}`;
-                resetBtn.style.display = 'inline-block';
-            } else {
-                rangeEl.innerText = selectedVersion ? `Filtered by version ${selectedVersion}` : 'All time (selected interval)';
-                resetBtn.style.display = 'none';
-            }
+    function sortVersions(a, b, desc = false) {
+        const pa = a.split('.').map(Number);
+        const pb = b.split('.').map(Number);
+        for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+            const diff = (pa[i] || 0) - (pb[i] || 0);
+            if (diff !== 0) return desc ? -diff : diff;
         }
+        return 0;
+    }
 
-        // ── Version filter UI ──────────────────────────────────────────────────────
+    function updateVersionToggles(data) {
+        const allVersions = [...new Set(data.map(r => r.version))].sort((a, b) => sortVersions(a, b, true));
+        const mainVersions = allVersions.slice(0, 5);
+        const moreVersions = allVersions.slice(5);
 
-        function sortVersions(a, b, desc = false) {
-            const pa = a.split('.').map(Number);
-            const pb = b.split('.').map(Number);
-            for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-                const diff = (pa[i] || 0) - (pb[i] || 0);
-                if (diff !== 0) return desc ? -diff : diff;
-            }
-            return 0;
-        }
+        const isDropdownSelected = selectedVersion && moreVersions.includes(selectedVersion);
 
-        function updateVersionToggles(data) {
-            const allVersions = [...new Set(data.map(r => r.version))].sort((a, b) => sortVersions(a, b, true));
-            const mainVersions = allVersions.slice(0, 5);
-            const moreVersions = allVersions.slice(5);
-
-            const isDropdownSelected = selectedVersion && moreVersions.includes(selectedVersion);
-
-            const radioHTML = [
-                { value: 'all', id: 'v-all', label: 'All Versions', checked: !selectedVersion, onChange: "setVersionFilter(null)" },
-                ...mainVersions.map(v => ({
-                    value: v,
-                    id: `v-${v.replace(/\./g, '-')}`,
-                    label: v,
-                    checked: selectedVersion === v,
-                    onChange: `setVersionFilter('${v}')`,
-                })),
-            ].map(({ value, id, label, checked, onChange }) =>
-                `<input type="radio" name="v-filter" value="${value}" id="${id}" ${checked ? 'checked' : ''} onchange="${onChange}">
+        const radioHTML = [
+            { value: 'all', id: 'v-all', label: 'All Versions', checked: !selectedVersion, onChange: "setVersionFilter(null)" },
+            ...mainVersions.map(v => ({
+                value: v,
+                id: `v-${v.replace(/\./g, '-')}`,
+                label: v,
+                checked: selectedVersion === v,
+                onChange: `setVersionFilter('${v}')`,
+            })),
+        ].map(({ value, id, label, checked, onChange }) =>
+            `<input type="radio" name="v-filter" value="${value}" id="${id}" ${checked ? 'checked' : ''} onchange="${onChange}">
              <label for="${id}">${label}</label>`
-            ).join('');
+        ).join('');
 
-            const dropdownHTML = moreVersions.length > 0
-                ? `<select class="version-select" id="more-versions-select" onchange="setVersionFilter(this.value)">
+        const dropdownHTML = moreVersions.length > 0
+            ? `<select class="version-select" id="more-versions-select" onchange="setVersionFilter(this.value)">
                  <option value="" ${!isDropdownSelected ? 'selected' : ''} disabled>More…</option>
                  ${moreVersions.map(v =>
-                    `<option value="${v}" ${selectedVersion === v ? 'selected' : ''}>${v}</option>`
-                ).join('')}
+                `<option value="${v}" ${selectedVersion === v ? 'selected' : ''}>${v}</option>`
+            ).join('')}
                </select>`
-                : '';
+            : '';
 
-            document.getElementById('version-toggle-group').innerHTML = radioHTML + dropdownHTML;
+        document.getElementById('version-toggle-group').innerHTML = radioHTML + dropdownHTML;
+    }
+
+    function setVersionFilter(version) {
+        if (version === '') return;   // "More…" placeholder selected
+        selectedVersion = (version === 'all' || version === null) ? null : version;
+
+        renderCharts(currentRawData);
+        updateMetrics(currentRawData);
+
+        // Sync radio state
+        const radio = document.querySelector(`input[name="v-filter"][value="${selectedVersion ?? 'all'}"]`);
+        if (radio) {
+            radio.checked = true;
+            const select = document.getElementById('more-versions-select');
+            if (select) select.selectedIndex = 0;   // clear the "More…" dropdown
+        } else {
+            // Version came from "More…" dropdown — uncheck all radios
+            document.querySelectorAll('input[name="v-filter"]').forEach(r => r.checked = false);
+        }
+    }
+
+    // ── Chart rendering ────────────────────────────────────────────────────────
+
+    /**
+     * When the usage chart is zoomed/scrolled, keep the two smaller charts and
+     * the metrics banner in sync with the visible date window.
+     */
+    function onZoomChange(filteredData, { xaxis }) {
+        updateMetrics(filteredData, xaxis.min, xaxis.max);
+        renderStatusChart(filteredData, xaxis.min, xaxis.max);
+        renderVersionChart(currentRawData, xaxis.min, xaxis.max);
+    }
+
+    function renderUsageChart(filteredData) {
+        const dates = [...new Set(currentRawData.map(r => r.date))].sort((a, b) => new Date(a) - new Date(b));
+        const series = STATUSES.map(({ code, label }) => ({
+            name: label,
+            data: dates.map(date => {
+                const rows = filteredData.filter(r => r.date === date && r.status === code);
+                return rows.reduce((sum, r) => sum + r.count, 0);
+            }),
+        }));
+
+        // Calculate max value for current data (sum across all statuses per date)
+        const maxByDate = dates.map(date =>
+            STATUSES.reduce((sum, { code }) => {
+                const rows = filteredData.filter(r => r.date === date && r.status === code);
+                return sum + rows.reduce((s, r) => s + r.count, 0);
+            }, 0)
+        );
+        const currentMax = Math.max(...maxByDate, 1);
+
+        // Update locked y-axis max if locking
+        if (yAxisLocked && !lockedYAxisMax) {
+            lockedYAxisMax = currentMax;
         }
 
-        function setVersionFilter(version) {
-            if (version === '') return;   // "More…" placeholder selected
-            selectedVersion = (version === 'all' || version === null) ? null : version;
-
-            renderCharts(currentRawData);
-            updateMetrics(currentRawData);
-
-            // Sync radio state
-            const radio = document.querySelector(`input[name="v-filter"][value="${selectedVersion ?? 'all'}"]`);
-            if (radio) {
-                radio.checked = true;
-                const select = document.getElementById('more-versions-select');
-                if (select) select.selectedIndex = 0;   // clear the "More…" dropdown
-            } else {
-                // Version came from "More…" dropdown — uncheck all radios
-                document.querySelectorAll('input[name="v-filter"]').forEach(r => r.checked = false);
-            }
-        }
-
-        // ── Chart rendering ────────────────────────────────────────────────────────
-
-        /**
-         * When the usage chart is zoomed/scrolled, keep the two smaller charts and
-         * the metrics banner in sync with the visible date window.
-         */
-        function onZoomChange(filteredData, { xaxis }) {
-            updateMetrics(filteredData, xaxis.min, xaxis.max);
-            renderStatusChart(filteredData, xaxis.min, xaxis.max);
-            renderVersionChart(currentRawData, xaxis.min, xaxis.max);
-        }
-
-        function renderUsageChart(filteredData) {
-            const dates = [...new Set(currentRawData.map(r => r.date))].sort();
-            const series = STATUSES.map(({ code, label }) => ({
-                name: label,
-                data: dates.map(date => {
-                    const row = filteredData.find(r => r.date === date && r.status === code);
-                    return row ? row.count : 0;
-                }),
-            }));
-
-            const options = {
+        const options = {
+            ...CHART_THEME,
+            chart: {
                 ...CHART_THEME,
-                chart: {
-                    ...CHART_THEME,
-                    type: 'area',
-                    stacked: true,
-                    height: 400,
-                    animations: { enabled: true, easing: 'easeinout', speed: 800 },
-                    events: {
-                        zoomed: (ctx, args) => onZoomChange(filteredData, args),
-                        scrolled: (ctx, args) => onZoomChange(filteredData, args),
-                    },
+                type: 'area',
+                stacked: true,
+                height: 400,
+                animations: { enabled: true, easing: 'easeinout', speed: 800 },
+                events: {
+                    zoomed: (ctx, args) => onZoomChange(filteredData, args),
+                    scrolled: (ctx, args) => onZoomChange(filteredData, args),
                 },
-                colors: STATUSES.map(s => s.color),
-                series,
-                dataLabels: { enabled: false },
-                stroke: { curve: 'smooth', width: 2 },
-                fill: {
-                    type: 'gradient',
-                    gradient: { opacityFrom: 0.6, opacityTo: 0.1 },
-                },
-                xaxis: { type: 'datetime', categories: dates },
-                tooltip: { x: { format: 'dd MMM yyyy' }, theme: 'dark' },
-            };
+            },
+            colors: STATUSES.map(s => s.color),
+            series,
+            dataLabels: { enabled: false },
+            stroke: { curve: 'smooth', width: 2 },
+            fill: {
+                type: 'gradient',
+                gradient: { opacityFrom: 0.6, opacityTo: 0.1 },
+            },
+            xaxis: { type: 'datetime', categories: dates },
+            yaxis: yAxisLocked && lockedYAxisMax ? { max: lockedYAxisMax } : {},
+            tooltip: { x: { format: 'dd MMM yyyy' }, theme: 'dark' },
+        };
 
-            usageChart?.destroy();
-            usageChart = new ApexCharts(document.querySelector('#usage-chart'), options);
-            usageChart.render();
-        }
+        usageChart?.destroy();
+        usageChart = new ApexCharts(document.querySelector('#usage-chart'), options);
+        usageChart.render();
+    }
 
-        function renderStatusChart(filteredData, minDate = null, maxDate = null) {
-            const data = filterByDateRange(filteredData, minDate, maxDate);
+    function renderStatusChart(filteredData, minDate = null, maxDate = null) {
+        const data = filterByDateRange(filteredData, minDate, maxDate);
 
-            const totals = STATUSES.map(({ code }) =>
-                data.filter(r => r.status === code).reduce((sum, r) => sum + r.count, 0)
-            );
+        const totals = STATUSES.map(({ code }) =>
+            data.filter(r => r.status === code).reduce((sum, r) => sum + r.count, 0)
+        );
 
-            const options = {
-                ...CHART_THEME,
-                chart: { ...CHART_THEME, type: 'donut', height: 300 },
-                colors: STATUSES.map(s => s.color),
-                series: totals,
-                labels: STATUSES.map(s => s.label),
-                stroke: { show: false },
-                plotOptions: {
-                    pie: {
-                        donut: {
-                            size: '70%',
-                            labels: {
-                                show: true,
-                                total: { show: true, label: 'TOTAL', color: 'var(--chart-label)' },
-                            },
+        const options = {
+            ...CHART_THEME,
+            chart: { ...CHART_THEME, type: 'donut', height: 300 },
+            colors: STATUSES.map(s => s.color),
+            series: totals,
+            labels: STATUSES.map(s => s.label),
+            stroke: { show: false },
+            plotOptions: {
+                pie: {
+                    donut: {
+                        size: '70%',
+                        labels: {
+                            show: true,
+                            total: { show: true, label: 'TOTAL', color: 'var(--chart-label)' },
                         },
                     },
                 },
-                legend: { position: 'bottom' },
-            };
+            },
+            legend: { position: 'bottom' },
+        };
 
-            statusChart?.destroy();
-            statusChart = new ApexCharts(document.querySelector('#status-donut-chart'), options);
-            statusChart.render();
-        }
+        statusChart?.destroy();
+        statusChart = new ApexCharts(document.querySelector('#status-donut-chart'), options);
+        statusChart.render();
+    }
 
-        function renderVersionChart(data, minDate = null, maxDate = null) {
-            const windowed = filterByDateRange(data, minDate, maxDate);
+    function renderVersionChart(data, minDate = null, maxDate = null) {
+        const windowed = filterByDateRange(data, minDate, maxDate);
 
-            // Aggregate total runs per version, sorted descending by count
-            const versionCounts = windowed.reduce((acc, r) => {
-                acc[r.version] = (acc[r.version] || 0) + r.count;
-                return acc;
-            }, {});
+        // Aggregate total runs per version, sorted descending by count
+        const versionCounts = windowed.reduce((acc, r) => {
+            acc[r.version] = (acc[r.version] || 0) + r.count;
+            return acc;
+        }, {});
 
-            const sortedVersions = Object.entries(versionCounts)
-                .sort((a, b) => b[1] - a[1])
-                .map(([v]) => v);
+        const sortedVersions = Object.entries(versionCounts)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(([v]) => v);
 
-            const sortedTotals = sortedVersions.map(v => versionCounts[v]);
+        const sortedTotals = sortedVersions.map(v => versionCounts[v]);
 
-            // Growth comparison: most-recent windowSize periods vs the prior window
-            const interval = document.querySelector('input[name="interval"]:checked').value;
-            const { windowSize, shortLabel } = INTERVAL_CONFIG[interval];
+        // Growth comparison: most-recent windowSize periods vs the prior window
+        const interval = document.querySelector('input[name="interval"]:checked').value;
+        const { windowSize, shortLabel } = INTERVAL_CONFIG[interval];
 
-            const sortedDates = [...new Set(windowed.map(r => r.date))].sort().reverse();
-            const periodADates = sortedDates.slice(1, windowSize + 1);
-            const periodBDates = sortedDates.slice(windowSize + 1, windowSize * 2 + 1);
+        const sortedDates = [...new Set(windowed.map(r => r.date))].sort((a, b) => new Date(b) - new Date(a));
+        const periodADates = sortedDates.slice(1, windowSize + 1);
+        const periodBDates = sortedDates.slice(windowSize + 1, windowSize * 2 + 1);
 
-            const growthByVersion = {};
-            if (periodADates.length > 0 && periodBDates.length > 0) {
-                sortedVersions.forEach(v => {
-                    const sum = (dates) => windowed
-                        .filter(r => r.version === v && dates.includes(r.date))
-                        .reduce((s, r) => s + r.count, 0);
-                    const [a, b] = [sum(periodADates), sum(periodBDates)];
-                    if (b > 0) growthByVersion[v] = Math.round(((a - b) / b) * 100);
-                });
-            }
-
-            const categoriesWithGrowth = sortedVersions.map(v => {
-                const g = growthByVersion[v];
-                return g != null ? `${v} (${g >= 0 ? '+' : ''}${g}%)` : v;
+        const growthByVersion = {};
+        if (periodADates.length > 0 && periodBDates.length > 0) {
+            sortedVersions.forEach(v => {
+                const sum = (dates) => windowed
+                    .filter(r => r.version === v && dates.includes(r.date))
+                    .reduce((s, r) => s + r.count, 0);
+                const [a, b] = [sum(periodADates), sum(periodBDates)];
+                if (b > 0) growthByVersion[v] = Math.round(((a - b) / b) * 100);
             });
+        }
 
-            const options = {
+        const categoriesWithGrowth = sortedVersions.map(v => {
+            const g = growthByVersion[v];
+            return g != null ? `${v} (${g >= 0 ? '+' : ''}${g}%)` : v;
+        });
+
+        const options = {
+            ...CHART_THEME,
+            chart: {
                 ...CHART_THEME,
-                chart: {
-                    ...CHART_THEME,
-                    type: 'bar',
-                    height: 300,
-                    events: {
-                        dataPointSelection: (_e, _ctx, { dataPointIndex }) => {
-                            setVersionFilter(sortedVersions[dataPointIndex]);
-                        },
+                type: 'bar',
+                height: 300,
+                events: {
+                    dataPointSelection: (_e, _ctx, { dataPointIndex }) => {
+                        setVersionFilter(sortedVersions[dataPointIndex]);
                     },
                 },
-                series: [{ name: 'Total Runs', data: sortedTotals }],
-                colors: sortedVersions.map(v => {
-                    const g = growthByVersion[v];
-                    if (g == null) return 'var(--chart-neutral)';
-                    return g >= 0 ? 'var(--success)' : 'var(--error)';
-                }),
-                plotOptions: { bar: { borderRadius: 4, horizontal: true, distributed: true } },
-                xaxis: { categories: categoriesWithGrowth },
-                tooltip: {
-                    y: {
-                        formatter: (val, { dataPointIndex }) => {
-                            const v = sortedVersions[dataPointIndex];
-                            const g = growthByVersion[v];
-                            const growth = g != null ? ` (${g >= 0 ? '+' : ''}${g}% in last ${shortLabel})` : '';
-                            return `${val.toLocaleString()} total runs${growth}`;
-                        },
+            },
+            series: [{ name: 'Total Runs', data: sortedTotals }],
+            colors: sortedVersions.map(v => {
+                const g = growthByVersion[v];
+                if (g == null) return 'var(--chart-neutral)';
+                return g >= 0 ? 'var(--success)' : 'var(--error)';
+            }),
+            plotOptions: { bar: { borderRadius: 4, horizontal: true, distributed: true } },
+            xaxis: { categories: categoriesWithGrowth },
+            tooltip: {
+                y: {
+                    formatter: (val, { dataPointIndex }) => {
+                        const v = sortedVersions[dataPointIndex];
+                        const g = growthByVersion[v];
+                        const growth = g != null ? ` (${g >= 0 ? '+' : ''}${g}% in last ${shortLabel})` : '';
+                        return `${val.toLocaleString()} total runs${growth}`;
                     },
                 },
-                legend: { show: false },
-            };
+            },
+            legend: { show: false },
+        };
 
-            versionChart?.destroy();
-            versionChart = new ApexCharts(document.querySelector('#version-bar-chart'), options);
-            versionChart.render();
-        }
+        versionChart?.destroy();
+        versionChart = new ApexCharts(document.querySelector('#version-bar-chart'), options);
+        versionChart.render();
+    }
 
-        // ── Orchestration ──────────────────────────────────────────────────────────
+    // ── Orchestration ──────────────────────────────────────────────────────────
 
-        function renderCharts(rawData) {
-            currentRawData = rawData;
-            const filteredData = selectedVersion
-                ? rawData.filter(r => r.version === selectedVersion)
-                : rawData;
+    function renderCharts(rawData) {
+        currentRawData = rawData;
+        const filteredData = selectedVersion
+            ? rawData.filter(r => r.version === selectedVersion)
+            : rawData;
 
-            renderUsageChart(filteredData);
-            renderStatusChart(filteredData);
-            renderVersionChart(rawData);   // version chart always uses full raw data
-        }
+        renderUsageChart(filteredData);
+        renderStatusChart(filteredData);
+        renderVersionChart(selectedVersion ? filteredData : rawData);
+    }
 
-        function resetZoom() {
-            usageChart?.resetSeries();
+    function resetZoom() {
+        usageChart?.resetSeries();
+        const filteredData = selectedVersion
+            ? currentRawData.filter(r => r.version === selectedVersion)
+            : currentRawData;
+
+        updateMetrics(filteredData);
+        renderUsageChart(filteredData);
+        renderStatusChart(filteredData);
+        renderVersionChart(currentRawData);
+    }
+
+    function toggleLockYAxis() {
+        const checkbox = document.getElementById('lock-yaxis-checkbox');
+        yAxisLocked = checkbox.checked;
+
+        if (yAxisLocked) {
+            // Lock is being activated; capture current max
             const filteredData = selectedVersion
                 ? currentRawData.filter(r => r.version === selectedVersion)
                 : currentRawData;
-
-            updateMetrics(filteredData);
-            renderUsageChart(filteredData);
-            renderStatusChart(filteredData);
-            renderVersionChart(currentRawData);
+            const dates = [...new Set(currentRawData.map(r => r.date))].sort((a, b) => new Date(a) - new Date(b));
+            const maxByDate = dates.map(date =>
+                STATUSES.reduce((sum, { code }) => {
+                    const rows = filteredData.filter(r => r.date === date && r.status === code);
+                    return sum + rows.reduce((s, r) => s + r.count, 0);
+                }, 0)
+            );
+            lockedYAxisMax = Math.max(...maxByDate, 1);
+        } else {
+            // Lock is being deactivated
+            lockedYAxisMax = null;
         }
 
-        async function updateDashboard() {
-            try {
-                const data = await fetchData(projectSelect.value);
-                updateVersionToggles(data);
-                updateMetrics(data);
-                renderCharts(data);
-            } catch (err) {
-                console.error('Dashboard update failed:', err);
-            }
+        // Re-render chart with new y-axis setting
+        const filteredData = selectedVersion
+            ? currentRawData.filter(r => r.version === selectedVersion)
+            : currentRawData;
+        renderUsageChart(filteredData);
+    }
+
+    async function updateDashboard() {
+        const project = projectSelect.value;
+        const dateGroup = document.querySelector('input[name="interval"]:checked').value;
+
+        const projectChanged = project !== currentProject;
+        if (projectChanged) {
+            currentProject = project;
+            selectedVersion = null;  // clear stale version filter on project switch
         }
 
-        // ── Initial load ───────────────────────────────────────────────────────────
-        updateDashboard();
+        if (!dataCache[project]) {
+            // First visit to this project: fire all fetches, render as they land
+            await prefetchAll(project);
+        } else {
+            // Project already cached; just render the selected granularity
+            renderFromCache(project, dateGroup);
+        }
+    }
+
+    // ── Initial load ───────────────────────────────────────────────────────────
+    updateDashboard();
     </script>
 {% endblock extra_scripts %}

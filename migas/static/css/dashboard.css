@@ -73,3 +73,15 @@
 .apexcharts-canvas {
     margin: 0 auto;
 }
+
+/* ── Interval toggle loading states ──────────────────────────────────────── */
+
+#interval-toggle-group label.loading {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+#interval-toggle-group label.load-error {
+    opacity: 0.45;
+    text-decoration: line-through;
+}
