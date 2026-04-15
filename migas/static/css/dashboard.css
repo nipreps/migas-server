@@ -1,75 +1,457 @@
-/* ── Dashboard tokens ───────────────────────────────────────────────────────
-   Extends the :root block above. Kept separate so it's clear what belongs
-   to the analytics dashboard vs. shared primitives.
-   --status-incomplete has no equivalent in the shared tokens above.
-   --chart-* are ApexCharts-specific overrides.                              */
+/* ── Design Direction ──────────────────────────────────────────────────
+   Refined Technical Dashboard: Clean, purposeful, data-focused.
+   Typography: Distinctive pairing for hierarchy and character.
+   Layout: Compact grid maximizing information density while maintaining clarity.
+   Color: Minimal accent (orange) for intentional emphasis.
+   ─────────────────────────────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
 :root {
     --status-incomplete: #57534e;
 
     --chart-neutral: #44403c;
     --chart-grid: var(--border);
-    /* reuse existing border token     */
     --chart-fore: var(--text-secondary);
     --chart-label: #b0bec5;
+
+    /* Typography overrides */
+    --font-display: 'Outfit', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
 }
 
-/* ── Stats summary row ───────────────────────────────────────────────────── */
+/* ── Typography ────────────────────────────────────────────────────────── */
 
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1.5rem;
-    margin-bottom: 2rem;
+.container {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-.stat-card {
-    background: var(--card-bg);
-    padding: 1.5rem;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    text-align: center;
+.container h1,
+.container h2,
+.container h3,
+.card-title {
+    font-family: var(--font-display);
+    letter-spacing: -0.5px;
 }
 
 .stat-value {
+    font-family: var(--font-mono);
+    font-weight: 600;
+}
+
+/* ── Page Layout ────────────────────────────────────────────────────────── */
+
+.container {
+    margin: 0 auto;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    max-width: 1200px;
+}
+
+/* ── Header ────────────────────────────────────────────────────────────── */
+
+header.nav {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr; /* Exact centering for middle column */
+    align-items: center;
+    padding: 0.5rem 2.5rem; /* Reduced vertical padding */
+    margin-bottom: 1rem; /* Reduced from 1.5rem */
+    border-bottom: 1px solid var(--border);
+}
+
+.nav-brand {
+    font-family: var(--font-display);
     font-size: 1.8rem;
     font-weight: 700;
-    margin-bottom: 0.2rem;
+    letter-spacing: -1.5px;
+    line-height: 1.1;
+    padding: 0 0.5rem; /* Horizontal buffer added to prevent 's' clipping */
+    background: linear-gradient(135deg, var(--primary), #ff9500);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.nav-project {
+    display: flex;
+    justify-content: center;
+}
+
+#project-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background: var(--card-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23ea580c' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.6rem 2.5rem 0.6rem 1rem;
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    font-weight: 600;
+    font-family: var(--font-display);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 240px;
+    text-align: left;
+}
+
+#project-select:hover {
+    border-color: var(--primary);
+    background-color: #27272a;
+}
+
+#project-select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.15);
+}
+
+.logout-link {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+}
+
+.logout-link:hover {
     color: var(--primary);
 }
 
-.stat-label {
+/* ── Filters Row ───────────────────────────────────────────────────────── */
+
+.filter-row {
+    display: flex;
+    flex-direction: row; /* Overriding global viz.css which sets this to column */
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 2rem;
+    padding: 0 2.5rem;
+    margin-bottom: 0.75rem; /* Reduced from 1.5rem */
+}
+
+.filter-section {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.filter-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.filter-label {
     font-size: 0.8rem;
+    font-weight: 600;
     color: var(--text-secondary);
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.4px;
+    font-family: var(--font-display);
 }
 
-@media (max-width: 768px) {
-    .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
+#project-select {
+    padding: 0.5rem 0.75rem;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    cursor: pointer;
 }
 
-/* ── Layout helpers ──────────────────────────────────────────────────────── */
-
-.full-width {
-    grid-column: 1 / -1;
+.toggle-group {
+    display: flex;
+    gap: 0.25rem;
 }
 
-.interval-label {
-    margin-left: 2rem;
+.toggle-group input[type="radio"] {
+    display: none;
 }
 
-/* Subdued metadata shown next to a card title (e.g. date range indicator) */
+.toggle-group label {
+    padding: 0.5rem 0.875rem;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    transition: all 0.2s ease;
+}
+
+.toggle-group input[type="radio"]:checked + label {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.toggle-group label:hover {
+    border-color: var(--primary);
+}
+
+.toggle-group label.loading {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.toggle-group label.load-error {
+    opacity: 0.45;
+    text-decoration: line-through;
+}
+
+#version-filter-row {
+    margin-left: auto;
+}
+
+
+/* ── Dashboard Grid (Charts) ───────────────────────────────────────────── */
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Updated to equal columns */
+    grid-template-rows: auto 1fr; /* Top row fits content, bottom row fills space */
+    gap: 0.75rem;
+    flex: 1;
+    min-height: 0;
+}
+
+.card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem; /* Increased padding */
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: visible; /* Changed from hidden to visible to prevent chart label clipping */
+}
+
+.usage-card {
+    grid-column: 1 / 3; /* Spans both columns */
+    grid-row: 2;
+}
+
+.card-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem; /* Reduced from 1rem */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    line-height: 1.2;
+}
+
 .card-title-meta {
     font-size: 0.8rem;
     font-weight: 400;
     color: var(--text-secondary);
+    margin-left: auto;
 }
 
-/* ── ApexCharts overrides ────────────────────────────────────────────────── */
+.card-subtitle {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* Updated to 2 columns */
+    gap: 0.5rem;
+    padding: 0.4rem 0;
+    margin-bottom: 0.2rem; /* Reduced from 0.4rem */
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+}
+
+.metric-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.metric-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    font-family: var(--font-display);
+}
+
+.metric-value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--primary);
+    font-family: var(--font-mono);
+}
+
+@media (max-width: 1200px) {
+    .card-subtitle {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .card-subtitle {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+}
+
+.chart-container {
+    display: flex;
+    align-items: stretch; /* Direct alignment to top/fill */
+    justify-content: flex-start;
+    overflow: visible;
+}
+
+.chart-h-400 {
+    height: 100%;
+}
+
+.card:not(.full-width) .chart-container {
+    height: 100%;
+}
+
+/* ── Chart Overrides ───────────────────────────────────────────────────── */
 
 .apexcharts-canvas {
     margin: 0 auto;
+}
+
+/* ── Buttons & Controls ────────────────────────────────────────────────── */
+
+.btn-reset {
+    padding: 0.5rem 0.875rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+}
+
+.btn-reset:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.btn-reset.hidden {
+    display: none;
+}
+
+/* ── Lock Y-Axis Checkbox ──────────────────────────────────────────────── */
+
+#lock-yaxis-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--primary);
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────── */
+
+@media (max-width: 1200px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto;
+        height: auto;
+    }
+
+    .card.full-width {
+        grid-column: 1;
+        grid-row: auto;
+    }
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 0.75rem;
+    }
+
+    .filter-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+
+    .stat-card {
+        padding: 0.75rem;
+    }
+
+    .card {
+        padding: 0.75rem;
+    }
+
+    .card-title {
+        font-size: 0.95rem;
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* ── Loading State ──────────────────────────────────────────────────────── */
+
+.card.loading {
+    pointer-events: none;
+    opacity: 0.6;
+}
+
+.card.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+.card {
+    position: relative;
+}
+
+@keyframes spin {
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* ── Animations ────────────────────────────────────────────────────────── */
+
+.stat-card {
+    animation: slideUp 0.5s ease-out backwards;
+}
+
+.stat-card:nth-child(1) { animation-delay: 0.05s; }
+.stat-card:nth-child(2) { animation-delay: 0.1s; }
+.stat-card:nth-child(3) { animation-delay: 0.15s; }
+.stat-card:nth-child(4) { animation-delay: 0.2s; }
+
+.card {
+    animation: slideUp 0.5s ease-out backwards;
+}
+
+.dashboard-grid .card:nth-child(1) { animation-delay: 0.25s; }
+.dashboard-grid .card:nth-child(2) { animation-delay: 0.3s; }
+.dashboard-grid .card:nth-child(3) { animation-delay: 0.35s; }
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
