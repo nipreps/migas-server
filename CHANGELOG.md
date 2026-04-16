@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.6.2] - 2026-04-16
+
+A maintenance release focusing on dashboard improvements, logging refinements, and deployment optimizations.
+
+### Enhancements
+- **Restructured Dashboard**: Overhauled the visualization layout for better data density and interaction.
+
+### Bug Fixes
+- **Visualization Aggregation**: Corrected a bug in data aggregation and removed the redundant year bucket.
+- **Database Consistency**: Ensured session uniqueness and consistent bucketing during data retrieval.
+
+### Maintenance & Refactoring
+- **Structured Logging**: Replaced standard prints with a more robust logging system and silenced noisy MaxMind reader outputs.
+
+---
+*For a full list of changes, see the [commit history](https://github.com/nipreps/migas-server/compare/0.6.1...0.6.2).*
+
 ## [0.6.1] - 2026-04-13
 
 A bug-fix release to ensure client IPs are properly forwarded to the application.
