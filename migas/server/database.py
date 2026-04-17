@@ -225,56 +225,77 @@ async def project_exists(project: str, session: AsyncSession | None = None) -> b
 async def get_viz_data(
     project_name: str,
     version: str | None = None,
-    date_group: ty.Literal['day', 'week', 'month', 'year'] = 'month',
-    days: int = 548,  # ~ 1.5 years
+    date_group: ty.Literal['day', 'week', 'month', 'year'] = 'day',
+    start_ts: datetime | None = None,
+    end_ts: datetime | None = None,
     session: AsyncSession | None = None,
 ) -> list:
     """
     Filter project usage into groups, based on versions and dates.
-    Counts unique sessions per period (session uniqueness determined at session level, not bucketing level).
+    Sessions are bucketed by their START date (MIN(timestamp)).
+    Status and version are read from the LATEST crumb (MAX(timestamp)).
     """
 
-    subq_latest = select(
-        Crumb.session_id, func.max(Crumb.timestamp).label('last_timestamp')
+    # Stage 1: per-session start date and latest timestamp
+    subq_bounds = select(
+        Crumb.session_id,
+        func.min(Crumb.timestamp).label('start_ts'),
+        func.max(Crumb.timestamp).label('last_ts'),
     ).where(Crumb.project == project_name)
 
-    if days > 0:
-        start_date = now() - timedelta(days=days)
-        subq_latest = subq_latest.where(Crumb.timestamp >= start_date)
+    if start_ts:
+        # Optimization: use index on (project, timestamp) by adding a WHERE clause.
+        # We look back 30 days to ensure we catch the true start of any session
+        # that could potentially match the HAVING clause.
+        subq_bounds = subq_bounds.where(Crumb.timestamp >= start_ts - timedelta(days=30))
 
-    if not version:
+    subq_bounds = subq_bounds.group_by(Crumb.session_id)
+
+    if start_ts and end_ts:
+        subq_bounds = subq_bounds.having(
+            (func.min(Crumb.timestamp) >= start_ts) & (func.min(Crumb.timestamp) <= end_ts)
+        )
+    elif start_ts:
+        subq_bounds = subq_bounds.having(func.min(Crumb.timestamp) >= start_ts)
+    elif end_ts:
+        subq_bounds = subq_bounds.having(func.min(Crumb.timestamp) <= end_ts)
+
+    subq_bounds = subq_bounds.subquery()
+
+    # Stage 2: Join back to get version and status of the most recent crumb per session
+    subq_latest = select(
+        subq_bounds.c.session_id, subq_bounds.c.start_ts, Crumb.version, Crumb.status
+    ).join(
+        Crumb,
+        (Crumb.session_id == subq_bounds.c.session_id)
+        & (Crumb.timestamp == subq_bounds.c.last_ts)
+        & (Crumb.project == project_name),
+    )
+
+    if version:
+        subq_latest = subq_latest.where(Crumb.version == version)
+    else:
+        # Default filter for "stable" versions if none specified
         subq_latest = subq_latest.where(Crumb.version.not_like('%+%')).where(
             Crumb.version.not_like('%rc%')
         )
-    else:
-        subq_latest = subq_latest.where(Crumb.version == version)
 
-    subq_latest = subq_latest.group_by(Crumb.session_id).subquery()
+    subq_latest = subq_latest.subquery()
 
-    # Join back to get version and status of the most recent crumb per session
-    subq_sessions = (
-        select(Crumb.session_id, Crumb.version, Crumb.status, Crumb.timestamp)
-        .join(
-            subq_latest,
-            (Crumb.session_id == subq_latest.c.session_id)
-            & (Crumb.timestamp == subq_latest.c.last_timestamp),
-        )
-        .subquery()
-    )
-
-    # Now bucket by date and count unique sessions
-    date_bucket = func.date_trunc(date_group, subq_sessions.c.timestamp)
+    # Stage 3: bucket by start date, count sessions
+    # We still support date_group for backward compatibility with GraphQL
+    date_bucket = func.date_trunc(date_group, subq_latest.c.start_ts)
     date_str = func.to_char(date_bucket, 'YYYY-MM-DD').label('date')
 
     query = (
         select(
-            subq_sessions.c.version.label('version'),
+            subq_latest.c.version.label('version'),
             date_str,
-            subq_sessions.c.status.label('status'),
-            func.count(distinct(subq_sessions.c.session_id)).label('count'),
+            subq_latest.c.status.label('status'),
+            func.count(distinct(subq_latest.c.session_id)).label('count'),
         )
-        .group_by(date_bucket, subq_sessions.c.version, subq_sessions.c.status)
-        .order_by(date_bucket.desc(), subq_sessions.c.version.desc())
+        .group_by(date_bucket, subq_latest.c.version, subq_latest.c.status)
+        .order_by(date_bucket.desc(), subq_latest.c.version.desc())
     )
 
     async with gen_session(session) as session:

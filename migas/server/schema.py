@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from packaging.version import Version as _Version
 
 import strawberry
@@ -130,7 +130,8 @@ class Query:
         else:
             raise Exception('Token required.')
 
-        usage = await get_viz_data(project, version, date_group, days=days)
+        start_ts = now() - timedelta(days=days)
+        usage = await get_viz_data(project, version, date_group, start_ts=start_ts)
         return usage
 
 
