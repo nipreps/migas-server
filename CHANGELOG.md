@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.3] - 2026-04-16
+
+### Bug Fixes
+- **Geolocation Stability**: Make requests more resilient to missing data in the MaxMind database.
+
+---
+*For a full list of changes, see the [commit history](https://github.com/nipreps/migas-server/compare/0.6.2...0.6.3).*
+
 ## [0.6.2] - 2026-04-16
 
 A maintenance release focusing on dashboard improvements, logging refinements, and deployment optimizations.
