@@ -93,6 +93,10 @@ async def fetch_project_info(project: str) -> dict:
 
 
 async def geoloc(ip: str, lang: str = 'en') -> dict | None:
+    # return early for non-IP strings to avoid log noise from MaxMind reader
+    if not ip or ip == 'testclient':
+        return None
+
     from .connections import get_mmdb_reader
 
     city, asn = await get_mmdb_reader()
@@ -104,18 +108,24 @@ async def geoloc(ip: str, lang: str = 'en') -> dict | None:
     if not cinfo:
         logger.debug(f'No geolocation info for IP: {ip}')
         return
-    info['city'] = cinfo['city']['names'][lang]
-    info['continent_code'] = cinfo['continent']['code']
-    info['country_code'] = cinfo['country']['iso_code']
-    info['lat'] = cinfo['location']['latitude']
-    info['lon'] = cinfo['location']['longitude']
-    if subdivs := cinfo['subdivisions']:
-        info['state_or_province'] = subdivs[0]['names'][lang]
+
+    if city_data := cinfo.get('city'):
+        info['city'] = city_data.get('names', {}).get(lang)
+    if continent := cinfo.get('continent'):
+        info['continent_code'] = continent.get('code')
+    if country := cinfo.get('country'):
+        info['country_code'] = country.get('iso_code')
+    if location := cinfo.get('location'):
+        info['lat'] = location.get('latitude')
+        info['lon'] = location.get('longitude')
+    if subdivisions := cinfo.get('subdivisions'):
+        info['state_or_province'] = subdivisions[0].get('names', {}).get(lang)
 
     ainfo = asn.get(ip)
-    if not ainfo:
-        logger.debug(f'No geolocation info for IP: {ip}')
-        return info
-    info['asn'] = ainfo['autonomous_system_number']
-    info['aso'] = ainfo['autonomous_system_organization']
+    if ainfo:
+        info['asn'] = ainfo.get('autonomous_system_number')
+        info['aso'] = ainfo.get('autonomous_system_organization')
+    else:
+        logger.debug(f'No ASN info for IP: {ip}')
+
     return info

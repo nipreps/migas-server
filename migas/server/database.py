@@ -92,10 +92,12 @@ async def insert_query_geoloc(ip: str, session: AsyncSession | None = None) -> i
     """
     from .fetchers import geoloc
 
-    if not ip or ip == 'testclient':
+    try:
+        info = await geoloc(ip)
+    except Exception as e:
+        logger.error(f'Geolocation failed for IP {ip}: {e}')
         return None
 
-    info = await geoloc(ip)
     if not info:
         return None
 
