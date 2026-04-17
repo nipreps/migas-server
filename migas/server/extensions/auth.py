@@ -2,7 +2,8 @@ import typing
 import strawberry
 from strawberry.permission import BasePermission
 
-from ..database import authenticate_token
+from fastapi import HTTPException
+from ..auth import get_authorized_projects
 
 
 class RequireRoot(BasePermission):
@@ -10,10 +11,8 @@ class RequireRoot(BasePermission):
 
     async def has_permission(self, source: typing.Any, info: strawberry.Info, **kwargs) -> bool:
         request = info.context['request']
-        auth_header = request.headers.get('Authorization')
-        if not auth_header or not auth_header.startswith('Bearer '):
+        try:
+            await get_authorized_projects(request, require_root=True)
+            return True
+        except HTTPException:
             return False
-
-        token = auth_header.split(' ', 1)[1]
-        valid, projects = await authenticate_token(token, require_root=True)
-        return valid and len(projects) > 0
