@@ -19,7 +19,7 @@
         </header>
         <div class="filter-row">
             <div class="filter-item">
-                <span class="filter-label">Group By</span>
+                <span class="filter-label">Granularity</span>
                 <div class="toggle-group" id="interval-toggle-group">
                     <input type="radio" name="interval" value="day" id="int-day">
                     <label for="int-day">Day</label>
@@ -166,24 +166,55 @@
 
     // ── Data fetching ──────────────────────────────────────────────────────────
 
-    async function fetchData(project, dateGroup) {
-        const res = await fetch('/graphql', {
-            method: 'POST',
+    async function fetchUsageData(project) {
+        const res = await fetch(`/api/usage/${project}`, {
             headers: {
-                'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`,
             },
-            body: JSON.stringify({
-                query: `{ usage_stats(project: "${project}", date_group: "${dateGroup}") }`,
-            }),
         });
-
-        const { data, errors } = await res.json();
-        if (errors) throw new Error(errors[0].message);
-        return data.usage_stats;
+        if (!res.ok) {
+            const error = await res.json();
+            throw new Error(error.detail || 'Failed to fetch usage data');
+        }
+        return await res.json();
     }
 
-    // ── Cache and prefetching ───────────────────────────────────────────────────
+    // ── Reshaping ──────────────────────────────────────────────────────────────
+
+    function getMonday(d) {
+        d = new Date(d);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+        return new Date(d.setDate(diff)).toISOString().split('T')[0];
+    }
+
+    function reshapeToWeek(rows) {
+        const weeks = {};
+        rows.forEach(r => {
+            const monday = getMonday(r.date);
+            const key = `${monday}|${r.version}|${r.status}`;
+            weeks[key] = (weeks[key] || 0) + r.count;
+        });
+        return Object.entries(weeks).map(([key, count]) => {
+            const [date, version, status] = key.split('|');
+            return { date, version, status, count: Number(count) };
+        });
+    }
+
+    function reshapeToMonth(rows) {
+        const months = {};
+        rows.forEach(r => {
+            const month = r.date.substring(0, 7) + '-01';
+            const key = `${month}|${r.version}|${r.status}`;
+            months[key] = (months[key] || 0) + r.count;
+        });
+        return Object.entries(months).map(([key, count]) => {
+            const [date, version, status] = key.split('|');
+            return { date, version, status, count: Number(count) };
+        });
+    }
+
+    // ── Cache and rendering ────────────────────────────────────────────────────
 
     const GRANULARITIES = ['day', 'week', 'month'];
 
@@ -193,30 +224,29 @@
         });
     }
 
-    async function prefetchAll(project) {
-        dataCache[project] = {};
+    async function loadProjectData(project) {
         setIntervalButtonsLoading(true);
         setChartsLoading(true);
 
-        await Promise.allSettled(
-            GRANULARITIES.map(async (g) => {
-                try {
-                    const data = await fetchData(project, g);
-                    dataCache[project][g] = data;
-                    setIntervalButtonLoaded(g);
-                    // If this granularity is currently selected, render immediately
-                    const active = document.querySelector('input[name="interval"]:checked')?.value;
-                    if (g === active) {
-                        renderFromCache(project, g);
-                        setChartsLoading(false);
-                    }
-                } catch (err) {
-                    setIntervalButtonError(g);
-                    console.error(`Failed to load ${g} data:`, err);
-                }
-            })
-        );
-        setChartsLoading(false);
+        try {
+            const dayRows = await fetchUsageData(project);
+            dataCache[project] = {
+                day: dayRows,
+                week: reshapeToWeek(dayRows),
+                month: reshapeToMonth(dayRows),
+            };
+
+            GRANULARITIES.forEach(g => setIntervalButtonLoaded(g));
+
+            const active = document.querySelector('input[name="interval"]:checked')?.value || 'week';
+            renderFromCache(project, active);
+        } catch (err) {
+            GRANULARITIES.forEach(g => setIntervalButtonError(g));
+            console.error('Failed to load project data:', err);
+        } finally {
+            setChartsLoading(false);
+            setIntervalButtonsLoading(false);
+        }
     }
 
     function renderFromCache(project, dateGroup) {
@@ -609,8 +639,8 @@
         }
 
         if (!dataCache[project]) {
-            // First visit to this project: fire all fetches, render as they land
-            await prefetchAll(project);
+            // First visit to this project: fetch everything once
+            await loadProjectData(project);
         } else {
             // Project already cached; just render the selected granularity
             renderFromCache(project, dateGroup);
