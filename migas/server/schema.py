@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from packaging.version import Version as _Version
 
 import strawberry
@@ -13,7 +13,6 @@ from strawberry.types import Info
 from .extensions.ratelimit import RateLimitError, check_rate_limit, check_request_size
 
 from .database import (
-    get_viz_data,
     ingest_project,
     project_exists,
     query_projects,
@@ -100,39 +99,6 @@ class Query:
             success = True
             msg = 'Authentication successful.'
         return AuthenticationResult(success=success, projects=projects, message=msg)
-
-    @strawberry.field
-    async def usage_stats(
-        self,
-        info: Info,
-        project: str,
-        version: str | None = None,
-        date_group: str = 'day',  # TODO: ty.Literal incompatibility with strawberry - enum?
-        days: int = 365,
-    ) -> JSON:
-        "Generate different usage information"
-        is_dev = os.getenv('MIGAS_DEV') in ('1', 'true', 'True')
-
-        # Extract token from Authorization header
-        request = info.context['request']
-        auth_header = request.headers.get('Authorization')
-        token = None
-        if auth_header and auth_header.startswith('Bearer '):
-            token = auth_header.split(' ', 1)[1]
-
-        if token == 'dev_token' and is_dev:
-            # Allow access in dev mode with the dev_token
-            pass
-        elif token:
-            valid, projects = await authenticate_token(token)
-            if not valid or projects is None or project not in projects:
-                raise Exception('Invalid token.')
-        else:
-            raise Exception('Token required.')
-
-        start_ts = now() - timedelta(days=days)
-        usage = await get_viz_data(project, version, date_group, start_ts=start_ts)
-        return usage
 
 
 @strawberry.type
