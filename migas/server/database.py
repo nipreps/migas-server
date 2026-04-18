@@ -1,5 +1,4 @@
 import logging
-import typing as ty
 from datetime import datetime, timedelta
 
 from sqlalchemy import distinct, func, select
@@ -224,16 +223,15 @@ async def project_exists(project: str, session: AsyncSession | None = None) -> b
 
 async def get_viz_data(
     project_name: str,
-    version: str | None = None,
-    date_group: ty.Literal['day', 'week', 'month', 'year'] = 'day',
     start_ts: datetime | None = None,
     end_ts: datetime | None = None,
     session: AsyncSession | None = None,
 ) -> list:
-    """
-    Filter project usage into groups, based on versions and dates.
+    """Day-bucketed session counts per (version, status).
+
     Sessions are bucketed by their START date (MIN(timestamp)).
     Status and version are read from the LATEST crumb (MAX(timestamp)).
+    Pre-release and build-metadata versions (containing ``rc`` or ``+``) are excluded.
     """
 
     # Stage 1: per-session start date and latest timestamp
@@ -244,9 +242,9 @@ async def get_viz_data(
     ).where(Crumb.project == project_name)
 
     if start_ts:
-        # Optimization: use index on (project, timestamp) by adding a WHERE clause.
-        # We look back 30 days to ensure we catch the true start of any session
-        # that could potentially match the HAVING clause.
+        # Use the (project, timestamp) index: push the filter down, then
+        # look back 30 days to guarantee we see the true MIN for any session
+        # whose start may qualify for the HAVING clause.
         subq_bounds = subq_bounds.where(Crumb.timestamp >= start_ts - timedelta(days=30))
 
     subq_bounds = subq_bounds.group_by(Crumb.session_id)
@@ -262,29 +260,22 @@ async def get_viz_data(
 
     subq_bounds = subq_bounds.subquery()
 
-    # Stage 2: Join back to get version and status of the most recent crumb per session
-    subq_latest = select(
-        subq_bounds.c.session_id, subq_bounds.c.start_ts, Crumb.version, Crumb.status
-    ).join(
-        Crumb,
-        (Crumb.session_id == subq_bounds.c.session_id)
-        & (Crumb.timestamp == subq_bounds.c.last_ts)
-        & (Crumb.project == project_name),
+    # Stage 2: join back for version + status of the latest crumb; drop pre-releases.
+    subq_latest = (
+        select(subq_bounds.c.session_id, subq_bounds.c.start_ts, Crumb.version, Crumb.status)
+        .join(
+            Crumb,
+            (Crumb.session_id == subq_bounds.c.session_id)
+            & (Crumb.timestamp == subq_bounds.c.last_ts)
+            & (Crumb.project == project_name),
+        )
+        .where(Crumb.version.not_like('%+%'))
+        .where(Crumb.version.not_like('%rc%'))
+        .subquery()
     )
 
-    if version:
-        subq_latest = subq_latest.where(Crumb.version == version)
-    else:
-        # Default filter for "stable" versions if none specified
-        subq_latest = subq_latest.where(Crumb.version.not_like('%+%')).where(
-            Crumb.version.not_like('%rc%')
-        )
-
-    subq_latest = subq_latest.subquery()
-
-    # Stage 3: bucket by start date, count sessions
-    # We still support date_group for backward compatibility with GraphQL
-    date_bucket = func.date_trunc(date_group, subq_latest.c.start_ts)
+    # Stage 3: bucket by start date (day granularity); client rolls up further if needed.
+    date_bucket = func.date_trunc('day', subq_latest.c.start_ts)
     date_str = func.to_char(date_bucket, 'YYYY-MM-DD').label('date')
 
     query = (
