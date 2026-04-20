@@ -1,6 +1,7 @@
 import json
+import logging
 from datetime import datetime, timezone, timedelta
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 
 from ..database import (
     add_new_project,
@@ -28,6 +29,7 @@ from .models import (
 )
 
 router = APIRouter(prefix='/api', tags=['api'])
+logger = logging.getLogger('migas')
 
 
 @router.get('/usage/{project:path}', response_model=list[UsageData])
@@ -88,6 +90,7 @@ async def add_breadcrumb(
     body: BreadcrumbRequest,
     request: Request,
     background_tasks: BackgroundTasks,
+    response: Response,
     wait: bool = False,
 ):
     if '/' not in body.project:
@@ -124,7 +127,13 @@ async def add_breadcrumb(
     ip = request.client.host if request.client else None
 
     if wait:
-        await ingest_project(project, ip)
+        try:
+            await ingest_project(project, ip)
+            response.status_code = 200
+        except Exception as e:
+            logger.error(f'Error ingesting project {project.project}: {e}')
+            response.status_code = 500
+            return BreadcrumbResponse(success=False, message='Error during ingestion.')
     else:
         background_tasks.add_task(ingest_project, project, ip)
 
