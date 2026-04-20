@@ -45,6 +45,28 @@ class TestBreadcrumb:
         assert res.status_code == 200
         assert res.json()['success'] is True
 
+    def test_failure_wait(self, client: TestClient, monkeypatch):
+        from migas.server.api import routes
+
+        async def boom(*args, **kwargs):
+            raise RuntimeError('DB Error')
+
+        monkeypatch.setattr(routes, 'ingest_project', boom)
+
+        res = client.post(
+            self.url + '?wait=true',
+            json={
+                'project': TEST_PROJECT,
+                'project_version': '1.0.0',
+                'language': 'python',
+                'language_version': '3.12',
+            },
+        )
+        assert res.status_code == 500
+        data = res.json()
+        assert data['success'] is False
+        assert data['message'] == 'Error during ingestion.'
+
     def test_invalid_project_format(self, client: TestClient):
         res = client.post(
             self.url,
