@@ -32,6 +32,19 @@ class TestBreadcrumb:
         assert res.status_code == 202
         assert res.json()['success'] is True
 
+    def test_success_wait(self, client: TestClient):
+        res = client.post(
+            self.url + '?wait=true',
+            json={
+                'project': TEST_PROJECT,
+                'project_version': '1.0.0',
+                'language': 'python',
+                'language_version': '3.12',
+            },
+        )
+        assert res.status_code == 200
+        assert res.json()['success'] is True
+
     def test_invalid_project_format(self, client: TestClient):
         res = client.post(
             self.url,
