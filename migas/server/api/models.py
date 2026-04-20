@@ -75,3 +75,10 @@ class TokenModel(BaseModel):
 class ListTokensResponse(BaseModel):
     success: bool
     tokens: list[TokenModel]
+
+
+class UsageData(BaseModel):
+    date: str
+    version: str
+    status: str
+    count: int

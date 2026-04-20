@@ -1,16 +1,19 @@
+import json
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
 from ..database import (
     add_new_project,
     create_token,
     get_tokens,
+    get_viz_data,
     ingest_project,
     project_exists,
     revoke_token,
 )
 from ..types import Context, Process, Project
 from ..utils import now
-from .deps import rate_limit, require_root
+from .deps import rate_limit, require_access
 from .models import (
     BreadcrumbRequest,
     BreadcrumbResponse,
@@ -21,9 +24,54 @@ from .models import (
     RevokeTokenResponse,
     TokenResponse,
     ListTokensResponse,
+    UsageData,
 )
 
 router = APIRouter(prefix='/api', tags=['api'])
+
+
+@router.get('/usage/{project:path}', response_model=list[UsageData])
+async def get_usage(project: str, request: Request, _auth=Depends(require_access())):
+    if not await project_exists(project):
+        raise HTTPException(status_code=404, detail=f'Project {project} not found.')
+
+    redis = request.app.cache
+    cache_key = f'migas:viz:hist:{project}'
+
+    # 1. Fetch from Redis
+    historical = []
+    last_date = datetime(2000, 1, 1, tzinfo=timezone.utc)
+    cached = await redis.get(cache_key)
+    if cached:
+        cached_data = json.loads(cached)
+        historical = cached_data['data']
+        last_date = datetime.fromisoformat(cached_data['last_date'])
+        if last_date.tzinfo is None:
+            last_date = last_date.replace(tzinfo=timezone.utc)
+
+    # 48h provisional window
+    provisional_boundary = now() - timedelta(hours=48)
+
+    # 2. Delta update if needed
+    if last_date < provisional_boundary:
+        # Fill gap: (last_date, provisional_boundary]
+        delta = await get_viz_data(
+            project, start_ts=last_date + timedelta(milliseconds=1), end_ts=provisional_boundary
+        )
+        if delta:
+            historical.extend(delta)
+
+        # Update cache
+        await redis.set(
+            cache_key,
+            json.dumps({'last_date': provisional_boundary.isoformat(), 'data': historical}),
+        )
+        last_date = provisional_boundary
+
+    # 3. Provisional query (always fresh)
+    provisional = await get_viz_data(project, start_ts=last_date + timedelta(milliseconds=1))
+
+    return historical + provisional
 
 
 @router.post(
@@ -84,7 +132,9 @@ async def add_breadcrumb(
 
 
 @router.post(
-    '/admin/register', response_model=RegisterResponse, dependencies=[Depends(require_root)]
+    '/admin/register',
+    response_model=RegisterResponse,
+    dependencies=[Depends(require_access(root=True))],
 )
 async def register_project(body: RegisterRequest):
     if await project_exists(body.project):
@@ -94,7 +144,9 @@ async def register_project(body: RegisterRequest):
 
 
 @router.get(
-    '/admin/list-tokens', response_model=ListTokensResponse, dependencies=[Depends(require_root)]
+    '/admin/list-tokens',
+    response_model=ListTokensResponse,
+    dependencies=[Depends(require_access(root=True))],
 )
 async def list_tokens(project: str | None = None):
     from .models import TokenModel
@@ -114,7 +166,9 @@ async def list_tokens(project: str | None = None):
 
 
 @router.post(
-    '/admin/issue-token', response_model=TokenResponse, dependencies=[Depends(require_root)]
+    '/admin/issue-token',
+    response_model=TokenResponse,
+    dependencies=[Depends(require_access(root=True))],
 )
 async def issue_token(body: IssueTokenRequest):
     if body.project == 'master':
@@ -126,7 +180,9 @@ async def issue_token(body: IssueTokenRequest):
 
 
 @router.post(
-    '/admin/revoke-token', response_model=RevokeTokenResponse, dependencies=[Depends(require_root)]
+    '/admin/revoke-token',
+    response_model=RevokeTokenResponse,
+    dependencies=[Depends(require_access(root=True))],
 )
 async def revoke_token_endpoint(body: RevokeTokenRequest):
     revoked = await revoke_token(body.token)

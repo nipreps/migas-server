@@ -11,6 +11,7 @@ class ConnectionContext:
     mem_cache: Any = None
     requests_session: Any = None
     db_engine: Any = None
+    db_engine_loop: Any = None
     geoloc_city: Any = None
     geoloc_asn: Any = None
 

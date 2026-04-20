@@ -1,5 +1,6 @@
 """Module to faciliate connections to migas's helper services"""
 
+import asyncio
 import os
 import logging
 from functools import wraps
@@ -21,6 +22,7 @@ try:  # do not define unless necessary, to avoid overwriting established session
     MEM_CACHE
     REQUESTS_SESSION
     DB_ENGINE
+    DB_ENGINE_LOOP
     GEOLOC_CITY
     GEOLOC_ASN
 except NameError:
@@ -28,6 +30,7 @@ except NameError:
     MEM_CACHE = _UNSET
     REQUESTS_SESSION = _UNSET
     DB_ENGINE = _UNSET
+    DB_ENGINE_LOOP = _UNSET
     GEOLOC_CITY = _UNSET
     GEOLOC_ASN = _UNSET
 
@@ -89,9 +92,23 @@ async def get_requests_session() -> ClientSession:
 
 
 async def get_db_engine() -> AsyncEngine:
-    """Establish connection to SQLAlchemy engine."""
+    """Establish connection to SQLAlchemy engine.
+
+    asyncpg connections are bound to the event loop they were opened on. In
+    tests, TestClient runs lifespan + request handlers in a portal thread with
+    its own loop while direct DB calls in the test body run on the pytest loop.
+    Sharing one cached engine across both loops produces
+    "Future attached to a different loop" errors, so we key the cache by loop
+    identity and rebuild when the running loop changes. In production there's
+    only one loop, so this is a no-op after the first call.
+    """
+    current_loop = asyncio.get_running_loop()
     db_engine = _get_val('db_engine')
-    if db_engine is None or db_engine is _UNSET:
+    cached_loop = _get_val('db_engine_loop')
+    stale_loop = (
+        cached_loop is not None and cached_loop is not _UNSET and cached_loop is not current_loop
+    )
+    if db_engine is None or db_engine is _UNSET or stale_loop:
         from sqlalchemy.ext.asyncio import create_async_engine
 
         if (db_url := os.getenv('DATABASE_URL')) is None:
@@ -117,6 +134,7 @@ async def get_db_engine() -> AsyncEngine:
 
         db_engine = create_async_engine(db_url, echo=bool(os.getenv('MIGAS_DEV')))
         _set_val('db_engine', db_engine)
+        _set_val('db_engine_loop', current_loop)
     return _get_val('db_engine')
 
 
