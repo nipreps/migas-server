@@ -76,6 +76,12 @@ version-file = "migas/server/_version.py"
 "migas/static" = "migas/static"
 
 [tool.pytest.ini_options]
+# `migas` is a namespace package (no __init__.py). Without these two
+# options, pytest treats `migas/` as the rootdir and imports the tests as
+# `server.tests.test_api`, while the app imports `migas.server.*` — two
+# different copies of every module, breaking monkeypatch/DI overrides.
+addopts = "--import-mode=importlib"
+consider_namespace_packages = true
 markers = [
     "network: tests that require real network connectivity",
     "geoloc: tests that require real geolocation databases",
