@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.7.0] - 2026-04-20
+
+### Enhancements
+- **Usage REST API**: Introduced high-performance `/api/usage/{project}` endpoints with incremental, Redis-backed caching.
+- **Provisional Windowing**: Implemented a 48-hour provisional window for usage data to ensure real-time accuracy while maintaining high cache hit rates for historical data.
+- **REST Dashboard**: Migrated the analytics dashboard to consume the new REST API, significantly reducing UI latency.
+
+### Bug Fixes
+- **Breadcrumb Status**: Return accurate response code when waiting for `/breadcrumb` response.
+
+### Maintenance & Infrastructure
+- **Unified Authentication**: Refactored access control into a singular `require_access` dependency for all REST routes.
+- **Coverage Hardening**: Expanded the test suite to ensure comprehensive coverage across all REST and administrative endpoints.
+
+### Refactoring
+- **Query Optimization**: Optimized database aggregations in `database.py` to leverage day-bucketed session tracking.
+
+---
+*For a full list of changes, see the [commit history](https://github.com/nipreps/migas-server/compare/0.6.3...0.7.0).*
+
 ## [0.6.3] - 2026-04-16
 
 ### Bug Fixes
