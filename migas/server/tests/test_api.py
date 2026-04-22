@@ -1,19 +1,8 @@
 """Tests for the REST API endpoints (Phase 1)."""
 
-import pytest
 from fastapi.testclient import TestClient
 
-from .conftest import TEST_PROJECT
-
-
-@pytest.fixture
-def master_token():
-    """Return the raw token string of the master token seeded by init.sql."""
-    return 'my_test_token'
-
-
-def _auth_header(token: str) -> dict:
-    return {'Authorization': f'Bearer {token}'}
+from .conftest import TEST_PROJECT, auth_header
 
 
 class TestBreadcrumb:
@@ -101,7 +90,7 @@ class TestAdminRegister:
         import uuid
 
         project = f'new-org/new-repo-{uuid.uuid4().hex[:6]}'
-        res = client.post(self.url, json={'project': project}, headers=_auth_header(master_token))
+        res = client.post(self.url, json={'project': project}, headers=auth_header(master_token))
         assert res.status_code == 200
         data = res.json()
         assert data['success'] is True
@@ -109,7 +98,7 @@ class TestAdminRegister:
 
     def test_already_exists(self, client: TestClient, master_token):
         res = client.post(
-            self.url, json={'project': TEST_PROJECT}, headers=_auth_header(master_token)
+            self.url, json={'project': TEST_PROJECT}, headers=auth_header(master_token)
         )
         assert res.status_code == 200
         assert 'already registered' in res.json()['message']
@@ -123,7 +112,7 @@ class TestAdminListTokens:
     url = '/api/admin/list-tokens'
 
     def test_list_all(self, client: TestClient, master_token):
-        res = client.get(self.url, headers=_auth_header(master_token))
+        res = client.get(self.url, headers=auth_header(master_token))
         assert res.status_code == 200
         data = res.json()
         assert data['success'] is True
@@ -135,13 +124,13 @@ class TestAdminListTokens:
 
         project = f'test/project-{uuid.uuid4().hex[:6]}'
         client.post(
-            '/api/admin/register', json={'project': project}, headers=_auth_header(master_token)
+            '/api/admin/register', json={'project': project}, headers=auth_header(master_token)
         )
         client.post(
-            '/api/admin/issue-token', json={'project': project}, headers=_auth_header(master_token)
+            '/api/admin/issue-token', json={'project': project}, headers=auth_header(master_token)
         )
 
-        res = client.get(f'{self.url}?project={project}', headers=_auth_header(master_token))
+        res = client.get(f'{self.url}?project={project}', headers=auth_header(master_token))
         assert res.status_code == 200
         data = res.json()
         assert data['success'] is True
@@ -158,7 +147,7 @@ class TestAdminIssueToken:
 
     def test_success(self, client: TestClient, master_token):
         res = client.post(
-            self.url, json={'project': TEST_PROJECT}, headers=_auth_header(master_token)
+            self.url, json={'project': TEST_PROJECT}, headers=auth_header(master_token)
         )
         assert res.status_code == 200
         data = res.json()
@@ -166,7 +155,7 @@ class TestAdminIssueToken:
         assert data['token'].startswith('m_')
 
     def test_master_project_rejected(self, client: TestClient, master_token):
-        res = client.post(self.url, json={'project': 'master'}, headers=_auth_header(master_token))
+        res = client.post(self.url, json={'project': 'master'}, headers=auth_header(master_token))
         assert res.status_code == 400
 
     def test_no_auth(self, client: TestClient):
@@ -181,21 +170,65 @@ class TestAdminRevokeToken:
         issue_res = client.post(
             '/api/admin/issue-token',
             json={'project': TEST_PROJECT},
-            headers=_auth_header(master_token),
+            headers=auth_header(master_token),
         )
         issued_token = issue_res.json()['token']
 
         res = client.post(
-            self.url, json={'token': issued_token}, headers=_auth_header(master_token)
+            self.url, json={'token': issued_token}, headers=auth_header(master_token)
         )
         assert res.status_code == 200
         assert res.json()['success'] is True
 
     def test_nonexistent_token(self, client: TestClient, master_token):
-        res = client.post(self.url, json={'token': 'NaN'}, headers=_auth_header(master_token))
+        res = client.post(self.url, json={'token': 'NaN'}, headers=auth_header(master_token))
         assert res.status_code == 200
         assert res.json()['success'] is False
 
     def test_no_auth(self, client: TestClient):
         res = client.post(self.url, json={'token': 'some_token'})
+        assert res.status_code == 401
+
+
+class TestAuthProjects:
+    """GET /api/auth/projects — token-validity + project-scope discovery.
+
+    Called once per dashboard open to populate the project dropdown. Replaces
+    the GraphQL `login` resolver.
+    """
+
+    url = '/api/auth/projects'
+
+    def test_master_token_returns_all_projects(self, client: TestClient, master_token):
+        res = client.get(self.url, headers=auth_header(master_token))
+        assert res.status_code == 200
+        data = res.json()
+        assert isinstance(data['projects'], list)
+        assert len(data['projects']) > 0
+        assert '*' not in data['projects']
+        assert 'master' not in data['projects']
+        assert TEST_PROJECT in data['projects']
+
+    def test_project_token_returns_scoped_project(self, client: TestClient, master_token):
+        import uuid
+
+        project = f'test/scoped-login-{uuid.uuid4().hex[:6]}'
+        client.post(
+            '/api/admin/register', json={'project': project}, headers=auth_header(master_token)
+        )
+        token_res = client.post(
+            '/api/admin/issue-token', json={'project': project}, headers=auth_header(master_token)
+        )
+        project_token = token_res.json()['token']
+
+        res = client.get(self.url, headers=auth_header(project_token))
+        assert res.status_code == 200
+        assert res.json()['projects'] == [project]
+
+    def test_invalid_token_returns_401(self, client: TestClient):
+        res = client.get(self.url, headers=auth_header('not-a-real-token'))
+        assert res.status_code == 401
+
+    def test_missing_auth_returns_401(self, client: TestClient):
+        res = client.get(self.url)
         assert res.status_code == 401
