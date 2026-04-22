@@ -77,6 +77,15 @@ class ListTokensResponse(BaseModel):
     tokens: list[TokenModel]
 
 
+class AuthProjectsResponse(BaseModel):
+    """Projects accessible to the authenticated token.
+
+    Status code already signals validity (200 OK vs 401), so no success flag.
+    """
+
+    projects: list[str]
+
+
 class UsageData(BaseModel):
     date: str
     version: str

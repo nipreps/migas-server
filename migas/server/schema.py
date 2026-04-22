@@ -17,7 +17,6 @@ from .database import (
     project_exists,
     query_projects,
     query_usage_by_datetimes,
-    authenticate_token,
     add_new_project,
     create_token,
     revoke_token,
@@ -25,7 +24,6 @@ from .database import (
 from .extensions import LoggingExtension, RequireRoot
 from .fetchers import fetch_project_info
 from .types import (
-    AuthenticationResult,
     BreadcrumbResult,
     CheckProjectResult,
     Context,
@@ -88,17 +86,6 @@ class Query:
             count = await query_usage_by_datetimes(project, start, end, unique=unique)
             message = ''
         return {'hits': count, 'message': message, 'unique': unique, 'success': exists}
-
-    @strawberry.field
-    async def login(self, token: str) -> AuthenticationResult:
-        valid, projects = await authenticate_token(token)
-        if not valid:
-            success = False
-            msg = 'Authentication Error: token is either invalid or expired.'
-        else:
-            success = True
-            msg = 'Authentication successful.'
-        return AuthenticationResult(success=success, projects=projects, message=msg)
 
 
 @strawberry.type
