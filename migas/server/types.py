@@ -175,13 +175,6 @@ class ProjectInput:
 
 
 @strawberry.type
-class AuthenticationResult:
-    success: bool
-    projects: typing.List[str]
-    message: str
-
-
-@strawberry.type
 class TokenResult:
     token: str | None = None
     success: bool

@@ -40,26 +40,17 @@
         if (!token) return setStatus("Token required", "error");
 
         try {
-            const res = await fetch('/graphql', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    query: `{ login(token: "${token}") { success projects message } }`
-                })
+            const res = await fetch('/api/auth/projects', {
+                headers: { 'Authorization': `Bearer ${token}` },
             });
-            const data = await res.json();
-            const auth = data.data.login;
-
-            if (!auth.success) {
-                setStatus(auth.message, "error");
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                setStatus(data.detail || "Authentication failed", "error");
                 return;
             }
-
+            const { projects } = await res.json();
             localStorage.setItem("migas_token", token);
-            localStorage.setItem("migas_projects", auth.projects.join(','));
+            localStorage.setItem("migas_projects", projects.join(','));
             window.location.href = "/viz/dashboard";
         } catch (err) {
             setStatus("Connection error", "error");
@@ -68,29 +59,18 @@
 
     {% if dev_mode %}
         async function skipLogin() {
-            // Dev mode bypass
             try {
-                const res = await fetch('/graphql', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        query: '{ get_projects }'
-                    })
+                const res = await fetch('/api/auth/projects', {
+                    headers: { 'Authorization': 'Bearer dev_token' },
                 });
-                const data = await res.json();
-                const projects = data.data.get_projects;
-
+                const { projects } = await res.json();
                 localStorage.setItem("migas_token", "dev_token");
-                localStorage.setItem("migas_projects", projects.join(','));
-                window.location.href = "/viz/dashboard";
+                localStorage.setItem("migas_projects", (projects || []).join(','));
             } catch (err) {
-                // Fallback if fetch fails
                 localStorage.setItem("migas_token", "dev_token");
                 localStorage.setItem("migas_projects", "nipreps/migas-server");
-                window.location.href = "/viz/dashboard";
             }
+            window.location.href = "/viz/dashboard";
         }
     {% endif %}
     </script>

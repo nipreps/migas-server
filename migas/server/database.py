@@ -340,7 +340,8 @@ async def authenticate_token(
 
         auth.last_used = now()
         if auth.project == 'master':
-            projects_list = await query_projects(session=session) or ['*']
+            # '*' sentinel — callers that need the expanded list call query_projects() themselves.
+            projects_list = ['*']
             valid = True
         elif not require_root:
             projects_list = [auth.project]

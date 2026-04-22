@@ -3,6 +3,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 
+from ..auth import get_authorized_projects
 from ..database import (
     add_new_project,
     create_token,
@@ -10,12 +11,14 @@ from ..database import (
     get_viz_data,
     ingest_project,
     project_exists,
+    query_projects,
     revoke_token,
 )
 from ..types import Context, Process, Project
 from ..utils import now
 from .deps import rate_limit, require_access
 from .models import (
+    AuthProjectsResponse,
     BreadcrumbRequest,
     BreadcrumbResponse,
     IssueTokenRequest,
@@ -30,6 +33,20 @@ from .models import (
 
 router = APIRouter(prefix='/api', tags=['api'])
 logger = logging.getLogger('migas')
+
+
+@router.get('/auth/projects', response_model=AuthProjectsResponse)
+async def auth_projects(request: Request):
+    """Return the projects the caller's token is allowed to see.
+
+    Used by the dashboard to populate the project selector after login. Master
+    tokens get the enumerated list; scoped tokens get their single project.
+    Token validity is communicated by status code (200 vs 401), not a body flag.
+    """
+    projects = await get_authorized_projects(request)
+    if projects == ['*']:
+        projects = await query_projects()
+    return AuthProjectsResponse(projects=projects)
 
 
 @router.get('/usage/{project:path}', response_model=list[UsageData])
