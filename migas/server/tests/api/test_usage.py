@@ -1,3 +1,5 @@
+"""GET /api/usage/{project} — auth, caching, dev-mode bypass."""
+
 import pytest
 from fastapi.testclient import TestClient
 
