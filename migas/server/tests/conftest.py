@@ -21,6 +21,17 @@ SESSION_2 = '22222222-2222-2222-2222-222222222222'
 SESSION_3 = '33333333-3333-3333-3333-333333333333'
 
 
+def auth_header(token: str) -> dict[str, str]:
+    """Build a Bearer-auth header dict for a raw token."""
+    return {'Authorization': f'Bearer {token}'}
+
+
+@pytest.fixture
+def master_token() -> str:
+    """Raw master token seeded by deploy/docker/init.sql."""
+    return 'my_test_token'
+
+
 queries = {
     'add_project': f'mutation {{ add_project(p: {{project: "{TEST_PROJECT}", project_version: "0.5.0", language: "python", language_version: "3.12"}}) }}',
     'add_breadcrumb': f'mutation {{ add_breadcrumb(project: "{TEST_PROJECT}", project_version: "1.0.0", proc: {{status: C}}) }}',
@@ -161,6 +172,21 @@ class DBSeeder:
 def db(client) -> DBSeeder:
     """Database-seeding helper; depends on `client` to ensure connection context is set."""
     return DBSeeder(client)
+
+
+@pytest.fixture(autouse=True)
+def flush_redis():
+    """Flush Redis before each test to prevent rate-limit and cache state leakage."""
+    uri = os.getenv('MIGAS_REDIS_URI')
+    if not uri:
+        yield
+        return
+    import redis as sync_redis
+
+    r = sync_redis.from_url(uri, decode_responses=True)
+    r.flushdb()
+    yield
+    r.close()
 
 
 @pytest.fixture(autouse=True)
