@@ -1,6 +1,7 @@
 import os
 import pytest
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Iterator
 from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
@@ -61,31 +62,61 @@ def _postgres_available():
         pytest.skip('Could not establish postgres connection')
 
 
-@pytest.fixture(scope='function')
-def client(_redis_available, _postgres_available) -> Iterator[TestClient]:
-    import os
+async def _setup_geoloc(app):
+    """on_startup hook for geoloc-marked tests: flush redis + load real mmdb."""
+    from ..connections import get_redis_connection, get_mmdb_reader
 
-    original_values = {'MIGAS_BYPASS_RATE_LIMIT': os.getenv('MIGAS_BYPASS_RATE_LIMIT')}
+    cache = await get_redis_connection()
+    await cache.flushdb()
+
+    geodb_dir = Path(os.getenv('MIGAS_GEOLOC_DIR', 'geodb')).absolute()
+    if not (geodb_dir / 'city.mmdb').exists():
+        import subprocess
+
+        subprocess.run(['python3', 'scripts/download_geodbs.py', str(geodb_dir)], check=True)
+
+    await get_mmdb_reader()
+
+
+@pytest.fixture(scope='function')
+def client(request, _redis_available, _postgres_available, mock_fetchers) -> Iterator[TestClient]:
+    """Shared FastAPI test client. Honors the `geoloc` marker: when present,
+    MIGAS_GEOLOC is enabled, the real mmdb reader is loaded on startup, and
+    the TestClient is given a real source IP for lookups."""
+
+    geoloc = request.node.get_closest_marker('geoloc') is not None
+
+    tracked_keys = ['MIGAS_BYPASS_RATE_LIMIT']
+    if geoloc:
+        tracked_keys += ['MIGAS_GEOLOC', 'MIGAS_GEOLOC_DIR']
+    original_values = {k: os.getenv(k) for k in tracked_keys}
 
     os.environ['MIGAS_BYPASS_RATE_LIMIT'] = '1'
+    if geoloc:
+        os.environ['MIGAS_GEOLOC'] = '1'
+        geodb_dir = os.getenv('MIGAS_GEOLOC_DIR')
+        if not geodb_dir or not (Path(geodb_dir) / 'city.mmdb').exists():
+            os.environ['MIGAS_GEOLOC_DIR'] = str(Path('geodb').absolute())
 
-    # Create isolated context for this test
     test_context = ConnectionContext()
     original_context = set_connection_context(test_context)
 
     try:
-        app = create_app()
-        with TestClient(app) as c:
+        if geoloc:
+            app = create_app(on_startup=_setup_geoloc, close_connections=False)
+            tc_kwargs = {'client': ('8.8.8.8', 12345)}
+        else:
+            app = create_app()
+            tc_kwargs = {}
+        with TestClient(app, **tc_kwargs) as c:
             yield c
     finally:
-        # Restore original context
         set_connection_context(original_context)
-
         for key, value in original_values.items():
             if value is None:
-                del os.environ[key]
-                continue
-            os.environ[key] = value
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
 
 class DBSeeder:
@@ -189,8 +220,14 @@ def flush_redis():
     r.close()
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def mock_fetchers(request):
+    """Stub fetchers.fetch_response so GitHub isn't hit during tests.
+
+    Consumed by the `client` fixture below so every integration test that
+    uses the FastAPI app picks it up automatically. The `network` marker
+    opts out — those tests hit real GitHub.
+    """
     if request.node.get_closest_marker('network'):
         yield None
         return

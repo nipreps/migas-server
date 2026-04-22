@@ -1,8 +1,51 @@
-import pytest
-from datetime import datetime, timezone
-from migas.server.database import get_viz_data
+"""Database-layer tests for get_viz_data aggregation and bucketing."""
 
-from .conftest import USER_A, USER_B, SESSION_1, SESSION_2
+import pytest
+from datetime import datetime, timezone, timedelta
+
+from ...database import get_viz_data
+from ..conftest import USER_A, USER_B, USER_C, SESSION_1, SESSION_2, SESSION_3
+
+
+@pytest.mark.anyio
+async def test_get_viz_data_functionality(db):
+    """get_viz_data picks the latest status per session within the date bucket.
+
+    Session 1 is Running only, Session 2 Running → Complete, Session 3
+    Running → Failed. Expect one row each for R, C, F.
+    """
+    project = 'test/viz-data'
+    await db.register(project)
+
+    now = datetime.now(timezone.utc)
+    one_min_ago = now - timedelta(minutes=1)
+    two_min_ago = now - timedelta(minutes=2)
+
+    await db.crumb(
+        project, status='R', session_id=SESSION_1, user_id=USER_A, timestamp=two_min_ago
+    )
+
+    await db.crumb(
+        project, status='R', session_id=SESSION_2, user_id=USER_B, timestamp=two_min_ago
+    )
+    await db.crumb(project, status='C', session_id=SESSION_2, user_id=USER_B, timestamp=now)
+
+    await db.crumb(
+        project, status='R', session_id=SESSION_3, user_id=USER_C, timestamp=two_min_ago
+    )
+    await db.crumb(
+        project,
+        status='F',
+        session_id=SESSION_3,
+        user_id=USER_C,
+        timestamp=one_min_ago,
+        status_desc='Crash',
+        error_type='RuntimeError',
+        error_desc='Oops',
+    )
+
+    counts = {d['status']: d['count'] for d in await get_viz_data(project)}
+    assert counts == {'R': 1, 'C': 1, 'F': 1}
 
 
 @pytest.mark.anyio
@@ -14,7 +57,6 @@ async def test_viz_bucketing_by_start_date(db):
     day1 = datetime(2026, 4, 15, 12, 0, 0, tzinfo=timezone.utc)
     day2 = datetime(2026, 4, 16, 12, 0, 0, tzinfo=timezone.utc)
 
-    # Session spans Day 1 -> Day 2; should be bucketed under Day 1.
     await db.crumb(project, status='R', session_id=SESSION_1, user_id=USER_A, timestamp=day1)
     await db.crumb(project, status='C', session_id=SESSION_1, user_id=USER_A, timestamp=day2)
 
