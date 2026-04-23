@@ -364,21 +364,25 @@
         const allDayRows = dataCache[project]?.day || [];
         if (!allDayRows.length) return;
 
-        // Compute x-axis viewport bounds anchored to the latest data point,
-        // not to today — prevents empty view when the project has no recent activity.
-        const latestMs = allDayRows.reduce((max, r) => {
+        // Anchor viewport to actual data bounds. Using today would leave the
+        // viewport empty when a project has no recent activity; using an
+        // unclamped `latestMs - weeks*7` can precede the server's returned
+        // range (which starts at `today - weeks*7`), leaving a left-side gap.
+        let earliestMs = Infinity;
+        let latestMs = 0;
+        for (const r of allDayRows) {
             const t = new Date(r.date + 'T00:00:00Z').getTime();
-            return t > max ? t : max;
-        }, 0);
+            if (t < earliestMs) earliestMs = t;
+            if (t > latestMs) latestMs = t;
+        }
 
         if (selectedStartDate) {
             currentXMin = selectedStartDate.getTime();
             currentXMax = selectedEndDate ? selectedEndDate.getTime() : latestMs || null;
         } else {
-            const anchor = new Date(latestMs || Date.now());
-            anchor.setUTCDate(anchor.getUTCDate() - selectedWeeks * 7);
-            currentXMin = anchor.getTime();
-            currentXMax = null;  // let ApexCharts extend to end of data
+            const desiredMin = (latestMs || Date.now()) - selectedWeeks * 7 * 86400000;
+            currentXMin = Math.max(desiredMin, earliestMs);
+            currentXMax = latestMs || null;
         }
 
         const active = document.querySelector('input[name="interval"]:checked')?.value || 'day';
