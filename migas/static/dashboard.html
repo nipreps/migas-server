@@ -21,9 +21,9 @@
             <div class="filter-item">
                 <span class="filter-label">Granularity</span>
                 <div class="toggle-group" id="interval-toggle-group">
-                    <input type="radio" name="interval" value="day" id="int-day">
+                    <input type="radio" name="interval" value="day" id="int-day" checked>
                     <label for="int-day">Day</label>
-                    <input type="radio" name="interval" value="week" id="int-week" checked>
+                    <input type="radio" name="interval" value="week" id="int-week">
                     <label for="int-week">Week</label>
                     <input type="radio" name="interval" value="month" id="int-month">
                     <label for="int-month">Month</label>
@@ -37,6 +37,28 @@
                     <label for="v-all">All Versions</label>
                 </div>
             </div>
+            <div class="filter-item" id="timerange-filter-item">
+                <span class="filter-label">Time Range</span>
+                <div class="toggle-group" id="timerange-toggle-group">
+                    <input type="radio" name="timerange" value="1" id="tr-1w">
+                    <label for="tr-1w">1w</label>
+                    <input type="radio" name="timerange" value="4" id="tr-4w" checked>
+                    <label for="tr-4w">1m</label>
+                    <input type="radio" name="timerange" value="13" id="tr-3m">
+                    <label for="tr-3m">3m</label>
+                    <input type="radio" name="timerange" value="26" id="tr-6m">
+                    <label for="tr-6m">6m</label>
+                    <input type="radio" name="timerange" value="custom" id="tr-custom">
+                    <label for="tr-custom">Custom</label>
+                </div>
+            </div>
+        </div>
+        <div id="custom-range-row" class="custom-range-row" style="display: none;">
+            <span class="filter-label">From</span>
+            <input type="date" id="custom-start" class="date-input">
+            <span class="filter-label">to</span>
+            <input type="date" id="custom-end" class="date-input">
+            <button class="btn-reset" onclick="applyCustomRange()">Apply</button>
         </div>
         <div class="dashboard-grid">
             <div class="card" id="status-card">
@@ -147,6 +169,15 @@
     let yAxisLocked = false;       // whether y-axis scaling is locked
     let lockedYAxisMax = null;     // the locked y-axis max value
 
+    // Progressive loading state
+    let loadedWeeks = 0;
+    let selectedWeeks = 4;        // preset time range in weeks; default: 1 month
+    let selectedStartDate = null; // non-null in custom range mode
+    let selectedEndDate = null;   // non-null when custom range has an end
+    // Current chart viewport (epoch ms); null = no constraint
+    let currentXMin = null;
+    let currentXMax = null;
+
     // ── Bootstrap project selector ─────────────────────────────────────────────
 
     const projectSelect = document.getElementById('project-select');
@@ -159,15 +190,34 @@
     document.querySelectorAll('input[name="interval"]').forEach(el => {
         el.addEventListener('change', () => {
             const project = projectSelect.value;
-            const dateGroup = el.value;
-            renderFromCache(project, dateGroup);
+            const allDayRows = dataCache[project]?.day || [];
+            if (!allDayRows.length) return;
+            const active = el.value;
+            const reshaped = active === 'day' ? allDayRows
+                           : active === 'week' ? reshapeToWeek(allDayRows)
+                           : reshapeToMonth(allDayRows);
+            updateVersionToggles(reshaped);
+            updateMetrics(reshaped, currentXMin, currentXMax);
+            renderCharts(reshaped, currentXMin, currentXMax);
+        });
+    });
+
+    document.querySelectorAll('input[name="timerange"]').forEach(el => {
+        el.addEventListener('change', () => {
+            const isCustom = el.value === 'custom';
+            document.getElementById('custom-range-row').style.display = isCustom ? 'flex' : 'none';
+            if (!isCustom) {
+                selectedStartDate = null;
+                selectedEndDate = null;
+                setTimeRange(parseInt(el.value, 10));
+            }
         });
     });
 
     // ── Data fetching ──────────────────────────────────────────────────────────
 
-    async function fetchUsageData(project) {
-        const res = await fetch(`/api/usage/${project}`, {
+    async function fetchUsageData(project, weeks = 1) {
+        const res = await fetch(`/api/usage/${project}?weeks=${weeks}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
             },
@@ -232,19 +282,15 @@
     async function loadProjectData(project) {
         setIntervalButtonsLoading(true);
         setChartsLoading(true);
+        loadedWeeks = 0;
 
         try {
-            const dayRows = await fetchUsageData(project);
-            dataCache[project] = {
-                day: dayRows,
-                week: reshapeToWeek(dayRows),
-                month: reshapeToMonth(dayRows),
-            };
+            const dayRows = await fetchUsageData(project, selectedWeeks);
+            _reshapeAndStore(project, dayRows);
+            loadedWeeks = selectedWeeks;
 
             GRANULARITIES.forEach(g => setIntervalButtonLoaded(g));
-
-            const active = document.querySelector('input[name="interval"]:checked')?.value || 'week';
-            renderFromCache(project, active);
+            _applySelectedWeeks(project);
         } catch (err) {
             GRANULARITIES.forEach(g => setIntervalButtonError(g));
             console.error('Failed to load project data:', err);
@@ -254,12 +300,95 @@
         }
     }
 
-    function renderFromCache(project, dateGroup) {
-        const data = dataCache[project]?.[dateGroup];
-        if (!data) return;  // still loading, skip
-        updateVersionToggles(data);
-        updateMetrics(data);
-        renderCharts(data);
+    function _reshapeAndStore(project, dayRows) {
+        dataCache[project] = {
+            day: dayRows,
+            week: reshapeToWeek(dayRows),
+            month: reshapeToMonth(dayRows),
+        };
+    }
+
+    async function setTimeRange(weeks) {
+        selectedWeeks = weeks;
+        const project = projectSelect.value;
+
+        if (selectedWeeks <= loadedWeeks) {
+            _applySelectedWeeks(project);
+            return;
+        }
+
+        setChartsLoading(true);
+        try {
+            const dayRows = await fetchUsageData(project, selectedWeeks);
+            loadedWeeks = selectedWeeks;
+            _reshapeAndStore(project, dayRows);
+            _applySelectedWeeks(project);
+        } catch (err) {
+            console.error('Failed to load time range:', err);
+        } finally {
+            setChartsLoading(false);
+        }
+    }
+
+    function applyCustomRange() {
+        const startVal = document.getElementById('custom-start').value;
+        const endVal = document.getElementById('custom-end').value;
+        if (!startVal) return;
+
+        selectedStartDate = new Date(startVal + 'T00:00:00Z');
+        selectedEndDate = endVal ? new Date(endVal + 'T23:59:59Z') : null;
+
+        const weeksNeeded = Math.max(1, Math.ceil(
+            (Date.now() - selectedStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000)
+        ));
+
+        const project = projectSelect.value;
+        if (weeksNeeded <= loadedWeeks) {
+            _applySelectedWeeks(project);
+        } else {
+            setChartsLoading(true);
+            fetchUsageData(project, weeksNeeded).then(dayRows => {
+                loadedWeeks = weeksNeeded;
+                _reshapeAndStore(project, dayRows);
+                _applySelectedWeeks(project);
+            }).catch(err => {
+                console.error('Custom range fetch failed:', err);
+            }).finally(() => {
+                setChartsLoading(false);
+            });
+        }
+    }
+
+    function _applySelectedWeeks(project) {
+        // Pass ALL loaded data to the chart (user can scroll back beyond the window)
+        const allDayRows = dataCache[project]?.day || [];
+        if (!allDayRows.length) return;
+
+        // Compute x-axis viewport bounds anchored to the latest data point,
+        // not to today — prevents empty view when the project has no recent activity.
+        const latestMs = allDayRows.reduce((max, r) => {
+            const t = new Date(r.date + 'T00:00:00Z').getTime();
+            return t > max ? t : max;
+        }, 0);
+
+        if (selectedStartDate) {
+            currentXMin = selectedStartDate.getTime();
+            currentXMax = selectedEndDate ? selectedEndDate.getTime() : latestMs || null;
+        } else {
+            const anchor = new Date(latestMs || Date.now());
+            anchor.setUTCDate(anchor.getUTCDate() - selectedWeeks * 7);
+            currentXMin = anchor.getTime();
+            currentXMax = null;  // let ApexCharts extend to end of data
+        }
+
+        const active = document.querySelector('input[name="interval"]:checked')?.value || 'day';
+        const reshaped = active === 'day' ? allDayRows
+                       : active === 'week' ? reshapeToWeek(allDayRows)
+                       : reshapeToMonth(allDayRows);
+
+        updateVersionToggles(reshaped);
+        updateMetrics(reshaped, currentXMin, currentXMax);
+        renderCharts(reshaped, currentXMin, currentXMax);
     }
 
     function setIntervalButtonsLoading(loading) {
@@ -291,12 +420,12 @@
 
     // ── Date-range helper ──────────────────────────────────────────────────────
 
-    /** Returns only the rows that fall within [minDate, maxDate] (epoch ms). */
+    /** Returns only the rows that fall within [minDate, maxDate] (epoch ms). Either bound may be null (open). */
     function filterByDateRange(rows, minDate, maxDate) {
-        if (minDate == null || maxDate == null) return rows;
+        if (minDate == null && maxDate == null) return rows;
         return rows.filter(r => {
             const t = new Date(r.date).getTime();
-            return t >= minDate && t <= maxDate;
+            return (minDate == null || t >= minDate) && (maxDate == null || t <= maxDate);
         });
     }
 
@@ -385,8 +514,8 @@
         if (version === '') return;   // "More…" placeholder selected
         selectedVersion = (version === 'all' || version === null) ? null : version;
 
-        renderCharts(currentRawData);
-        updateMetrics(currentRawData);
+        renderCharts(currentRawData, currentXMin, currentXMax);
+        updateMetrics(currentRawData, currentXMin, currentXMax);
 
         // Sync radio state
         const radio = document.querySelector(`input[name="v-filter"][value="${selectedVersion ?? 'all'}"]`);
@@ -402,17 +531,40 @@
 
     // ── Chart rendering ────────────────────────────────────────────────────────
 
+    /** Max stacked value across dates visible within [xMin, xMax]. */
+    function _visibleMax(filteredData, xMin, xMax) {
+        const allDates = [...new Set(currentRawData.map(r => r.date))];
+        const visible = (xMin != null || xMax != null)
+            ? allDates.filter(d => {
+                const t = new Date(d + 'T00:00:00Z').getTime();
+                return (xMin == null || t >= xMin) && (xMax == null || t <= xMax);
+              })
+            : allDates;
+        const sums = visible.map(date =>
+            STATUSES.reduce((sum, { code }) =>
+                sum + filteredData.filter(r => r.date === date && r.status === code)
+                                  .reduce((s, r) => s + r.count, 0), 0)
+        );
+        return Math.max(...sums, 1);
+    }
+
     /**
      * When the usage chart is zoomed/scrolled, keep the two smaller charts and
      * the metrics banner in sync with the visible date window.
      */
     function onZoomChange(filteredData, { xaxis }) {
+        currentXMin = xaxis.min;
+        currentXMax = xaxis.max;
+        if (!yAxisLocked) {
+            const newMax = _visibleMax(filteredData, xaxis.min, xaxis.max);
+            usageChart?.updateOptions({ yaxis: { max: newMax } }, false, false);
+        }
         updateMetrics(filteredData, xaxis.min, xaxis.max);
         renderStatusChart(filteredData, xaxis.min, xaxis.max);
         renderVersionChart(currentRawData, xaxis.min, xaxis.max);
     }
 
-    function renderUsageChart(filteredData) {
+    function renderUsageChart(filteredData, xMin = null, xMax = null) {
         const dates = [...new Set(currentRawData.map(r => r.date))].sort((a, b) => new Date(a) - new Date(b));
         const series = STATUSES.map(({ code, label }) => ({
             name: label,
@@ -422,16 +574,9 @@
             }),
         }));
 
-        // Calculate max value for current data (sum across all statuses per date)
-        const maxByDate = dates.map(date =>
-            STATUSES.reduce((sum, { code }) => {
-                const rows = filteredData.filter(r => r.date === date && r.status === code);
-                return sum + rows.reduce((s, r) => s + r.count, 0);
-            }, 0)
-        );
-        const currentMax = Math.max(...maxByDate, 1);
+        const currentMax = _visibleMax(filteredData, xMin, xMax);
 
-        // Update locked y-axis max if locking
+        // Capture viewport max when lock is first activated
         if (yAxisLocked && !lockedYAxisMax) {
             lockedYAxisMax = currentMax;
         }
@@ -457,8 +602,13 @@
                 type: 'gradient',
                 gradient: { opacityFrom: 0.6, opacityTo: 0.1 },
             },
-            xaxis: { type: 'datetime', categories: dates },
-            yaxis: yAxisLocked && lockedYAxisMax ? { max: lockedYAxisMax } : {},
+            xaxis: {
+                type: 'datetime',
+                categories: dates,
+                ...(xMin != null && { min: xMin }),
+                ...(xMax != null && { max: xMax }),
+            },
+            yaxis: { max: yAxisLocked && lockedYAxisMax ? lockedYAxisMax : currentMax },
             tooltip: { x: { format: 'dd MMM yyyy' }, theme: 'dark' },
         };
 
@@ -581,27 +731,20 @@
 
     // ── Orchestration ──────────────────────────────────────────────────────────
 
-    function renderCharts(rawData) {
+    function renderCharts(rawData, xMin = null, xMax = null) {
         currentRawData = rawData;
         const filteredData = selectedVersion
             ? rawData.filter(r => r.version === selectedVersion)
             : rawData;
 
-        renderUsageChart(filteredData);
-        renderStatusChart(filteredData);
-        renderVersionChart(selectedVersion ? filteredData : rawData);
+        renderUsageChart(filteredData, xMin, xMax);
+        renderStatusChart(filteredData, xMin, xMax);
+        renderVersionChart(selectedVersion ? filteredData : rawData, xMin, xMax);
     }
 
     function resetZoom() {
         usageChart?.resetSeries();
-        const filteredData = selectedVersion
-            ? currentRawData.filter(r => r.version === selectedVersion)
-            : currentRawData;
-
-        updateMetrics(filteredData);
-        renderUsageChart(filteredData);
-        renderStatusChart(filteredData);
-        renderVersionChart(currentRawData);
+        _applySelectedWeeks(projectSelect.value);
     }
 
     function toggleLockYAxis() {
@@ -609,18 +752,11 @@
         yAxisLocked = checkbox.checked;
 
         if (yAxisLocked) {
-            // Lock is being activated; capture current max
+            // Lock is being activated; capture visible max
             const filteredData = selectedVersion
                 ? currentRawData.filter(r => r.version === selectedVersion)
                 : currentRawData;
-            const dates = [...new Set(currentRawData.map(r => r.date))].sort((a, b) => new Date(a) - new Date(b));
-            const maxByDate = dates.map(date =>
-                STATUSES.reduce((sum, { code }) => {
-                    const rows = filteredData.filter(r => r.date === date && r.status === code);
-                    return sum + rows.reduce((s, r) => s + r.count, 0);
-                }, 0)
-            );
-            lockedYAxisMax = Math.max(...maxByDate, 1);
+            lockedYAxisMax = _visibleMax(filteredData, currentXMin, currentXMax);
         } else {
             // Lock is being deactivated
             lockedYAxisMax = null;
@@ -630,7 +766,7 @@
         const filteredData = selectedVersion
             ? currentRawData.filter(r => r.version === selectedVersion)
             : currentRawData;
-        renderUsageChart(filteredData);
+        renderUsageChart(filteredData, currentXMin, currentXMax);
     }
 
     async function updateDashboard() {
@@ -640,15 +776,14 @@
         const projectChanged = project !== currentProject;
         if (projectChanged) {
             currentProject = project;
-            selectedVersion = null;  // clear stale version filter on project switch
+            selectedVersion = null;
+            loadedWeeks = 0;
         }
 
         if (!dataCache[project]) {
-            // First visit to this project: fetch everything once
             await loadProjectData(project);
         } else {
-            // Project already cached; just render the selected granularity
-            renderFromCache(project, dateGroup);
+            _applySelectedWeeks(project);
         }
     }
 
