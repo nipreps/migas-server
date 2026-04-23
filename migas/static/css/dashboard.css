@@ -155,16 +155,6 @@ header.nav {
     font-family: var(--font-display);
 }
 
-#project-select {
-    padding: 0.5rem 0.75rem;
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text-primary);
-    font-size: 0.95rem;
-    cursor: pointer;
-}
-
 .toggle-group {
     display: flex;
     gap: 0.25rem;
@@ -363,7 +353,7 @@ header.nav {
     color: var(--primary);
 }
 
-.btn-reset.hidden {
+.hidden {
     display: none;
 }
 
@@ -374,6 +364,20 @@ header.nav {
     height: 16px;
     cursor: pointer;
     accent-color: var(--primary);
+}
+
+.usage-controls {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.lock-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.9rem;
 }
 
 /* ── Responsive ────────────────────────────────────────────────────────── */

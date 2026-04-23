@@ -53,7 +53,7 @@
                 </div>
             </div>
         </div>
-        <div id="custom-range-row" class="custom-range-row" style="display: none;">
+        <div id="custom-range-row" class="custom-range-row hidden">
             <span class="filter-label">From</span>
             <input type="date" id="custom-start" class="date-input">
             <span class="filter-label">to</span>
@@ -73,12 +73,8 @@
                 <div class="card-title">
                     <span>Usage Timeseries</span>
                     <span id="range-indicator" class="card-title-meta"></span>
-                    <div style="display: flex; gap: 1rem; align-items: center;">
-                        <label style="display: flex;
-                                      align-items: center;
-                                      gap: 0.5rem;
-                                      cursor: pointer;
-                                      font-size: 0.9rem">
+                    <div class="usage-controls">
+                        <label class="lock-label">
                             <input type="checkbox" id="lock-yaxis-checkbox" onchange="toggleLockYAxis()">
                             Lock Y-Axis
                         </label>
@@ -205,7 +201,7 @@
     document.querySelectorAll('input[name="timerange"]').forEach(el => {
         el.addEventListener('change', () => {
             const isCustom = el.value === 'custom';
-            document.getElementById('custom-range-row').style.display = isCustom ? 'flex' : 'none';
+            document.getElementById('custom-range-row').classList.toggle('hidden', !isCustom);
             if (!isCustom) {
                 selectedStartDate = null;
                 selectedEndDate = null;
@@ -479,10 +475,10 @@
         if (isZoomed) {
             const fmt = d => new Date(d).toLocaleDateString();
             rangeEl.innerText = `Displaying: ${fmt(minDate)} – ${fmt(maxDate)}`;
-            resetBtn.style.display = 'inline-block';
+            resetBtn.classList.remove('hidden');
         } else {
             rangeEl.innerText = selectedVersion ? `Filtered by version ${selectedVersion}` : 'All time (selected interval)';
-            resetBtn.style.display = 'none';
+            resetBtn.classList.add('hidden');
         }
     }
 
