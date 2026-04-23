@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.requests import Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -77,6 +78,7 @@ def create_app(lifespan_func=lifespan, **lifespan_kwargs) -> FastAPI:
     app.include_router(graphql_app, prefix='/graphql')
     app.include_router(api_router)
 
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
     app.add_middleware(
         CORSMiddleware, allow_origins=['*'], allow_methods=['*'], allow_headers=['*']
     )
