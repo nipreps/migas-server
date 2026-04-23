@@ -37,6 +37,8 @@ from .types import (
     Version,
     DateTimeScalar,
     VersionScalar,
+    SafeStr,
+    SafeStrScalar,
 )
 from .utils import get_client_ip, now
 
@@ -267,6 +269,7 @@ SCHEMA = strawberry.Schema(
             Version: VersionScalar,
             datetime: DateTimeScalar,
             _Version: VersionScalar,
+            SafeStr: SafeStrScalar,
         },
     ),
 )
