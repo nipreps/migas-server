@@ -6,10 +6,10 @@
 // Colors map to existing tokens in dashboard.css: --success, --error, --warning.
 // --status-incomplete is new (no existing neutral-status token in dashboard.css).
 const STATUSES = [
-    { code: 'C', label: 'Completed', color: 'var(--success)' },
-    { code: 'F', label: 'Failed', color: 'var(--error)' },
-    { code: 'S', label: 'Suspended', color: 'var(--warning)' },
-    { code: 'R', label: 'Incomplete', color: 'var(--status-incomplete)' },
+	{ code: "C", label: "Completed", color: "var(--success)" },
+	{ code: "F", label: "Failed", color: "var(--error)" },
+	{ code: "S", label: "Suspended", color: "var(--warning)" },
+	{ code: "R", label: "Incomplete", color: "var(--status-incomplete)" },
 ];
 
 /**
@@ -18,450 +18,506 @@ const STATUSES = [
  *   - shortLabel: human-readable label used in tooltips
  */
 const INTERVAL_CONFIG = {
-    day: { windowSize: 7, shortLabel: '7d' },
-    week: { windowSize: 1, shortLabel: '1w' },
-    month: { windowSize: 3, shortLabel: '3m' },
+	day: { windowSize: 7, shortLabel: "7d" },
+	week: { windowSize: 1, shortLabel: "1w" },
+	month: { windowSize: 3, shortLabel: "3m" },
 };
 
 /** Shared ApexCharts options applied to every chart instance. */
 const CHART_THEME = {
-    theme: { mode: 'dark' },
-    chart: {
-        foreColor: 'var(--chart-fore)',
-        fontFamily: 'var(--font-display)',
-        background: 'transparent',
-        toolbar: { show: false },
-    },
-    grid: { borderColor: 'var(--chart-grid)' },
+	theme: { mode: "dark" },
+	chart: {
+		foreColor: "var(--chart-fore)",
+		fontFamily: "var(--font-display)",
+		background: "transparent",
+		toolbar: { show: false },
+	},
+	grid: { borderColor: "var(--chart-grid)" },
 };
 
 // ── Auth ───────────────────────────────────────────────────────────────────
 
 function requireAuth() {
-    const token = localStorage.getItem('migas_token');
-    const projectsStr = localStorage.getItem('migas_projects');
-    if (!token || !projectsStr) {
-        window.location.href = '/viz';
-    }
-    return { token, projects: projectsStr.split(',') };
+	const token = localStorage.getItem("migas_token");
+	const projectsStr = localStorage.getItem("migas_projects");
+	if (!token || !projectsStr) {
+		window.location.href = "/viz";
+	}
+	return { token, projects: projectsStr.split(",") };
 }
 
-function logout(e) {
-    if (e) e.preventDefault();
-    localStorage.clear();
-    window.location.href = '/viz';
+function _logout(e) {
+	if (e) e.preventDefault();
+	localStorage.clear();
+	window.location.href = "/viz";
 }
 
 // ── App state ──────────────────────────────────────────────────────────────
 
 const { token, projects } = requireAuth();
 
-const dataCache = {};          // { project: { dateGroup: data[] } }
-let currentProject = null;     // tracks active project to detect changes
+const dataCache = {}; // { project: { dateGroup: data[] } }
+let currentProject = null; // tracks active project to detect changes
 let usageChart, statusChart, versionChart;
-let currentRawData = [];       // set by renderCharts(); used by zoom/version hooks
+let currentRawData = []; // set by renderCharts(); used by zoom/version hooks
 let selectedVersion = null;
-let yAxisLocked = false;       // whether y-axis scaling is locked
-let lockedYAxisMax = null;     // the locked y-axis max value
+let yAxisLocked = false; // whether y-axis scaling is locked
+let lockedYAxisMax = null; // the locked y-axis max value
 
 // Progressive loading state
 let loadedWeeks = 0;
-let selectedWeeks = 4;        // preset time range in weeks; default: 1 month
+let selectedWeeks = 4; // preset time range in weeks; default: 1 month
 let selectedStartDate = null; // non-null in custom range mode
-let selectedEndDate = null;   // non-null when custom range has an end
+let selectedEndDate = null; // non-null when custom range has an end
 // Current chart viewport (epoch ms); null = no constraint
 let currentXMin = null;
 let currentXMax = null;
 
 // ── Bootstrap project selector ─────────────────────────────────────────────
 
-const projectSelect = document.getElementById('project-select');
-projects.forEach(p => {
-    const opt = document.createElement('option');
-    opt.text = opt.value = p;
-    projectSelect.add(opt);
+const projectSelect = document.getElementById("project-select");
+projects.forEach((p) => {
+	const opt = document.createElement("option");
+	opt.text = opt.value = p;
+	projectSelect.add(opt);
 });
 
-document.querySelectorAll('input[name="interval"]').forEach(el => {
-    el.addEventListener('change', () => {
-        const project = projectSelect.value;
-        const allDayRows = dataCache[project]?.day || [];
-        if (!allDayRows.length) return;
-        const active = el.value;
-        const reshaped = active === 'day' ? allDayRows
-                       : active === 'week' ? reshapeToWeek(allDayRows)
-                       : reshapeToMonth(allDayRows);
-        updateVersionToggles(reshaped);
-        updateMetrics(reshaped, currentXMin, currentXMax);
-        renderCharts(reshaped, currentXMin, currentXMax);
-    });
+document.querySelectorAll('input[name="interval"]').forEach((el) => {
+	el.addEventListener("change", () => {
+		const project = projectSelect.value;
+		const allDayRows = dataCache[project]?.day || [];
+		if (!allDayRows.length) return;
+		const active = el.value;
+		const reshaped =
+			active === "day"
+				? allDayRows
+				: active === "week"
+					? reshapeToWeek(allDayRows)
+					: reshapeToMonth(allDayRows);
+		updateVersionToggles(reshaped);
+		updateMetrics(reshaped, currentXMin, currentXMax);
+		renderCharts(reshaped, currentXMin, currentXMax);
+	});
 });
 
-document.querySelectorAll('input[name="timerange"]').forEach(el => {
-    el.addEventListener('change', () => {
-        const isCustom = el.value === 'custom';
-        document.getElementById('custom-range-row').classList.toggle('hidden', !isCustom);
-        if (!isCustom) {
-            selectedStartDate = null;
-            selectedEndDate = null;
-            setTimeRange(parseInt(el.value, 10));
-        }
-    });
+document.querySelectorAll('input[name="timerange"]').forEach((el) => {
+	el.addEventListener("change", () => {
+		const isCustom = el.value === "custom";
+		document
+			.getElementById("custom-range-row")
+			.classList.toggle("hidden", !isCustom);
+		if (!isCustom) {
+			selectedStartDate = null;
+			selectedEndDate = null;
+			setTimeRange(parseInt(el.value, 10));
+		}
+	});
 });
 
 // ── Data fetching ──────────────────────────────────────────────────────────
 
 async function fetchUsageData(project, weeks = 1, since = null) {
-    const qs = since ? `?weeks=${weeks}&since=${since}` : `?weeks=${weeks}`;
-    const res = await fetch(`/api/usage/${project}${qs}`, {
-        headers: {
-            'Authorization': `Bearer ${token}`,
-        },
-    });
-    if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.detail || 'Failed to fetch usage data');
-    }
-    return await res.json();
+	const qs = since ? `?weeks=${weeks}&since=${since}` : `?weeks=${weeks}`;
+	const res = await fetch(`/api/usage/${project}${qs}`, {
+		headers: {
+			Authorization: `Bearer ${token}`,
+		},
+	});
+	if (!res.ok) {
+		const error = await res.json();
+		throw new Error(error.detail || "Failed to fetch usage data");
+	}
+	return await res.json();
 }
 
 // ── Reshaping ──────────────────────────────────────────────────────────────
 
 function getMonday(d) {
-    // Use UTC throughout: the server returns UTC-anchored YYYY-MM-DD strings,
-    // and mixing local-tz methods with toISOString() produces off-by-one errors
-    // around DST transitions (specifically orphans the Monday after DST ends
-    // into its own 1-day week bucket).
-    const dt = new Date(d);
-    const day = dt.getUTCDay();
-    const diff = dt.getUTCDate() - day + (day === 0 ? -6 : 1);
-    dt.setUTCDate(diff);
-    return dt.toISOString().split('T')[0];
+	// Use UTC throughout: the server returns UTC-anchored YYYY-MM-DD strings,
+	// and mixing local-tz methods with toISOString() produces off-by-one errors
+	// around DST transitions (specifically orphans the Monday after DST ends
+	// into its own 1-day week bucket).
+	const dt = new Date(d);
+	const day = dt.getUTCDay();
+	const diff = dt.getUTCDate() - day + (day === 0 ? -6 : 1);
+	dt.setUTCDate(diff);
+	return dt.toISOString().split("T")[0];
 }
 
 function reshapeToWeek(rows) {
-    const weeks = {};
-    rows.forEach(r => {
-        const monday = getMonday(r.date);
-        const key = `${monday}|${r.version}|${r.status}`;
-        weeks[key] = (weeks[key] || 0) + r.count;
-    });
-    return Object.entries(weeks).map(([key, count]) => {
-        const [date, version, status] = key.split('|');
-        return { date, version, status, count: Number(count) };
-    });
+	const weeks = {};
+	rows.forEach((r) => {
+		const monday = getMonday(r.date);
+		const key = `${monday}|${r.version}|${r.status}`;
+		weeks[key] = (weeks[key] || 0) + r.count;
+	});
+	return Object.entries(weeks).map(([key, count]) => {
+		const [date, version, status] = key.split("|");
+		return { date, version, status, count: Number(count) };
+	});
 }
 
 function reshapeToMonth(rows) {
-    const months = {};
-    rows.forEach(r => {
-        const month = r.date.substring(0, 7) + '-01';
-        const key = `${month}|${r.version}|${r.status}`;
-        months[key] = (months[key] || 0) + r.count;
-    });
-    return Object.entries(months).map(([key, count]) => {
-        const [date, version, status] = key.split('|');
-        return { date, version, status, count: Number(count) };
-    });
+	const months = {};
+	rows.forEach((r) => {
+		const month = `${r.date.substring(0, 7)}-01`;
+		const key = `${month}|${r.version}|${r.status}`;
+		months[key] = (months[key] || 0) + r.count;
+	});
+	return Object.entries(months).map(([key, count]) => {
+		const [date, version, status] = key.split("|");
+		return { date, version, status, count: Number(count) };
+	});
 }
 
 // ── Cache and rendering ────────────────────────────────────────────────────
 
-const INTERVAL_KEYS = ['day', 'week', 'month'];
+const INTERVAL_KEYS = ["day", "week", "month"];
 
 function setChartsLoading(loading) {
-    document.querySelectorAll('.dashboard-grid .card').forEach(card => {
-        card.classList.toggle('loading', loading);
-    });
+	document.querySelectorAll(".dashboard-grid .card").forEach((card) => {
+		card.classList.toggle("loading", loading);
+	});
 }
 
 async function loadProjectData(project) {
-    setIntervalButtonsLoading(true);
-    setChartsLoading(true);
-    loadedWeeks = 0;
+	setIntervalButtonsLoading(true);
+	setChartsLoading(true);
+	loadedWeeks = 0;
 
-    try {
-        const dayRows = await fetchUsageData(project, selectedWeeks);
-        _reshapeAndStore(project, dayRows);
-        loadedWeeks = selectedWeeks;
+	try {
+		const dayRows = await fetchUsageData(project, selectedWeeks);
+		_reshapeAndStore(project, dayRows);
+		loadedWeeks = selectedWeeks;
 
-        INTERVAL_KEYS.forEach(g => setIntervalButtonLoaded(g));
-        _applySelectedWeeks(project);
-    } catch (err) {
-        INTERVAL_KEYS.forEach(g => setIntervalButtonError(g));
-        console.error('Failed to load project data:', err);
-    } finally {
-        setChartsLoading(false);
-        setIntervalButtonsLoading(false);
-    }
+		INTERVAL_KEYS.forEach((g) => {
+			setIntervalButtonLoaded(g);
+		});
+		_applySelectedWeeks(project);
+	} catch (err) {
+		INTERVAL_KEYS.forEach((g) => {
+			setIntervalButtonError(g);
+		});
+		console.error("Failed to load project data:", err);
+	} finally {
+		setChartsLoading(false);
+		setIntervalButtonsLoading(false);
+	}
 }
 
 function _reshapeAndStore(project, dayRows) {
-    dataCache[project] = {
-        day: dayRows,
-        week: reshapeToWeek(dayRows),
-        month: reshapeToMonth(dayRows),
-    };
+	dataCache[project] = {
+		day: dayRows,
+		week: reshapeToWeek(dayRows),
+		month: reshapeToMonth(dayRows),
+	};
 }
 
 /** Fetch the historical delta the client doesn't yet have and merge it in.
  *  When the cache is non-empty, sends `since=<oldest>` so the server
  *  returns only rows older than the client's earliest known date. */
 async function _widenWindow(project, weeks) {
-    const existing = dataCache[project]?.day || [];
-    if (existing.length === 0) {
-        const dayRows = await fetchUsageData(project, weeks);
-        _reshapeAndStore(project, dayRows);
-    } else {
-        const oldest = existing.reduce((min, r) => r.date < min ? r.date : min, existing[0].date);
-        const delta = await fetchUsageData(project, weeks, oldest);
-        if (delta.length) {
-            _reshapeAndStore(project, [...delta, ...existing]);
-        }
-    }
-    loadedWeeks = weeks;
+	const existing = dataCache[project]?.day || [];
+	if (existing.length === 0) {
+		const dayRows = await fetchUsageData(project, weeks);
+		_reshapeAndStore(project, dayRows);
+	} else {
+		const oldest = existing.reduce(
+			(min, r) => (r.date < min ? r.date : min),
+			existing[0].date,
+		);
+		const delta = await fetchUsageData(project, weeks, oldest);
+		if (delta.length) {
+			_reshapeAndStore(project, [...delta, ...existing]);
+		}
+	}
+	loadedWeeks = weeks;
 }
 
 async function setTimeRange(weeks) {
-    selectedWeeks = weeks;
-    const project = projectSelect.value;
+	selectedWeeks = weeks;
+	const project = projectSelect.value;
 
-    if (selectedWeeks <= loadedWeeks) {
-        _applySelectedWeeks(project);
-        return;
-    }
+	if (selectedWeeks <= loadedWeeks) {
+		_applySelectedWeeks(project);
+		return;
+	}
 
-    setChartsLoading(true);
-    try {
-        await _widenWindow(project, selectedWeeks);
-        _applySelectedWeeks(project);
-    } catch (err) {
-        console.error('Failed to load time range:', err);
-    } finally {
-        setChartsLoading(false);
-    }
+	setChartsLoading(true);
+	try {
+		await _widenWindow(project, selectedWeeks);
+		_applySelectedWeeks(project);
+	} catch (err) {
+		console.error("Failed to load time range:", err);
+	} finally {
+		setChartsLoading(false);
+	}
 }
 
-async function applyCustomRange() {
-    const startVal = document.getElementById('custom-start').value;
-    const endVal = document.getElementById('custom-end').value;
-    if (!startVal) return;
+async function _applyCustomRange() {
+	const startVal = document.getElementById("custom-start").value;
+	const endVal = document.getElementById("custom-end").value;
+	if (!startVal) return;
 
-    selectedStartDate = new Date(startVal + 'T00:00:00Z');
-    selectedEndDate = endVal ? new Date(endVal + 'T23:59:59Z') : null;
+	selectedStartDate = new Date(`${startVal}T00:00:00Z`);
+	selectedEndDate = endVal ? new Date(`${endVal}T23:59:59Z`) : null;
 
-    const weeksNeeded = Math.max(1, Math.ceil(
-        (Date.now() - selectedStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000)
-    ));
+	const weeksNeeded = Math.max(
+		1,
+		Math.ceil(
+			(Date.now() - selectedStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000),
+		),
+	);
 
-    const project = projectSelect.value;
-    if (weeksNeeded <= loadedWeeks) {
-        _applySelectedWeeks(project);
-        return;
-    }
+	const project = projectSelect.value;
+	if (weeksNeeded <= loadedWeeks) {
+		_applySelectedWeeks(project);
+		return;
+	}
 
-    setChartsLoading(true);
-    try {
-        await _widenWindow(project, weeksNeeded);
-        _applySelectedWeeks(project);
-    } catch (err) {
-        console.error('Custom range fetch failed:', err);
-    } finally {
-        setChartsLoading(false);
-    }
+	setChartsLoading(true);
+	try {
+		await _widenWindow(project, weeksNeeded);
+		_applySelectedWeeks(project);
+	} catch (err) {
+		console.error("Custom range fetch failed:", err);
+	} finally {
+		setChartsLoading(false);
+	}
 }
 
 function _applySelectedWeeks(project) {
-    // Pass ALL loaded data to the chart (user can scroll back beyond the window)
-    const allDayRows = dataCache[project]?.day || [];
-    if (!allDayRows.length) return;
+	// Pass ALL loaded data to the chart (user can scroll back beyond the window)
+	const allDayRows = dataCache[project]?.day || [];
+	if (!allDayRows.length) return;
 
-    // Anchor viewport to actual data bounds. Using today would leave the
-    // viewport empty when a project has no recent activity; using an
-    // unclamped `latestMs - weeks*7` can precede the server's returned
-    // range (which starts at `today - weeks*7`), leaving a left-side gap.
-    let earliestMs = Infinity;
-    let latestMs = 0;
-    for (const r of allDayRows) {
-        const t = new Date(r.date + 'T00:00:00Z').getTime();
-        if (t < earliestMs) earliestMs = t;
-        if (t > latestMs) latestMs = t;
-    }
+	// Anchor viewport to actual data bounds. Using today would leave the
+	// viewport empty when a project has no recent activity; using an
+	// unclamped `latestMs - weeks*7` can precede the server's returned
+	// range (which starts at `today - weeks*7`), leaving a left-side gap.
+	let earliestMs = Infinity;
+	let latestMs = 0;
+	for (const r of allDayRows) {
+		const t = new Date(`${r.date}T00:00:00Z`).getTime();
+		if (t < earliestMs) earliestMs = t;
+		if (t > latestMs) latestMs = t;
+	}
 
-    if (selectedStartDate) {
-        currentXMin = selectedStartDate.getTime();
-        currentXMax = selectedEndDate ? selectedEndDate.getTime() : latestMs || null;
-    } else {
-        const desiredMin = (latestMs || Date.now()) - selectedWeeks * 7 * 86400000;
-        currentXMin = Math.max(desiredMin, earliestMs);
-        currentXMax = latestMs || null;
-    }
+	if (selectedStartDate) {
+		currentXMin = selectedStartDate.getTime();
+		currentXMax = selectedEndDate
+			? selectedEndDate.getTime()
+			: latestMs || null;
+	} else {
+		const desiredMin = (latestMs || Date.now()) - selectedWeeks * 7 * 86400000;
+		currentXMin = Math.max(desiredMin, earliestMs);
+		currentXMax = latestMs || null;
+	}
 
-    const active = document.querySelector('input[name="interval"]:checked')?.value || 'day';
-    const reshaped = active === 'day' ? allDayRows
-                   : active === 'week' ? reshapeToWeek(allDayRows)
-                   : reshapeToMonth(allDayRows);
+	const active =
+		document.querySelector('input[name="interval"]:checked')?.value || "day";
+	const reshaped =
+		active === "day"
+			? allDayRows
+			: active === "week"
+				? reshapeToWeek(allDayRows)
+				: reshapeToMonth(allDayRows);
 
-    updateVersionToggles(reshaped);
-    updateMetrics(reshaped, currentXMin, currentXMax);
-    renderCharts(reshaped, currentXMin, currentXMax);
+	updateVersionToggles(reshaped);
+	updateMetrics(reshaped, currentXMin, currentXMax);
+	renderCharts(reshaped, currentXMin, currentXMax);
 }
 
 function setIntervalButtonsLoading(loading) {
-    document.querySelectorAll('#interval-toggle-group label').forEach(label => {
-        label.classList.toggle('loading', loading);
-    });
-    document.querySelectorAll('input[name="interval"]').forEach(radio => {
-        radio.disabled = loading;
-    });
+	document.querySelectorAll("#interval-toggle-group label").forEach((label) => {
+		label.classList.toggle("loading", loading);
+	});
+	document.querySelectorAll('input[name="interval"]').forEach((radio) => {
+		radio.disabled = loading;
+	});
 }
 
 function setIntervalButtonLoaded(dateGroup) {
-    const radio = document.getElementById(`int-${dateGroup}`);
-    if (radio) {
-        radio.disabled = false;
-        const label = document.querySelector(`label[for="int-${dateGroup}"]`);
-        if (label) label.classList.remove('loading');
-    }
+	const radio = document.getElementById(`int-${dateGroup}`);
+	if (radio) {
+		radio.disabled = false;
+		const label = document.querySelector(`label[for="int-${dateGroup}"]`);
+		if (label) label.classList.remove("loading");
+	}
 }
 
 function setIntervalButtonError(dateGroup) {
-    const radio = document.getElementById(`int-${dateGroup}`);
-    if (radio) {
-        radio.disabled = false;
-    }
-    const label = document.querySelector(`label[for="int-${dateGroup}"]`);
-    if (label) label.classList.add('load-error');
+	const radio = document.getElementById(`int-${dateGroup}`);
+	if (radio) {
+		radio.disabled = false;
+	}
+	const label = document.querySelector(`label[for="int-${dateGroup}"]`);
+	if (label) label.classList.add("load-error");
 }
 
 // ── Date-range helper ──────────────────────────────────────────────────────
 
 /** Returns only the rows that fall within [minDate, maxDate] (epoch ms). Either bound may be null (open). */
 function filterByDateRange(rows, minDate, maxDate) {
-    if (minDate == null && maxDate == null) return rows;
-    return rows.filter(r => {
-        const t = new Date(r.date).getTime();
-        return (minDate == null || t >= minDate) && (maxDate == null || t <= maxDate);
-    });
+	if (minDate == null && maxDate == null) return rows;
+	return rows.filter((r) => {
+		const t = new Date(r.date).getTime();
+		return (
+			(minDate == null || t >= minDate) && (maxDate == null || t <= maxDate)
+		);
+	});
 }
 
 // ── Metrics banner ─────────────────────────────────────────────────────────
 
 function updateMetrics(data, minDate = null, maxDate = null) {
-    const filtered = filterByDateRange(
-        selectedVersion ? data.filter(r => r.version === selectedVersion) : data,
-        minDate,
-        maxDate,
-    );
+	const filtered = filterByDateRange(
+		selectedVersion ? data.filter((r) => r.version === selectedVersion) : data,
+		minDate,
+		maxDate,
+	);
 
-    const total = filtered.reduce((sum, r) => sum + r.count, 0);
-    const successful = filtered.filter(r => r.status === 'C').reduce((sum, r) => sum + r.count, 0);
-    const versions = new Set(filtered.map(r => r.version)).size;
+	const _total = filtered.reduce((sum, r) => sum + r.count, 0);
+	const _successful = filtered
+		.filter((r) => r.status === "C")
+		.reduce((sum, r) => sum + r.count, 0);
+	const versions = new Set(filtered.map((r) => r.version)).size;
 
-    // Metrics updates
-    document.getElementById('active-versions').innerText = versions;
+	// Metrics updates
+	document.getElementById("active-versions").innerText = versions;
 
-    if (filtered.length > 0) {
-        const latest = [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date))[0].date;
-        document.getElementById('last-update').innerText = latest;
-    }
+	if (filtered.length > 0) {
+		const latest = [...filtered].sort(
+			(a, b) => new Date(b.date) - new Date(a.date),
+		)[0].date;
+		document.getElementById("last-update").innerText = latest;
+	}
 
-    // Range indicator + reset button
-    const rangeEl = document.getElementById('range-indicator');
-    const resetBtn = document.getElementById('reset-zoom-btn');
-    const isZoomed = minDate != null && maxDate != null;
+	// Range indicator + reset button
+	const rangeEl = document.getElementById("range-indicator");
+	const resetBtn = document.getElementById("reset-zoom-btn");
+	const isZoomed = minDate != null && maxDate != null;
 
-    if (isZoomed) {
-        const fmt = d => new Date(d).toLocaleDateString();
-        rangeEl.innerText = `Displaying: ${fmt(minDate)} – ${fmt(maxDate)}`;
-        resetBtn.classList.remove('hidden');
-    } else {
-        rangeEl.innerText = selectedVersion ? `Filtered by version ${selectedVersion}` : 'All time (selected interval)';
-        resetBtn.classList.add('hidden');
-    }
+	if (isZoomed) {
+		const fmt = (d) => new Date(d).toLocaleDateString();
+		rangeEl.innerText = `Displaying: ${fmt(minDate)} – ${fmt(maxDate)}`;
+		resetBtn.classList.remove("hidden");
+	} else {
+		rangeEl.innerText = selectedVersion
+			? `Filtered by version ${selectedVersion}`
+			: "All time (selected interval)";
+		resetBtn.classList.add("hidden");
+	}
 }
 
 // ── Version filter UI ──────────────────────────────────────────────────────
 
 function sortVersions(a, b, desc = false) {
-    const pa = a.split('.').map(Number);
-    const pb = b.split('.').map(Number);
-    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-        const diff = (pa[i] || 0) - (pb[i] || 0);
-        if (diff !== 0) return desc ? -diff : diff;
-    }
-    return 0;
+	const pa = a.split(".").map(Number);
+	const pb = b.split(".").map(Number);
+	for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+		const diff = (pa[i] || 0) - (pb[i] || 0);
+		if (diff !== 0) return desc ? -diff : diff;
+	}
+	return 0;
 }
 
 function updateVersionToggles(data) {
-    const allVersions = [...new Set(data.map(r => r.version))].sort((a, b) => sortVersions(a, b, true));
-    const mainVersions = allVersions.slice(0, 5);
-    const moreVersions = allVersions.slice(5);
+	const allVersions = [...new Set(data.map((r) => r.version))].sort((a, b) =>
+		sortVersions(a, b, true),
+	);
+	const mainVersions = allVersions.slice(0, 5);
+	const moreVersions = allVersions.slice(5);
 
-    const isDropdownSelected = selectedVersion && moreVersions.includes(selectedVersion);
+	const isDropdownSelected =
+		selectedVersion && moreVersions.includes(selectedVersion);
 
-    const radioHTML = [
-        { value: 'all', id: 'v-all', label: 'All Versions', checked: !selectedVersion, onChange: "setVersionFilter(null)" },
-        ...mainVersions.map(v => ({
-            value: v,
-            id: `v-${v.replace(/\./g, '-')}`,
-            label: v,
-            checked: selectedVersion === v,
-            onChange: `setVersionFilter('${v}')`,
-        })),
-    ].map(({ value, id, label, checked, onChange }) =>
-        `<input type="radio" name="v-filter" value="${value}" id="${id}" ${checked ? 'checked' : ''} onchange="${onChange}">
-         <label for="${id}">${label}</label>`
-    ).join('');
+	const radioHTML = [
+		{
+			value: "all",
+			id: "v-all",
+			label: "All Versions",
+			checked: !selectedVersion,
+			onChange: "setVersionFilter(null)",
+		},
+		...mainVersions.map((v) => ({
+			value: v,
+			id: `v-${v.replace(/\./g, "-")}`,
+			label: v,
+			checked: selectedVersion === v,
+			onChange: `setVersionFilter('${v}')`,
+		})),
+	]
+		.map(
+			({ value, id, label, checked, onChange }) =>
+				`<input type="radio" name="v-filter" value="${value}" id="${id}" ${checked ? "checked" : ""} onchange="${onChange}">
+         <label for="${id}">${label}</label>`,
+		)
+		.join("");
 
-    const dropdownHTML = moreVersions.length > 0
-        ? `<select class="version-select" id="more-versions-select" onchange="setVersionFilter(this.value)">
-             <option value="" ${!isDropdownSelected ? 'selected' : ''} disabled>More…</option>
-             ${moreVersions.map(v =>
-            `<option value="${v}" ${selectedVersion === v ? 'selected' : ''}>${v}</option>`
-        ).join('')}
+	const dropdownHTML =
+		moreVersions.length > 0
+			? `<select class="version-select" id="more-versions-select" onchange="setVersionFilter(this.value)">
+             <option value="" ${!isDropdownSelected ? "selected" : ""} disabled>More…</option>
+             ${moreVersions
+								.map(
+									(v) =>
+										`<option value="${v}" ${selectedVersion === v ? "selected" : ""}>${v}</option>`,
+								)
+								.join("")}
            </select>`
-        : '';
+			: "";
 
-    document.getElementById('version-toggle-group').innerHTML = radioHTML + dropdownHTML;
+	document.getElementById("version-toggle-group").innerHTML =
+		radioHTML + dropdownHTML;
 }
 
 function setVersionFilter(version) {
-    if (version === '') return;   // "More…" placeholder selected
-    selectedVersion = (version === 'all' || version === null) ? null : version;
+	if (version === "") return; // "More…" placeholder selected
+	selectedVersion = version === "all" || version === null ? null : version;
 
-    renderCharts(currentRawData, currentXMin, currentXMax);
-    updateMetrics(currentRawData, currentXMin, currentXMax);
+	renderCharts(currentRawData, currentXMin, currentXMax);
+	updateMetrics(currentRawData, currentXMin, currentXMax);
 
-    // Sync radio state
-    const radio = document.querySelector(`input[name="v-filter"][value="${selectedVersion ?? 'all'}"]`);
-    if (radio) {
-        radio.checked = true;
-        const select = document.getElementById('more-versions-select');
-        if (select) select.selectedIndex = 0;   // clear the "More…" dropdown
-    } else {
-        // Version came from "More…" dropdown — uncheck all radios
-        document.querySelectorAll('input[name="v-filter"]').forEach(r => r.checked = false);
-    }
+	// Sync radio state
+	const radio = document.querySelector(
+		`input[name="v-filter"][value="${selectedVersion ?? "all"}"]`,
+	);
+	if (radio) {
+		radio.checked = true;
+		const select = document.getElementById("more-versions-select");
+		if (select) select.selectedIndex = 0; // clear the "More…" dropdown
+	} else {
+		// Version came from "More…" dropdown — uncheck all radios
+		document.querySelectorAll('input[name="v-filter"]').forEach((r) => {
+			r.checked = false;
+		});
+	}
 }
 
 // ── Chart rendering ────────────────────────────────────────────────────────
 
 /** Max stacked value across dates visible within [xMin, xMax]. */
 function _visibleMax(filteredData, xMin, xMax) {
-    const allDates = [...new Set(currentRawData.map(r => r.date))];
-    const visible = (xMin != null || xMax != null)
-        ? allDates.filter(d => {
-            const t = new Date(d + 'T00:00:00Z').getTime();
-            return (xMin == null || t >= xMin) && (xMax == null || t <= xMax);
-          })
-        : allDates;
-    const sums = visible.map(date =>
-        STATUSES.reduce((sum, { code }) =>
-            sum + filteredData.filter(r => r.date === date && r.status === code)
-                              .reduce((s, r) => s + r.count, 0), 0)
-    );
-    return Math.max(...sums, 1);
+	const allDates = [...new Set(currentRawData.map((r) => r.date))];
+	const visible =
+		xMin != null || xMax != null
+			? allDates.filter((d) => {
+					const t = new Date(`${d}T00:00:00Z`).getTime();
+					return (xMin == null || t >= xMin) && (xMax == null || t <= xMax);
+				})
+			: allDates;
+	const sums = visible.map((date) =>
+		STATUSES.reduce(
+			(sum, { code }) =>
+				sum +
+				filteredData
+					.filter((r) => r.date === date && r.status === code)
+					.reduce((s, r) => s + r.count, 0),
+			0,
+		),
+	);
+	return Math.max(...sums, 1);
 }
 
 /**
@@ -469,237 +525,262 @@ function _visibleMax(filteredData, xMin, xMax) {
  * the metrics banner in sync with the visible date window.
  */
 function onZoomChange(filteredData, { xaxis }) {
-    currentXMin = xaxis.min;
-    currentXMax = xaxis.max;
-    if (!yAxisLocked) {
-        const newMax = _visibleMax(filteredData, xaxis.min, xaxis.max);
-        usageChart?.updateOptions({ yaxis: { max: newMax } }, false, false);
-    }
-    updateMetrics(filteredData, xaxis.min, xaxis.max);
-    renderStatusChart(filteredData, xaxis.min, xaxis.max);
-    renderVersionChart(currentRawData, xaxis.min, xaxis.max);
+	currentXMin = xaxis.min;
+	currentXMax = xaxis.max;
+	if (!yAxisLocked) {
+		const newMax = _visibleMax(filteredData, xaxis.min, xaxis.max);
+		usageChart?.updateOptions({ yaxis: { max: newMax } }, false, false);
+	}
+	updateMetrics(filteredData, xaxis.min, xaxis.max);
+	renderStatusChart(filteredData, xaxis.min, xaxis.max);
+	renderVersionChart(currentRawData, xaxis.min, xaxis.max);
 }
 
 function renderUsageChart(filteredData, xMin = null, xMax = null) {
-    const dates = [...new Set(currentRawData.map(r => r.date))].sort((a, b) => new Date(a) - new Date(b));
-    const series = STATUSES.map(({ code, label }) => ({
-        name: label,
-        data: dates.map(date => {
-            const rows = filteredData.filter(r => r.date === date && r.status === code);
-            return rows.reduce((sum, r) => sum + r.count, 0);
-        }),
-    }));
+	const dates = [...new Set(currentRawData.map((r) => r.date))].sort(
+		(a, b) => new Date(a) - new Date(b),
+	);
+	const series = STATUSES.map(({ code, label }) => ({
+		name: label,
+		data: dates.map((date) => {
+			const rows = filteredData.filter(
+				(r) => r.date === date && r.status === code,
+			);
+			return rows.reduce((sum, r) => sum + r.count, 0);
+		}),
+	}));
 
-    const currentMax = _visibleMax(filteredData, xMin, xMax);
+	const currentMax = _visibleMax(filteredData, xMin, xMax);
 
-    // Capture viewport max when lock is first activated
-    if (yAxisLocked && !lockedYAxisMax) {
-        lockedYAxisMax = currentMax;
-    }
+	// Capture viewport max when lock is first activated
+	if (yAxisLocked && !lockedYAxisMax) {
+		lockedYAxisMax = currentMax;
+	}
 
-    const options = {
-        ...CHART_THEME,
-        chart: {
-            ...CHART_THEME.chart,
-            type: 'area',
-            stacked: true,
-            height: 350,
-            animations: { enabled: true, easing: 'easeinout', speed: 800 },
-            events: {
-                zoomed: (ctx, args) => onZoomChange(filteredData, args),
-                scrolled: (ctx, args) => onZoomChange(filteredData, args),
-            },
-        },
-        colors: STATUSES.map(s => s.color),
-        series,
-        dataLabels: { enabled: false },
-        stroke: { curve: 'smooth', width: 2 },
-        fill: {
-            type: 'gradient',
-            gradient: { opacityFrom: 0.6, opacityTo: 0.1 },
-        },
-        xaxis: {
-            type: 'datetime',
-            categories: dates,
-            ...(xMin != null && { min: xMin }),
-            ...(xMax != null && { max: xMax }),
-        },
-        yaxis: { max: yAxisLocked && lockedYAxisMax ? lockedYAxisMax : currentMax },
-        tooltip: { x: { format: 'dd MMM yyyy' }, theme: 'dark' },
-    };
+	const options = {
+		...CHART_THEME,
+		chart: {
+			...CHART_THEME.chart,
+			type: "area",
+			stacked: true,
+			height: 350,
+			animations: { enabled: true, easing: "easeinout", speed: 800 },
+			events: {
+				zoomed: (_ctx, args) => onZoomChange(filteredData, args),
+				scrolled: (_ctx, args) => onZoomChange(filteredData, args),
+			},
+		},
+		colors: STATUSES.map((s) => s.color),
+		series,
+		dataLabels: { enabled: false },
+		stroke: { curve: "smooth", width: 2 },
+		fill: {
+			type: "gradient",
+			gradient: { opacityFrom: 0.6, opacityTo: 0.1 },
+		},
+		xaxis: {
+			type: "datetime",
+			categories: dates,
+			...(xMin != null && { min: xMin }),
+			...(xMax != null && { max: xMax }),
+		},
+		yaxis: { max: yAxisLocked && lockedYAxisMax ? lockedYAxisMax : currentMax },
+		tooltip: { x: { format: "dd MMM yyyy" }, theme: "dark" },
+	};
 
-    usageChart?.destroy();
-    usageChart = new ApexCharts(document.querySelector('#usage-chart'), options);
-    usageChart.render();
+	usageChart?.destroy();
+	usageChart = new ApexCharts(document.querySelector("#usage-chart"), options);
+	usageChart.render();
 }
 
 function renderStatusChart(filteredData, minDate = null, maxDate = null) {
-    const data = filterByDateRange(filteredData, minDate, maxDate);
+	const data = filterByDateRange(filteredData, minDate, maxDate);
 
-    const totals = STATUSES.map(({ code }) =>
-        data.filter(r => r.status === code).reduce((sum, r) => sum + r.count, 0)
-    );
+	const totals = STATUSES.map(({ code }) =>
+		data.filter((r) => r.status === code).reduce((sum, r) => sum + r.count, 0),
+	);
 
-    const options = {
-        ...CHART_THEME,
-        chart: { ...CHART_THEME.chart, type: 'donut', height: 230 },
-        colors: STATUSES.map(s => s.color),
-        series: totals,
-        labels: STATUSES.map(s => s.label),
-        stroke: { show: false },
-        plotOptions: {
-            pie: {
-                donut: {
-                    size: '70%',
-                    labels: {
-                        show: true,
-                        total: { show: true, label: 'TOTAL', color: 'var(--chart-label)' },
-                    },
-                },
-            },
-        },
-        legend: { position: 'bottom' },
-    };
+	const options = {
+		...CHART_THEME,
+		chart: { ...CHART_THEME.chart, type: "donut", height: 230 },
+		colors: STATUSES.map((s) => s.color),
+		series: totals,
+		labels: STATUSES.map((s) => s.label),
+		stroke: { show: false },
+		plotOptions: {
+			pie: {
+				donut: {
+					size: "70%",
+					labels: {
+						show: true,
+						total: { show: true, label: "TOTAL", color: "var(--chart-label)" },
+					},
+				},
+			},
+		},
+		legend: { position: "bottom" },
+	};
 
-    statusChart?.destroy();
-    statusChart = new ApexCharts(document.querySelector('#status-donut-chart'), options);
-    statusChart.render();
+	statusChart?.destroy();
+	statusChart = new ApexCharts(
+		document.querySelector("#status-donut-chart"),
+		options,
+	);
+	statusChart.render();
 }
 
 function renderVersionChart(data, minDate = null, maxDate = null) {
-    const windowed = filterByDateRange(data, minDate, maxDate);
+	const windowed = filterByDateRange(data, minDate, maxDate);
 
-    // Aggregate total runs per version, sorted descending by count
-    const versionCounts = windowed.reduce((acc, r) => {
-        acc[r.version] = (acc[r.version] || 0) + r.count;
-        return acc;
-    }, {});
+	// Aggregate total runs per version, sorted descending by count
+	const versionCounts = windowed.reduce((acc, r) => {
+		acc[r.version] = (acc[r.version] || 0) + r.count;
+		return acc;
+	}, {});
 
-    const sortedVersions = Object.entries(versionCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([v]) => v);
+	const sortedVersions = Object.entries(versionCounts)
+		.sort((a, b) => b[1] - a[1])
+		.slice(0, 5)
+		.map(([v]) => v);
 
-    const sortedTotals = sortedVersions.map(v => versionCounts[v]);
+	const sortedTotals = sortedVersions.map((v) => versionCounts[v]);
 
-    // Growth comparison: most-recent windowSize periods vs the prior window
-    const interval = document.querySelector('input[name="interval"]:checked').value;
-    const { windowSize, shortLabel } = INTERVAL_CONFIG[interval];
+	// Growth comparison: most-recent windowSize periods vs the prior window
+	const interval = document.querySelector(
+		'input[name="interval"]:checked',
+	).value;
+	const { windowSize, shortLabel } = INTERVAL_CONFIG[interval];
 
-    const sortedDates = [...new Set(windowed.map(r => r.date))].sort((a, b) => new Date(b) - new Date(a));
-    const periodADates = sortedDates.slice(1, windowSize + 1);
-    const periodBDates = sortedDates.slice(windowSize + 1, windowSize * 2 + 1);
+	const sortedDates = [...new Set(windowed.map((r) => r.date))].sort(
+		(a, b) => new Date(b) - new Date(a),
+	);
+	const periodADates = sortedDates.slice(1, windowSize + 1);
+	const periodBDates = sortedDates.slice(windowSize + 1, windowSize * 2 + 1);
 
-    const growthByVersion = {};
-    if (periodADates.length > 0 && periodBDates.length > 0) {
-        sortedVersions.forEach(v => {
-            const sum = (dates) => windowed
-                .filter(r => r.version === v && dates.includes(r.date))
-                .reduce((s, r) => s + r.count, 0);
-            const [a, b] = [sum(periodADates), sum(periodBDates)];
-            if (b > 0) growthByVersion[v] = Math.round(((a - b) / b) * 100);
-        });
-    }
+	const growthByVersion = {};
+	if (periodADates.length > 0 && periodBDates.length > 0) {
+		sortedVersions.forEach((v) => {
+			const sum = (dates) =>
+				windowed
+					.filter((r) => r.version === v && dates.includes(r.date))
+					.reduce((s, r) => s + r.count, 0);
+			const [a, b] = [sum(periodADates), sum(periodBDates)];
+			if (b > 0) growthByVersion[v] = Math.round(((a - b) / b) * 100);
+		});
+	}
 
-    const categoriesWithGrowth = sortedVersions.map(v => {
-        const g = growthByVersion[v];
-        return g != null ? `${v} (${g >= 0 ? '+' : ''}${g}%)` : v;
-    });
+	const categoriesWithGrowth = sortedVersions.map((v) => {
+		const g = growthByVersion[v];
+		return g != null ? `${v} (${g >= 0 ? "+" : ""}${g}%)` : v;
+	});
 
-    const options = {
-        ...CHART_THEME,
-        chart: {
-            ...CHART_THEME.chart,
-            type: 'bar',
-            height: 230,
-            events: {
-                dataPointSelection: (_e, _ctx, { dataPointIndex }) => {
-                    setVersionFilter(sortedVersions[dataPointIndex]);
-                },
-            },
-        },
-        series: [{ name: 'Total Runs', data: sortedTotals }],
-        colors: sortedVersions.map(v => {
-            const g = growthByVersion[v];
-            if (g == null) return 'var(--chart-neutral)';
-            return g >= 0 ? 'var(--success)' : 'var(--error)';
-        }),
-        plotOptions: { bar: { borderRadius: 4, horizontal: true, distributed: true } },
-        xaxis: { categories: categoriesWithGrowth, axisBorder: { show: false }, axisTicks: { show: false }, labels: { show: false } },
-        yaxis: { labels: { style: { fontSize: '0.85rem' } } },
-        tooltip: {
-            y: {
-                formatter: (val, { dataPointIndex }) => {
-                    const v = sortedVersions[dataPointIndex];
-                    const g = growthByVersion[v];
-                    const growth = g != null ? ` (${g >= 0 ? '+' : ''}${g}% in last ${shortLabel})` : '';
-                    return `${val.toLocaleString()} total runs${growth}`;
-                },
-            },
-        },
-        legend: { show: false },
-    };
+	const options = {
+		...CHART_THEME,
+		chart: {
+			...CHART_THEME.chart,
+			type: "bar",
+			height: 230,
+			events: {
+				dataPointSelection: (_e, _ctx, { dataPointIndex }) => {
+					setVersionFilter(sortedVersions[dataPointIndex]);
+				},
+			},
+		},
+		series: [{ name: "Total Runs", data: sortedTotals }],
+		colors: sortedVersions.map((v) => {
+			const g = growthByVersion[v];
+			if (g == null) return "var(--chart-neutral)";
+			return g >= 0 ? "var(--success)" : "var(--error)";
+		}),
+		plotOptions: {
+			bar: { borderRadius: 4, horizontal: true, distributed: true },
+		},
+		xaxis: {
+			categories: categoriesWithGrowth,
+			axisBorder: { show: false },
+			axisTicks: { show: false },
+			labels: { show: false },
+		},
+		yaxis: { labels: { style: { fontSize: "0.85rem" } } },
+		tooltip: {
+			y: {
+				formatter: (val, { dataPointIndex }) => {
+					const v = sortedVersions[dataPointIndex];
+					const g = growthByVersion[v];
+					const growth =
+						g != null
+							? ` (${g >= 0 ? "+" : ""}${g}% in last ${shortLabel})`
+							: "";
+					return `${val.toLocaleString()} total runs${growth}`;
+				},
+			},
+		},
+		legend: { show: false },
+	};
 
-    versionChart?.destroy();
-    versionChart = new ApexCharts(document.querySelector('#version-bar-chart'), options);
-    versionChart.render();
+	versionChart?.destroy();
+	versionChart = new ApexCharts(
+		document.querySelector("#version-bar-chart"),
+		options,
+	);
+	versionChart.render();
 }
 
 // ── Orchestration ──────────────────────────────────────────────────────────
 
 function renderCharts(rawData, xMin = null, xMax = null) {
-    currentRawData = rawData;
-    const filteredData = selectedVersion
-        ? rawData.filter(r => r.version === selectedVersion)
-        : rawData;
+	currentRawData = rawData;
+	const filteredData = selectedVersion
+		? rawData.filter((r) => r.version === selectedVersion)
+		: rawData;
 
-    renderUsageChart(filteredData, xMin, xMax);
-    renderStatusChart(filteredData, xMin, xMax);
-    renderVersionChart(selectedVersion ? filteredData : rawData, xMin, xMax);
+	renderUsageChart(filteredData, xMin, xMax);
+	renderStatusChart(filteredData, xMin, xMax);
+	renderVersionChart(selectedVersion ? filteredData : rawData, xMin, xMax);
 }
 
-function resetZoom() {
-    usageChart?.resetSeries();
-    _applySelectedWeeks(projectSelect.value);
+function _resetZoom() {
+	usageChart?.resetSeries();
+	_applySelectedWeeks(projectSelect.value);
 }
 
-function toggleLockYAxis() {
-    const checkbox = document.getElementById('lock-yaxis-checkbox');
-    yAxisLocked = checkbox.checked;
+function _toggleLockYAxis() {
+	const checkbox = document.getElementById("lock-yaxis-checkbox");
+	yAxisLocked = checkbox.checked;
 
-    if (yAxisLocked) {
-        // Lock is being activated; capture visible max
-        const filteredData = selectedVersion
-            ? currentRawData.filter(r => r.version === selectedVersion)
-            : currentRawData;
-        lockedYAxisMax = _visibleMax(filteredData, currentXMin, currentXMax);
-    } else {
-        // Lock is being deactivated
-        lockedYAxisMax = null;
-    }
+	if (yAxisLocked) {
+		// Lock is being activated; capture visible max
+		const filteredData = selectedVersion
+			? currentRawData.filter((r) => r.version === selectedVersion)
+			: currentRawData;
+		lockedYAxisMax = _visibleMax(filteredData, currentXMin, currentXMax);
+	} else {
+		// Lock is being deactivated
+		lockedYAxisMax = null;
+	}
 
-    // Re-render chart with new y-axis setting
-    const filteredData = selectedVersion
-        ? currentRawData.filter(r => r.version === selectedVersion)
-        : currentRawData;
-    renderUsageChart(filteredData, currentXMin, currentXMax);
+	// Re-render chart with new y-axis setting
+	const filteredData = selectedVersion
+		? currentRawData.filter((r) => r.version === selectedVersion)
+		: currentRawData;
+	renderUsageChart(filteredData, currentXMin, currentXMax);
 }
 
 async function updateDashboard() {
-    const project = projectSelect.value;
+	const project = projectSelect.value;
 
-    const projectChanged = project !== currentProject;
-    if (projectChanged) {
-        currentProject = project;
-        selectedVersion = null;
-        loadedWeeks = 0;
-    }
+	const projectChanged = project !== currentProject;
+	if (projectChanged) {
+		currentProject = project;
+		selectedVersion = null;
+		loadedWeeks = 0;
+	}
 
-    if (!dataCache[project]) {
-        await loadProjectData(project);
-    } else {
-        _applySelectedWeeks(project);
-    }
+	if (!dataCache[project]) {
+		await loadProjectData(project);
+	} else {
+		_applySelectedWeeks(project);
+	}
 }
 
 // ── Initial load ───────────────────────────────────────────────────────────

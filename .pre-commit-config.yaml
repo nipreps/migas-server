@@ -27,5 +27,9 @@ repos:
       - id: djlint-django
         args: ["--profile", "jinja"]
 
+  - repo: https://github.com/biomejs/pre-commit
+    rev: v2.4.12
+    hooks:
+      - id: biome-check
 ci:
   autoupdate_schedule: monthly
