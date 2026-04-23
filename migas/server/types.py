@@ -31,6 +31,14 @@ VersionScalar = strawberry.scalar(
     parse_value=parse_version,
 )
 
+SafeStr = typing.NewType('SafeStr', str)
+SafeStrScalar = strawberry.scalar(
+    name='SafeStr',
+    description='String value that safely coerces non-string types',
+    serialize=str,
+    parse_value=str,
+)
+
 
 @strawberry.enum
 class Container(Enum):
@@ -127,13 +135,13 @@ class ProcessInput:
     status: Status = strawberry.field(
         description='For timeseries pings, the current process status', default=Status.R
     )
-    status_desc: str | None = strawberry.field(
+    status_desc: SafeStr | None = strawberry.field(
         description='Description of status ping', default=None
     )
-    error_type: str | None = strawberry.field(
+    error_type: SafeStr | None = strawberry.field(
         description='Type of error encountered', default=None
     )
-    error_desc: str | None = strawberry.field(description='Description of error', default=None)
+    error_desc: SafeStr | None = strawberry.field(description='Description of error', default=None)
 
 
 @strawberry.input
@@ -162,13 +170,13 @@ class ProjectInput:
     status: Status = strawberry.field(
         description='For timeseries pings, the current process status', default=Status.R
     )
-    status_desc: str | None = strawberry.field(
+    status_desc: SafeStr | None = strawberry.field(
         description='Description of status ping', default=None
     )
-    error_type: str | None = strawberry.field(
+    error_type: SafeStr | None = strawberry.field(
         description='Type of error encountered', default=None
     )
-    error_desc: str | None = strawberry.field(description='Description of error', default=None)
+    error_desc: SafeStr | None = strawberry.field(description='Description of error', default=None)
     # arguments: Arguments = strawberry.field(
     #     description="Client side arguments used", default_factory=lambda: "{}"
     # )
