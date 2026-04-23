@@ -100,23 +100,25 @@ jobs:
             const tagName = context.ref.replace(/^refs\/tags\//, '');
             const isPrerelease = /(^|[-.])rc\d*$/i.test(tagName);
 
-            let tagMessage;
-            try {
-              // context.sha is the SHA of the tag object for annotated tags.
-              // For lightweight tags, this call 404s and we skip release creation.
-              const { data: tag } = await github.rest.git.getTag({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                tag_sha: context.sha,
-              });
-              tagMessage = tag.message;
-            } catch (e) {
-              if (e.status === 404) {
-                console.log('Lightweight tag detected, skipping release creation.');
-                return;
-              }
-              throw e;
+            // context.sha is always the commit SHA, never the tag-object SHA.
+            // Resolve the ref to determine whether the tag is annotated.
+            const { data: ref } = await github.rest.git.getRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `tags/${tagName}`,
+            });
+
+            if (ref.object.type !== 'tag') {
+              console.log('Lightweight tag detected, skipping release creation.');
+              return;
             }
+
+            const { data: tag } = await github.rest.git.getTag({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_sha: ref.object.sha,
+            });
+            const tagMessage = tag.message;
 
             await github.rest.repos.createRelease({
               owner: context.repo.owner,
