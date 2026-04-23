@@ -216,8 +216,9 @@
 
     // ── Data fetching ──────────────────────────────────────────────────────────
 
-    async function fetchUsageData(project, weeks = 1) {
-        const res = await fetch(`/api/usage/${project}?weeks=${weeks}`, {
+    async function fetchUsageData(project, weeks = 1, since = null) {
+        const qs = since ? `?weeks=${weeks}&since=${since}` : `?weeks=${weeks}`;
+        const res = await fetch(`/api/usage/${project}${qs}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
             },
@@ -308,6 +309,24 @@
         };
     }
 
+    /** Fetch the historical delta the client doesn't yet have and merge it in.
+     *  When the cache is non-empty, sends `since=<oldest>` so the server
+     *  returns only rows older than the client's earliest known date. */
+    async function _widenWindow(project, weeks) {
+        const existing = dataCache[project]?.day || [];
+        if (existing.length === 0) {
+            const dayRows = await fetchUsageData(project, weeks);
+            _reshapeAndStore(project, dayRows);
+        } else {
+            const oldest = existing.reduce((min, r) => r.date < min ? r.date : min, existing[0].date);
+            const delta = await fetchUsageData(project, weeks, oldest);
+            if (delta.length) {
+                _reshapeAndStore(project, [...delta, ...existing]);
+            }
+        }
+        loadedWeeks = weeks;
+    }
+
     async function setTimeRange(weeks) {
         selectedWeeks = weeks;
         const project = projectSelect.value;
@@ -319,9 +338,7 @@
 
         setChartsLoading(true);
         try {
-            const dayRows = await fetchUsageData(project, selectedWeeks);
-            loadedWeeks = selectedWeeks;
-            _reshapeAndStore(project, dayRows);
+            await _widenWindow(project, selectedWeeks);
             _applySelectedWeeks(project);
         } catch (err) {
             console.error('Failed to load time range:', err);
@@ -330,7 +347,7 @@
         }
     }
 
-    function applyCustomRange() {
+    async function applyCustomRange() {
         const startVal = document.getElementById('custom-start').value;
         const endVal = document.getElementById('custom-end').value;
         if (!startVal) return;
@@ -345,17 +362,17 @@
         const project = projectSelect.value;
         if (weeksNeeded <= loadedWeeks) {
             _applySelectedWeeks(project);
-        } else {
-            setChartsLoading(true);
-            fetchUsageData(project, weeksNeeded).then(dayRows => {
-                loadedWeeks = weeksNeeded;
-                _reshapeAndStore(project, dayRows);
-                _applySelectedWeeks(project);
-            }).catch(err => {
-                console.error('Custom range fetch failed:', err);
-            }).finally(() => {
-                setChartsLoading(false);
-            });
+            return;
+        }
+
+        setChartsLoading(true);
+        try {
+            await _widenWindow(project, weeksNeeded);
+            _applySelectedWeeks(project);
+        } catch (err) {
+            console.error('Custom range fetch failed:', err);
+        } finally {
+            setChartsLoading(false);
         }
     }
 
