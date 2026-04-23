@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import date, datetime, timezone, timedelta
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 
 from ..auth import get_authorized_projects
@@ -150,8 +150,19 @@ async def _extend_historical(
 
 @router.get('/usage/{project:path}', response_model=list[UsageData])
 async def get_usage(
-    project: str, request: Request, weeks: int = 1, _auth=Depends(require_access())
+    project: str,
+    request: Request,
+    weeks: int = 1,
+    since: date | None = None,
+    _auth=Depends(require_access()),
 ):
+    """Return usage rows in ``[now - weeks, now]``.
+
+    When ``since`` is supplied, only rows strictly older than ``since`` are
+    returned — the delta the caller is missing. The provisional fetch is
+    skipped in that case; the caller already holds fresh data through today
+    from its prior request.
+    """
     if not await project_exists(project):
         raise HTTPException(status_code=404, detail=f'Project {project} not found.')
 
@@ -178,11 +189,13 @@ async def get_usage(
     if dirty:
         await _write_cache(redis, cache_key, data, oldest_date, last_date)
 
+    cutoff = requested_start.date().isoformat()
+    if since is not None:
+        since_str = since.isoformat()
+        return [r for r in data if cutoff <= r['date'] < since_str]
+
     # Provisional — always fresh (too recent to cache)
     provisional = await get_viz_data(project, start_ts=last_date + timedelta(milliseconds=1))
-
-    # Slice to requested window
-    cutoff = requested_start.date().isoformat()
     return [r for r in data if r['date'] >= cutoff] + provisional
 
 
