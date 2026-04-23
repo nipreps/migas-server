@@ -128,6 +128,46 @@ async def test_usage_api_oldest_date_migration(client: TestClient, db):
 
 
 @pytest.mark.anyio
+async def test_usage_api_since_returns_only_older_rows(client: TestClient, db):
+    """?since=<date> returns only rows strictly older than <date> — the delta
+    the client is missing when it already holds data back to <date>."""
+    from datetime import datetime, timezone, timedelta
+    from migas.server.tests.conftest import USER_A, SESSION_1, SESSION_2
+
+    project = 'test/api-since-delta'
+    await db.register(project)
+    auth = await db.token(project)
+
+    now = datetime.now(timezone.utc)
+
+    # One crumb the client already has (~3 days old)
+    await db.crumb(
+        project,
+        status='C',
+        session_id=SESSION_1,
+        user_id=USER_A,
+        timestamp=now - timedelta(days=3),
+    )
+    # One crumb older than the `since` boundary (~20 days)
+    await db.crumb(
+        project,
+        status='C',
+        session_id=SESSION_2,
+        user_id=USER_A,
+        timestamp=now - timedelta(days=20),
+        ensure_user=False,
+    )
+
+    # Client has data back to 7 days ago; asks for the gap between weeks=4 and there
+    since = (now - timedelta(days=7)).date().isoformat()
+    res = client.get(f'/api/usage/{project}?weeks=4&since={since}', headers=auth)
+    assert res.status_code == 200
+    dates = [r['date'] for r in res.json()]
+    assert dates, 'delta should include the 20-day-old row'
+    assert all(d < since for d in dates), f'delta contained rows >= {since}: {dates}'
+
+
+@pytest.mark.anyio
 async def test_usage_api_cold_cache_no_epoch_scan(client: TestClient, db, monkeypatch):
     """On a cold cache, no DB query should scan from epoch — all start_ts must be bounded."""
     from datetime import datetime, timezone, timedelta
