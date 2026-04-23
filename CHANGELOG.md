@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.8.0] - 2026-04-23
+
+### Enhancements
+- **Progressive Data Ingestion**: Bidirectional Redis caching for `/api/usage` enables progressive backfill and forward extension of cached ranges without full recomputation.
+- **Incremental Fetching**: Added a delta parameter to `get_usage` so the dashboard can fetch only new data since the last load.
+- **Custom Date Ranges**: Dashboard now supports user-defined date ranges with progressive rendering as data streams in.
+- **Response Compression**: Large responses are now gzip-compressed to reduce payload size over the wire.
+- **Login via REST**: Ported the `login` operation from GraphQL to `POST /api/auth/login` under the unified REST surface.
+- **Security Policy**: Added `SECURITY.md` documenting supported versions and vulnerability disclosure.
+
+### Bug Fixes
+- **Viewport Anchoring**: Dashboard chart viewport is now anchored to the actual data range, preventing empty initial renders.
+
+### Maintenance & Infrastructure
+- **Auth Optimization**: Stripped the redundant `query_projects` call from token authentication, reducing per-request DB load.
+
+### Refactoring
+- **Visualization Assets**: Moved dashboard JS into a standalone file, purged unused CSS, and tightened remaining styles.
+
+---
+*For a full list of changes, see the [commit history](https://github.com/nipreps/migas-server/compare/0.7.0...0.8.0).*
+
 ## [0.7.0] - 2026-04-20
 
 ### Enhancements
