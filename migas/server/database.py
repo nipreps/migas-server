@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, timedelta
 
-from sqlalchemy import distinct, func, select
+from sqlalchemy import distinct, func, select, true
 from sqlalchemy.dialects.postgresql import insert
 
 from .connections import gen_session, AsyncSession
@@ -10,6 +10,11 @@ from .types import Project, serialize
 from .utils import now
 
 logger = logging.getLogger('migas')
+
+# Arbitrary cutoff for a session
+# This is generally a reasonable default for pipelines (fmriprep, nibabies, etc)
+# TODO: Move this into project table for project-specific cutoffs
+MAX_SESSION_HOURS = 48
 
 
 async def add_new_project(project: str) -> bool:
@@ -242,10 +247,12 @@ async def get_viz_data(
     ).where(Crumb.project == project_name)
 
     if start_ts:
-        # Use the (project, timestamp) index: push the filter down, then
-        # look back 30 days to guarantee we see the true MIN for any session
-        # whose start may qualify for the HAVING clause.
-        subq_bounds = subq_bounds.where(Crumb.timestamp >= start_ts - timedelta(days=30))
+        # Index-friendly pre-filter. Look back one session span so we still see
+        # the true MIN of sessions that started before start_ts; otherwise their
+        # MIN looks >= start_ts and they're wrongly counted as starting in-window.
+        subq_bounds = subq_bounds.where(
+            Crumb.timestamp >= start_ts - timedelta(hours=MAX_SESSION_HOURS)
+        )
 
     subq_bounds = subq_bounds.group_by(Crumb.session_id)
 
@@ -260,33 +267,34 @@ async def get_viz_data(
 
     subq_bounds = subq_bounds.subquery()
 
-    # Stage 2: join back for version + status of the latest crumb; drop pre-releases.
-    subq_latest = (
-        select(subq_bounds.c.session_id, subq_bounds.c.start_ts, Crumb.version, Crumb.status)
-        .join(
-            Crumb,
-            (Crumb.session_id == subq_bounds.c.session_id)
-            & (Crumb.timestamp == subq_bounds.c.last_ts)
-            & (Crumb.project == project_name),
-        )
-        .where(Crumb.version.not_like('%+%'))
-        .where(Crumb.version.not_like('%rc%'))
-        .subquery()
+    # Stage 2: per-session lookup of version/status at last_ts. LATERAL so it's
+    # one indexed hit per session (ix_crumbs_project_session), not a full scan.
+    latest = (
+        select(Crumb.version.label('version'), Crumb.status.label('status'))
+        .where(Crumb.project == project_name)
+        .where(Crumb.session_id == subq_bounds.c.session_id)
+        .where(Crumb.timestamp == subq_bounds.c.last_ts)
+        .limit(1)
+        .lateral('latest')
     )
 
     # Stage 3: bucket by start date (day granularity); client rolls up further if needed.
-    date_bucket = func.date_trunc('day', subq_latest.c.start_ts)
+    date_bucket = func.date_trunc('day', subq_bounds.c.start_ts)
     date_str = func.to_char(date_bucket, 'YYYY-MM-DD').label('date')
 
     query = (
         select(
-            subq_latest.c.version.label('version'),
+            latest.c.version.label('version'),
             date_str,
-            subq_latest.c.status.label('status'),
-            func.count(distinct(subq_latest.c.session_id)).label('count'),
+            latest.c.status.label('status'),
+            func.count(distinct(subq_bounds.c.session_id)).label('count'),
         )
-        .group_by(date_bucket, subq_latest.c.version, subq_latest.c.status)
-        .order_by(date_bucket.desc(), subq_latest.c.version.desc())
+        .select_from(subq_bounds)
+        .join(latest, true())
+        .where(latest.c.version.not_like('%+%'))
+        .where(latest.c.version.not_like('%rc%'))
+        .group_by(date_bucket, latest.c.version, latest.c.status)
+        .order_by(date_bucket.desc(), latest.c.version.desc())
     )
 
     async with gen_session(session) as session:
