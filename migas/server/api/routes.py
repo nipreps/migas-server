@@ -4,7 +4,9 @@ from datetime import date, datetime, timezone, timedelta
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 
 from ..auth import get_authorized_projects
+from ..cache import RESPONSE_TTL, historical_key, usage_key
 from ..database import (
+    MAX_SESSION_HOURS,
     add_new_project,
     create_token,
     get_tokens,
@@ -47,12 +49,6 @@ async def auth_projects(request: Request):
     if projects == ['*']:
         projects = await query_projects()
     return AuthProjectsResponse(projects=projects)
-
-
-# Data within this window is too recent to cache — always fetched live.
-# 48 h accounts for long-running pipeline sessions whose final breadcrumb
-# may arrive well after the session started.
-PROVISIONAL_HOURS = 48
 
 
 def _utc(dt: datetime) -> datetime:
@@ -168,7 +164,13 @@ async def get_usage(
 
     start_time = now()
     redis = request.app.cache
-    cache_key = f'migas:viz:hist:{project}'
+
+    response_key = usage_key(project, weeks, since)
+    cached_response = await redis.get(response_key)
+    if cached_response:
+        return json.loads(cached_response)
+
+    cache_key = historical_key(project)
 
     data, oldest_date, last_date = await _read_cache(redis, cache_key)
     logger.debug(
@@ -181,7 +183,7 @@ async def get_usage(
     )
 
     requested_start = start_time - timedelta(weeks=weeks)
-    provisional_boundary = start_time - timedelta(hours=PROVISIONAL_HOURS)
+    provisional_boundary = start_time - timedelta(hours=MAX_SESSION_HOURS)
 
     data, oldest_date, last_date, dirty = await _extend_historical(
         project, data, oldest_date, last_date, requested_start, provisional_boundary
@@ -192,11 +194,14 @@ async def get_usage(
     cutoff = requested_start.date().isoformat()
     if since is not None:
         since_str = since.isoformat()
-        return [r for r in data if cutoff <= r['date'] < since_str]
+        result = [r for r in data if cutoff <= r['date'] < since_str]
+    else:
+        # Provisional — always fresh (too recent to cache)
+        provisional = await get_viz_data(project, start_ts=last_date + timedelta(milliseconds=1))
+        result = [r for r in data if r['date'] >= cutoff] + provisional
 
-    # Provisional — always fresh (too recent to cache)
-    provisional = await get_viz_data(project, start_ts=last_date + timedelta(milliseconds=1))
-    return [r for r in data if r['date'] >= cutoff] + provisional
+    await redis.set(response_key, json.dumps(result), ex=RESPONSE_TTL)
+    return result
 
 
 @router.post(
