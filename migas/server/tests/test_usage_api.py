@@ -103,6 +103,7 @@ async def test_usage_api_oldest_date_migration(client: TestClient, db):
     import os
     import redis as sync_redis
     from datetime import datetime, timezone, timedelta
+    from migas.server.cache import historical_key
 
     project = 'test/api-migration'
     await db.register(project)
@@ -116,7 +117,7 @@ async def test_usage_api_oldest_date_migration(client: TestClient, db):
         'last_date': (datetime.now(timezone.utc) - timedelta(hours=49)).isoformat(),
         'data': [{'date': '2026-04-01', 'version': '1.0.0', 'status': 'C', 'count': 5}],
     }
-    r.set(f'migas:viz:hist:{project}', json.dumps(legacy))
+    r.set(historical_key(project), json.dumps(legacy))
     r.close()
 
     res = client.get(f'/api/usage/{project}?weeks=1', headers=auth)
@@ -165,6 +166,56 @@ async def test_usage_api_since_returns_only_older_rows(client: TestClient, db):
     dates = [r['date'] for r in res.json()]
     assert dates, 'delta should include the 20-day-old row'
     assert all(d < since for d in dates), f'delta contained rows >= {since}: {dates}'
+
+
+@pytest.mark.anyio
+async def test_usage_api_response_cache(client: TestClient, db, monkeypatch):
+    """A repeat request will use the cache instead of calling get_viz_data.
+
+    Different (weeks, since) combinations key separately, so they each go to the DB once.
+    """
+    from datetime import datetime, timezone, timedelta
+    from migas.server.tests.conftest import USER_A, SESSION_1
+    from migas.server.api import routes
+
+    project = 'test/api-response-cache'
+    await db.register(project)
+    auth = await db.token(project)
+
+    await db.crumb(
+        project,
+        status='C',
+        session_id=SESSION_1,
+        user_id=USER_A,
+        timestamp=datetime.now(timezone.utc) - timedelta(days=3),
+    )
+
+    calls = []
+    original = routes.get_viz_data
+
+    async def tracking_get_viz_data(project_name, start_ts=None, end_ts=None, session=None):
+        calls.append({'start_ts': start_ts, 'end_ts': end_ts})
+        return await original(project_name, start_ts=start_ts, end_ts=end_ts, session=session)
+
+    monkeypatch.setattr(routes, 'get_viz_data', tracking_get_viz_data)
+
+    res1 = client.get(f'/api/usage/{project}?weeks=1', headers=auth)
+    assert res1.status_code == 200
+    first_call_count = len(calls)
+    assert first_call_count >= 1, 'cold request should hit the DB at least once'
+
+    # Now the cache should be used
+    res2 = client.get(f'/api/usage/{project}?weeks=1', headers=auth)
+    assert res2.status_code == 200
+    assert res2.json() == res1.json()
+    assert len(calls) == first_call_count, (
+        f'cached request should not call get_viz_data; got {len(calls) - first_call_count} extra'
+    )
+
+    # Different cache key (weeks=2) — must go to DB again.
+    res3 = client.get(f'/api/usage/{project}?weeks=2', headers=auth)
+    assert res3.status_code == 200
+    assert len(calls) > first_call_count, 'distinct (weeks) cache key should miss and query'
 
 
 @pytest.mark.anyio
