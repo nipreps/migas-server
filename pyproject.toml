@@ -52,6 +52,10 @@ dev = [
 migrations = [
     "alembic",
 ]
+docs = [
+    "mkdocs-material",
+    "markdown-callouts",
+]
 test = [
     "pytest",
     "pytest-cov",
