@@ -1,0 +1,47 @@
+site_name: migas-server
+site_description: Telemetry server for NiPreps projects
+site_url: https://nipreps.github.io/migas-server/
+repo_url: https://github.com/nipreps/migas-server
+repo_name: nipreps/migas-server
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.top
+    - navigation.sections
+    - content.code.copy
+    - search.suggest
+
+nav:
+  - Home: index.md
+  - Getting started (Docker Compose): getting-started.md
+  - Self-hosting: self-hosting.md
+  - Cloud hosting (GCP): cloud-hosting.md
+
+markdown_extensions:
+  - admonition
+  - github-callouts  # render GitHub-style `> [!NOTE]` alerts as admonitions
+  - tables
+  - toc:
+      permalink: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.highlight
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format

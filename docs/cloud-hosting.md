@@ -7,6 +7,7 @@ and images built by Cloud Build. This is that setup.
 The image and environment variables are the same on any container platform (AWS
 ECS/Fargate, Azure Container Apps, Kubernetes); GCP is just the worked example.
 
+> [!NOTE]
 > For a local instance see [getting started](getting-started.md); for your own
 > host see [self-hosting](self-hosting.md). The
 > [configuration reference](self-hosting.md#6-configuration-reference) there
@@ -75,7 +76,7 @@ export REGION=us-central1   # or your preferred region
 ## 3. Provision Cloud SQL (PostgreSQL)
 
 Create the instance and the `migas` database, or let
-[`deploy/gcp/release-gcp.sh`](../deploy/gcp/release-gcp.sh) create them if they
+[`deploy/gcp/release-gcp.sh`](https://github.com/nipreps/migas-server/blob/main/deploy/gcp/release-gcp.sh) create them if they
 are missing. Use the newest PostgreSQL major your provider offers; `POSTGRES_18`
 is current on Cloud SQL at the time of writing.
 
@@ -128,7 +129,7 @@ details.
 ### Automated
 
 Production deploys run through the
-[`prod-deploy.yml`](../.github/workflows/prod-deploy.yml) workflow on a tag push:
+[`prod-deploy.yml`](https://github.com/nipreps/migas-server/blob/main/.github/workflows/prod-deploy.yml) workflow on a tag push:
 
 ```bash
 git tag -a 1.2.3 -m "Release 1.2.3"
@@ -161,7 +162,7 @@ To deploy from your workstation, run the script (or `make release-gcp`):
 ```
 
 It creates the Cloud SQL instance if needed, builds via Cloud Build
-([`cloudbuild.yml`](../deploy/gcp/cloudbuild.yml)), and deploys. The deploy
+([`cloudbuild.yml`](https://github.com/nipreps/migas-server/blob/main/deploy/gcp/cloudbuild.yml)), and deploys. The deploy
 command itself is:
 
 ```bash
@@ -177,6 +178,7 @@ gcloud run deploy migas-server \
   --set-env-vars="MIGAS_GEOLOC=1|MIGAS_REDIS_URI=...|DATABASE_USER=...|DATABASE_PASSWORD=...|DATABASE_NAME=migas|GCP_SQL_CONNECTION=$GCP_SQL_CONNECTION"
 ```
 
+> [!NOTE]
 > `--set-cloudsql-instances` attaches the socket, and `GCP_SQL_CONNECTION` tells
 > the server to use it. `--forwarded-allow-ips='*'` is fine here because only
 > Cloud Run's front end can reach the container.

@@ -5,6 +5,7 @@ Compose. You provide PostgreSQL and Redis; you install with
 [`uv`](https://docs.astral.sh/uv/), create the schema with Alembic, and run the
 server under `systemd` behind a reverse proxy.
 
+> [!NOTE]
 > For a quick local spin-up, use the [Docker Compose](getting-started.md) guide
 > instead.
 
@@ -101,7 +102,8 @@ DATABASE_PASSWORD=change-me
 DATABASE_NAME=migas
 ```
 
-> ⚠️ **Important:** With discrete variables, the **runtime** connection
+> [!IMPORTANT]
+> With discrete variables, the **runtime** connection
 > (`connections.py`) does *not* read a host or port — it connects to the local
 > default (Unix socket / `localhost:5432`). If your database is on another host,
 > you **must** use `DATABASE_URL` (Option A). The discrete-variable form is only
@@ -149,14 +151,15 @@ This builds the `migas` schema and tables (`projects`, `users`, `crumbs`,
 [13](#13-upgrades)).
 
 **Or `init.sql`.** The repo ships
-[`deploy/docker/init.sql`](../deploy/docker/init.sql), which creates the same
+[`deploy/docker/init.sql`](https://github.com/nipreps/migas-server/blob/main/deploy/docker/init.sql), which creates the same
 core tables in one shot:
 
 ```bash
 psql "postgresql://migas:change-me@localhost:5432/migas" -f deploy/docker/init.sql
 ```
 
-> ⚠️ `init.sql` is intended for local development. It seeds a `master` project
+> [!WARNING]
+> `init.sql` is intended for local development. It seeds a `master` project
 > and two **publicly known test tokens**. If you use it for anything real, delete
 > those seeded rows immediately and bootstrap your own master token
 > ([11](#11-bootstrap-the-first-admin-token)). It also is not revision-aware —
@@ -254,6 +257,7 @@ Flags:
 | `--workers` | `1` | Worker processes. |
 | `--headers` | — | Extra `Name:Value` response headers. |
 
+> [!NOTE]
 > Run it behind a reverse proxy ([10](#10-reverse-proxy--tls)) rather than
 > exposing uvicorn to the internet directly.
 
@@ -346,7 +350,7 @@ Every `/api/admin/*` endpoint requires a master token (an admin token whose
 project is `master`). The API can't create master tokens, so a fresh database
 has none; create the first with the bootstrap script.
 
-[`scripts/bootstrap_admin_token.py`](../scripts/bootstrap_admin_token.py)
+[`scripts/bootstrap_admin_token.py`](https://github.com/nipreps/migas-server/blob/main/scripts/bootstrap_admin_token.py)
 generates a token, stores its BLAKE2b hash, ensures the `master` project row
 exists, and prints the raw token once. It's short and reuses the server's own
 hashing and database code, so read it first if you'd rather run the steps by
@@ -455,4 +459,4 @@ sudo systemctl restart migas-server
 ```
 
 Always run `alembic upgrade head` after pulling; releases may add migrations.
-Check the [CHANGELOG](../CHANGELOG.md) before big version jumps.
+Check the [CHANGELOG](https://github.com/nipreps/migas-server/blob/main/CHANGELOG.md) before big version jumps.
