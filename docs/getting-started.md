@@ -4,6 +4,7 @@ The Docker Compose stack runs a full local instance — server, PostgreSQL, and
 Redis — with the schema and an admin token already seeded. Good for development
 and trying out the API.
 
+> [!NOTE]
 > Running a persistent instance you control (your own Postgres/Redis, no
 > Compose)? See the [self-hosting guide](self-hosting.md) instead.
 
@@ -41,7 +42,7 @@ From the repository root:
 make compose-up
 ```
 
-This runs two steps (see the [Makefile](../Makefile)):
+This runs two steps (see the [Makefile](https://github.com/nipreps/migas-server/blob/main/Makefile)):
 
 1. `docker build` — builds the `migas-server:latest` image.
 2. `docker compose up --detach` — starts the server, Postgres, and Redis in the
@@ -53,7 +54,7 @@ The first build takes a few minutes; subsequent runs are cached.
 
 ## 3. What you get
 
-The stack ([`docker-compose.yml`](../docker-compose.yml)) brings up three
+The stack ([`docker-compose.yml`](https://github.com/nipreps/migas-server/blob/main/docker-compose.yml)) brings up three
 services with these host ports:
 
 | Service | Container | Host port | Notes |
@@ -62,17 +63,19 @@ services with these host ports:
 | **PostgreSQL** | `postgres` | `5433` → 5432 | User `postgres`, password `crumbs`, database `migas`. |
 | **Redis** | `redis` | `6380` → 6379 | No password. |
 
+> [!NOTE]
 > The host ports are offset (8081/5433/6380) so they don't clash with a local
 > Postgres/Redis. See [troubleshooting](#10-troubleshooting) to change them.
 
-On first start, Postgres runs [`deploy/docker/init.sql`](../deploy/docker/init.sql),
+On first start, Postgres runs [`deploy/docker/init.sql`](https://github.com/nipreps/migas-server/blob/main/deploy/docker/init.sql),
 which creates the `migas` schema and tables and seeds:
 
 - Two registered projects: **`master`** and **`nipreps/nipreps`**
 - A working **master (admin) token: `my_test_token`**
 - A `nipreps/nipreps` project token: `m_nipreps`
 
-> ⚠️ These tokens are public and for **local development only**. Never expose
+> [!WARNING]
+> These tokens are public and for **local development only**. Never expose
 > this stack to the internet or reuse these tokens anywhere real.
 
 Check it's up. This endpoint needs the master token and lists the registered
@@ -135,6 +138,7 @@ Response:
 The `proc.status` values map to: `R` (running), `C` (completed), `F` (failed),
 `S` (suspended).
 
+> [!TIP]
 > The `curl` above just shows the endpoint. Python packages can use
 > [migas-py](https://github.com/nipreps/migas-py), which builds and sends
 > breadcrumbs for you (fire-and-forget, fingerprinting, opt-out, CI detection).
@@ -184,7 +188,7 @@ for full admin endpoint details.
 `my_test_token` is public, so replace it before relying on this stack for
 anything beyond local dev. The API can't issue or revoke master tokens, so use
 the bootstrap script
-([`scripts/bootstrap_admin_token.py`](../scripts/bootstrap_admin_token.py)) with
+([`scripts/bootstrap_admin_token.py`](https://github.com/nipreps/migas-server/blob/main/scripts/bootstrap_admin_token.py)) with
 `--rotate`. Run it inside the server container, where the database connection is
 already configured:
 
@@ -195,7 +199,7 @@ docker compose exec migas-server \
 
 It prints a new token; save it, it can't be recovered. The old `my_test_token`
 stops working at once. To bake a different one into fresh stacks instead, edit
-the seeded hash in [`deploy/docker/init.sql`](../deploy/docker/init.sql) and
+the seeded hash in [`deploy/docker/init.sql`](https://github.com/nipreps/migas-server/blob/main/deploy/docker/init.sql) and
 recreate the volume ([9](#9-stop-the-stack)).
 
 ---
@@ -223,7 +227,7 @@ docker compose watch
 ```
 
 Set environment knobs in the `environment:` block of
-[`docker-compose.yml`](../docker-compose.yml): `MIGAS_BYPASS_RATE_LIMIT`,
+[`docker-compose.yml`](https://github.com/nipreps/migas-server/blob/main/docker-compose.yml): `MIGAS_BYPASS_RATE_LIMIT`,
 `MIGAS_GEOLOC`, the rate-limit variables, and so on. The
 [configuration reference](self-hosting.md#6-configuration-reference) lists them
 all.
@@ -259,7 +263,7 @@ script:
 
 (`.maint/services start` brings them back.) Otherwise stop the conflicting
 service, or change the mapping: edit the service's `ports:` entry in
-[`docker-compose.yml`](../docker-compose.yml) — the value is `"HOST:CONTAINER"`,
+[`docker-compose.yml`](https://github.com/nipreps/migas-server/blob/main/docker-compose.yml) — the value is `"HOST:CONTAINER"`,
 so adjust the **left** number only (e.g. `"9090:8080"` to serve the API on
 `localhost:9090`). Leave the container port unchanged, then re-run
 `make compose-up` to apply.
