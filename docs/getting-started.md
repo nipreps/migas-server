@@ -13,13 +13,10 @@ and trying out the API.
 1. [Prerequisites](#1-prerequisites)
 2. [Start the stack](#2-start-the-stack)
 3. [What you get](#3-what-you-get)
-4. [Register a project](#4-register-a-project)
-5. [Send your first breadcrumb](#5-send-your-first-breadcrumb)
-6. [Use the admin API](#6-use-the-admin-api)
-7. [View the dashboard](#7-view-the-dashboard)
-8. [Live reload during development](#8-live-reload-during-development)
-9. [Stop the stack](#9-stop-the-stack)
-10. [Troubleshooting](#10-troubleshooting)
+4. [First steps](#4-first-steps)
+5. [Live reload during development](#5-live-reload-during-development)
+6. [Stop the stack](#6-stop-the-stack)
+7. [Troubleshooting](#7-troubleshooting)
 
 ---
 
@@ -65,7 +62,7 @@ services with these host ports:
 
 > [!NOTE]
 > The host ports are offset (8081/5433/6380) so they don't clash with a local
-> Postgres/Redis. See [troubleshooting](#10-troubleshooting) to change them.
+> Postgres/Redis. See [troubleshooting](#7-troubleshooting) to change them.
 
 On first start, Postgres runs [`deploy/docker/init.sql`](https://github.com/nipreps/migas-server/blob/main/deploy/docker/init.sql),
 which creates the `migas` schema and tables and seeds:
@@ -91,106 +88,24 @@ running.
 
 ---
 
-## 4. Register a project
+## 4. First steps
 
-A project must be registered before it can receive telemetry. The stack seeds
-`nipreps/nipreps`; add your own with the master token (registration is
-admin-only), using the `owner/repo` form:
+The stack seeds the master token `my_test_token` and the `nipreps/nipreps`
+project, so you can exercise the API right away. Using `http://localhost:8081`
+as the instance URL and `my_test_token` as the master token:
 
-```bash
-export TOKEN=my_test_token
+- [Register a project](administration.md#register-a-project) and
+  [issue tokens](administration.md#issue-a-project-token).
+- [Send a breadcrumb](usage.md#send-a-breadcrumb) and
+  [view the dashboard](usage.md#view-the-dashboard) at
+  <http://localhost:8081/viz/>.
 
-curl -X POST http://localhost:8081/api/admin/register \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"project": "my-org/my-tool"}'
-# {"success":true,"message":"Project is now registered."}
-```
-
----
-
-## 5. Send your first breadcrumb
-
-A breadcrumb is a single telemetry ping. It needs no token, but the project must
-already be registered — use `my-org/my-tool` from the last step, or the seeded
-`nipreps/nipreps`. `?wait=true` ingests synchronously; without it the call
-returns `202` and ingestion runs in the background:
-
-```bash
-curl -X POST "http://localhost:8081/api/breadcrumb?wait=true" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "project": "my-org/my-tool",
-    "project_version": "1.0.0",
-    "language": "python",
-    "language_version": "3.11",
-    "ctx": {"platform": "linux", "is_ci": false},
-    "proc": {"status": "C"}
-  }'
-```
-
-Response:
-
-```json
-{ "success": true, "message": "" }
-```
-
-The `proc.status` values map to: `R` (running), `C` (completed), `F` (failed),
-`S` (suspended).
-
-> [!TIP]
-> The `curl` above just shows the endpoint. Python packages can use
-> [migas-py](https://github.com/nipreps/migas-py), which builds and sends
-> breadcrumbs for you (fire-and-forget, fingerprinting, opt-out, CI detection).
-> Point it at your instance via its endpoint config.
-
----
-
-## 6. Use the admin API
-
-Admin endpoints live under `/api/admin/` and require the master token
-(`my_test_token` here, exported as `$TOKEN` in [4](#4-register-a-project)).
-Besides [registering projects](#4-register-a-project), you can issue and manage
-scoped tokens.
-
-A scoped token is tied to one project and grants read access to that project
-only:
-
-- Its usage statistics via `GET /api/usage/{owner}/{repo}`.
-- That project (and nothing else) in the [dashboard](#7-view-the-dashboard)
-  selector and `GET /api/auth/projects`.
-
-It can't reach other projects or the admin endpoints; those need the master
-token. Sending breadcrumbs needs no token at all, so scoped tokens are for
-reading usage, not ingesting.
-
-**Issue a scoped project token** (returned once, in plaintext):
-
-```bash
-curl -X POST http://localhost:8081/api/admin/issue-token \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"project": "my-org/my-tool", "description": "local test"}'
-```
-
-**List tokens** (filter by `?project=owner/repo`):
-
-```bash
-curl "http://localhost:8081/api/admin/list-tokens?project=my-org/my-tool" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-See the [self-hosting guide](self-hosting.md#12-administration-projects--tokens)
-for full admin endpoint details.
-
-### Change the master token
+### Rotate the seeded token
 
 `my_test_token` is public, so replace it before relying on this stack for
-anything beyond local dev. The API can't issue or revoke master tokens, so use
-the bootstrap script
-([`scripts/bootstrap_admin_token.py`](https://github.com/nipreps/migas-server/blob/main/scripts/bootstrap_admin_token.py)) with
-`--rotate`. Run it inside the server container, where the database connection is
-already configured:
+anything beyond local dev. Run the
+[bootstrap script](administration.md#bootstrap-the-master-token) inside the
+server container, where the database connection is already configured:
 
 ```bash
 docker compose exec migas-server \
@@ -200,23 +115,11 @@ docker compose exec migas-server \
 It prints a new token; save it, it can't be recovered. The old `my_test_token`
 stops working at once. To bake a different one into fresh stacks instead, edit
 the seeded hash in [`deploy/docker/init.sql`](https://github.com/nipreps/migas-server/blob/main/deploy/docker/init.sql) and
-recreate the volume ([9](#9-stop-the-stack)).
+recreate the volume ([§6](#6-stop-the-stack)).
 
 ---
 
-## 7. View the dashboard
-
-Open the usage visualization in a browser:
-
-```
-http://localhost:8081/viz/
-```
-
-After sending a few breadcrumbs for a project, you can chart its usage there.
-
----
-
-## 8. Live reload during development
+## 5. Live reload during development
 
 The stack mounts your working tree into the container and runs uvicorn with
 `--reload`, so source edits are picked up automatically. In watch mode, changes
@@ -226,15 +129,13 @@ to `pyproject.toml`, `uv.lock`, or the `Dockerfile` also trigger a rebuild:
 docker compose watch
 ```
 
-Set environment knobs in the `environment:` block of
-[`docker-compose.yml`](https://github.com/nipreps/migas-server/blob/main/docker-compose.yml): `MIGAS_BYPASS_RATE_LIMIT`,
-`MIGAS_GEOLOC`, the rate-limit variables, and so on. The
-[configuration reference](self-hosting.md#6-configuration-reference) lists them
-all.
+Environment knobs go in the `environment:` block of
+[`docker-compose.yml`](https://github.com/nipreps/migas-server/blob/main/docker-compose.yml);
+see the [configuration reference](configuration.md).
 
 ---
 
-## 9. Stop the stack
+## 6. Stop the stack
 
 ```bash
 make compose-down
@@ -251,7 +152,7 @@ make compose-up
 
 ---
 
-## 10. Troubleshooting
+## 7. Troubleshooting
 
 **Port already in use (5433, 6380, or 8081).** You likely have a local Postgres
 or Redis running. If they were installed via Homebrew, stop them with the helper
@@ -273,4 +174,4 @@ to compute the version. Install it with `uv tool install hatch` and retry.
 
 **Database changes not taking effect.** `init.sql` only runs the first time the
 Postgres data directory is created. After schema changes, recreate the volume as
-shown in [9](#9-stop-the-stack).
+shown in [§6](#6-stop-the-stack).

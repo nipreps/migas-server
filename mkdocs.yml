@@ -26,9 +26,14 @@ theme:
 
 nav:
   - Home: index.md
-  - Getting started (Docker Compose): getting-started.md
-  - Self-hosting: self-hosting.md
-  - Cloud hosting (GCP): cloud-hosting.md
+  - Deployment:
+    - Docker Compose: getting-started.md
+    - Self-hosting: self-hosting.md
+    - Cloud (GCP): cloud-hosting.md
+  - Operations:
+    - Configuration: configuration.md
+    - Usage: usage.md
+    - Administration: administration.md
 
 markdown_extensions:
   - admonition

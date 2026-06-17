@@ -10,8 +10,9 @@ ECS/Fargate, Azure Container Apps, Kubernetes); GCP is just the worked example.
 > [!NOTE]
 > For a local instance see [getting started](getting-started.md); for your own
 > host see [self-hosting](self-hosting.md). The
-> [configuration reference](self-hosting.md#6-configuration-reference) there
-> covers the environment variables used below.
+> [configuration reference](configuration.md) covers the environment variables
+> used below, and [administration](administration.md) covers tokens and the
+> admin API.
 
 ## Contents
 
@@ -188,7 +189,7 @@ gcloud run deploy migas-server \
 ## 7. Bootstrap the admin token
 
 A fresh database has no master token, and the API can't create one. Run the
-[bootstrap script](self-hosting.md#11-bootstrap-the-first-admin-token) over the
+[bootstrap script](administration.md#bootstrap-the-master-token) over the
 Auth Proxy, the same way as the migration above:
 
 ```bash
@@ -200,6 +201,8 @@ DATABASE_URL="postgresql+asyncpg://postgres:<password>@127.0.0.1:<PORT>/migas" \
 ```
 
 Save the printed token; it's your admin credential for the deployed instance.
+With it you can register projects and issue scoped tokens — see
+[Administration](administration.md).
 
 ---
 
