@@ -16,14 +16,11 @@ server under `systemd` behind a reverse proxy.
 3. [Provision PostgreSQL](#3-provision-postgresql)
 4. [Provision Redis](#4-provision-redis)
 5. [Initialize the database schema](#5-initialize-the-database-schema)
-6. [Configuration reference](#6-configuration-reference)
-7. [Geolocation databases (optional)](#7-geolocation-databases-optional)
-8. [Run the server](#8-run-the-server)
-9. [Run under systemd](#9-run-under-systemd)
-10. [Reverse proxy & TLS](#10-reverse-proxy--tls)
-11. [Bootstrap the first admin token](#11-bootstrap-the-first-admin-token)
-12. [Administration: projects & tokens](#12-administration-projects--tokens)
-13. [Upgrades](#13-upgrades)
+6. [Run the server](#6-run-the-server)
+7. [Run under systemd](#7-run-under-systemd)
+8. [Reverse proxy & TLS](#8-reverse-proxy--tls)
+9. [Set up admin access](#9-set-up-admin-access)
+10. [Upgrades](#10-upgrades)
 
 ---
 
@@ -39,7 +36,7 @@ parts you provide:
 | **migas-server** | The ASGI app, run with `uvicorn` | This repository + Python |
 
 It can also use MaxMind-format geolocation databases (see
-[7](#7-geolocation-databases-optional)).
+[Configuration](configuration.md#geolocation)).
 
 **Host requirements:**
 
@@ -82,50 +79,17 @@ CREATE ROLE migas WITH LOGIN PASSWORD 'change-me';
 CREATE DATABASE migas OWNER migas;
 ```
 
-The server builds its connection URL one of two ways. **Which one you use
-matters for remote databases:**
-
-### Option A — `DATABASE_URL` (recommended for any non-local database)
-
-Set a single connection string. The driver is always coerced to
-`postgresql+asyncpg`, so you can supply a plain `postgresql://` URL:
-
-```env
-DATABASE_URL=postgresql+asyncpg://migas:change-me@db.example.org:5432/migas
-```
-
-### Option B — discrete variables
-
-```env
-DATABASE_USER=migas
-DATABASE_PASSWORD=change-me
-DATABASE_NAME=migas
-```
-
-> [!IMPORTANT]
-> With discrete variables, the **runtime** connection
-> (`connections.py`) does *not* read a host or port — it connects to the local
-> default (Unix socket / `localhost:5432`). If your database is on another host,
-> you **must** use `DATABASE_URL` (Option A). The discrete-variable form is only
-> suitable when Postgres is local to the server.
->
-> (Alembic's `env.py` *does* honor optional `DATABASE_HOST`/`DATABASE_PORT`, so
-> migrations can reach a remote DB with discrete vars — but the running server
-> will not. Use `DATABASE_URL` everywhere to avoid surprises.)
+Point the server at it with `DATABASE_URL` (required for any non-local database).
+See [Configuration → Database](configuration.md#database) for the connection
+variables and an important caveat about remote hosts.
 
 ---
 
 ## 4. Provision Redis
 
 Redis is required, for rate limiting and GitHub-project caching. Point the server
-at it with:
-
-```env
-MIGAS_REDIS_URI=redis://:password@redis.example.org:6379
-```
-
-For a TLS endpoint you may instead set `REDIS_TLS_URL` (a `rediss://…` URL).
-When both are set, `REDIS_TLS_URL` takes precedence.
+at it with `MIGAS_REDIS_URI` (or `REDIS_TLS_URL` for a `rediss://` endpoint); see
+[Configuration → Redis](configuration.md#redis).
 
 ---
 
@@ -133,7 +97,7 @@ When both are set, `REDIS_TLS_URL` takes precedence.
 
 **Use Alembic migrations.** This is the version-tracked way to create and update
 the schema. From the repo root, with your database variables set (see
-[6](#6-configuration-reference)):
+[Configuration](configuration.md)):
 
 ```bash
 uv run alembic upgrade head
@@ -148,7 +112,7 @@ MIGAS_ENV_FILE=/etc/migas/migas.env uv run alembic upgrade head
 
 This builds the `migas` schema and tables (`projects`, `users`, `crumbs`,
 `auth`, `geoloc`). Re-running it after a `git pull` applies new migrations (see
-[13](#13-upgrades)).
+[§10](#10-upgrades)).
 
 **Or `init.sql`.** The repo ships
 [`deploy/docker/init.sql`](https://github.com/nipreps/migas-server/blob/main/deploy/docker/init.sql), which creates the same
@@ -162,83 +126,12 @@ psql "postgresql://migas:change-me@localhost:5432/migas" -f deploy/docker/init.s
 > `init.sql` is intended for local development. It seeds a `master` project
 > and two **publicly known test tokens**. If you use it for anything real, delete
 > those seeded rows immediately and bootstrap your own master token
-> ([11](#11-bootstrap-the-first-admin-token)). It also is not revision-aware —
-> Alembic won't know what state the database is in. Prefer `alembic upgrade head`.
+> ([§9](#9-set-up-admin-access)). It also is not revision-aware — Alembic won't
+> know what state the database is in. Prefer `alembic upgrade head`.
 
 ---
 
-## 6. Configuration reference
-
-The server is configured entirely through environment variables. Put them in an
-env file (e.g. `/etc/migas/migas.env`) referenced by your `systemd` unit.
-
-### Database
-
-| Variable | Default | Notes |
-|---|---|---|
-| `DATABASE_URL` | — | Full connection URL. Coerced to `postgresql+asyncpg`. Use this for any remote DB. |
-| `DATABASE_USER` | — | Used only if `DATABASE_URL` is unset. |
-| `DATABASE_PASSWORD` | — | Used only if `DATABASE_URL` is unset. |
-| `DATABASE_NAME` | — | Used only if `DATABASE_URL` is unset. |
-| `DATABASE_HOST` | `localhost` | **Alembic only** — the running server ignores this. |
-| `DATABASE_PORT` | `5432` | **Alembic only** — the running server ignores this. |
-| `GCP_SQL_CONNECTION` | — | GCP Cloud SQL socket path. Leave unset when self-hosting. |
-
-### Redis
-
-| Variable | Default | Notes |
-|---|---|---|
-| `MIGAS_REDIS_URI` | — | **Required.** `redis://[:password@]host:port`. |
-| `REDIS_TLS_URL` | — | TLS endpoint (`rediss://…`). Takes precedence over `MIGAS_REDIS_URI`. |
-
-### Rate limiting & request size
-
-| Variable | Default | Notes |
-|---|---|---|
-| `MIGAS_REQUEST_WINDOW` | `60` | Sliding-window length in seconds. |
-| `MIGAS_MAX_REQUESTS_PER_WINDOW` | `100` | Allowed requests per window per client. |
-| `MIGAS_MAX_REQUEST_SIZE` | `2500` | Max request body size in bytes. |
-| `MIGAS_BYPASS_RATE_LIMIT` | unset | Set to any non-empty value to disable rate limiting (not recommended in prod). |
-
-### Geolocation
-
-| Variable | Default | Notes |
-|---|---|---|
-| `MIGAS_GEOLOC` | unset | Set to `1`/`true` to enable IP geolocation. |
-| `MIGAS_GEOLOC_DIR` | `.` | Directory containing `city.mmdb` and `asn.mmdb`. |
-
-### Misc
-
-| Variable | Default | Notes |
-|---|---|---|
-| `MIGAS_DEV` | unset | Enables SQLAlchemy SQL echo. **Never set in production.** |
-
----
-
-## 7. Geolocation databases (optional)
-
-Geolocation tags telemetry with coarse city/ASN info. The server reads two
-MaxMind-format files, `city.mmdb` and `asn.mmdb`, from `MIGAS_GEOLOC_DIR` (bring
-your own).
-
-Download them (hosted on OSF, no MaxMind key needed):
-
-```bash
-uv run scripts/download_geodbs.py /var/lib/migas/geodb
-```
-
-Then enable the feature:
-
-```env
-MIGAS_GEOLOC=1
-MIGAS_GEOLOC_DIR=/var/lib/migas/geodb
-```
-
-With `MIGAS_GEOLOC` unset, the files aren't needed and geolocation is skipped.
-
----
-
-## 8. Run the server
+## 6. Run the server
 
 Launch the server with the `migas-server` console script, a thin wrapper over
 `uvicorn`:
@@ -258,7 +151,7 @@ Flags:
 | `--headers` | — | Extra `Name:Value` response headers. |
 
 > [!NOTE]
-> Run it behind a reverse proxy ([10](#10-reverse-proxy--tls)) rather than
+> Run it behind a reverse proxy ([§8](#8-reverse-proxy--tls)) rather than
 > exposing uvicorn to the internet directly.
 
 Check it responds. A `401` here is expected — the endpoint needs a token — and
@@ -270,16 +163,16 @@ curl -i http://127.0.0.1:8080/api/auth/projects
 
 ---
 
-## 9. Run under systemd
+## 7. Run under systemd
 
 Create an env file at `/etc/migas/migas.env` with the variables from
-[6](#6-configuration-reference), e.g.:
+[Configuration](configuration.md), e.g.:
 
 ```env
 DATABASE_URL=postgresql+asyncpg://migas:change-me@localhost:5432/migas
 MIGAS_REDIS_URI=redis://:password@localhost:6379
 MIGAS_GEOLOC=1
-MIGAS_GEOLOC_DIR=/var/lib/migas/geodb
+MIGAS_GEOLOC_DIR=/path/to/geodb
 ```
 
 Create a service unit at `/etc/systemd/system/migas-server.service`:
@@ -316,7 +209,7 @@ journalctl -u migas-server -f
 
 ---
 
-## 10. Reverse proxy & TLS
+## 8. Reverse proxy & TLS
 
 Terminate TLS at a reverse proxy and forward to uvicorn on `127.0.0.1`. Minimal
 nginx config:
@@ -344,18 +237,11 @@ forward them from a proxy you trust.
 
 ---
 
-## 11. Bootstrap the first admin token
+## 9. Set up admin access
 
-Every `/api/admin/*` endpoint requires a master token (an admin token whose
-project is `master`). The API can't create master tokens, so a fresh database
-has none; create the first with the bootstrap script.
-
-[`scripts/bootstrap_admin_token.py`](https://github.com/nipreps/migas-server/blob/main/scripts/bootstrap_admin_token.py)
-generates a token, stores its BLAKE2b hash, ensures the `master` project row
-exists, and prints the raw token once. It's short and reuses the server's own
-hashing and database code, so read it first if you'd rather run the steps by
-hand. Run it from the repo root with the server's `DATABASE_URL` / `DATABASE_*`
-variables:
+A fresh database has no admin credential. Bootstrap the master token by running
+the [bootstrap script](administration.md#bootstrap-the-master-token) from the
+repo root, with the server's environment:
 
 ```bash
 uv run python scripts/bootstrap_admin_token.py
@@ -363,90 +249,13 @@ uv run python scripts/bootstrap_admin_token.py
 MIGAS_ENV_FILE=/etc/migas/migas.env uv run python scripts/bootstrap_admin_token.py
 ```
 
-It prints the token once; save it, it can't be recovered from the database:
-
-```
-Master token created. Save it now — it cannot be recovered:
-
-    m_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-Use it as a bearer token:  Authorization: Bearer <token>
-```
-
-If a master token already exists the script refuses to run. Add `--rotate` to
-replace it; the old token stops working at once:
-
-```bash
-uv run python scripts/bootstrap_admin_token.py --rotate
-```
+Save the printed token. With it you can register projects and issue scoped
+tokens — see [Administration](administration.md) for the token model and the
+full admin API.
 
 ---
 
-## 12. Administration: projects & tokens
-
-All admin endpoints are under `/api/admin/` and require the master token:
-
-```
-Authorization: Bearer m_PASTE_YOUR_RAW_TOKEN
-```
-
-Never pass tokens as URL parameters.
-
-### Register a project
-
-A project must be registered before it can receive telemetry or have tokens
-issued. Use the `owner/repo` form.
-
-```bash
-curl -X POST https://migas.example.org/api/admin/register \
-  -H "Authorization: Bearer $MASTER_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"project": "nipreps/fmriprep"}'
-```
-
-### Issue a project token
-
-Returns a scoped token once, in plaintext, for a registered project. Master
-tokens can't be issued this way.
-
-```bash
-curl -X POST https://migas.example.org/api/admin/issue-token \
-  -H "Authorization: Bearer $MASTER_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"project": "nipreps/fmriprep", "description": "CI token"}'
-```
-
-Response:
-
-```json
-{ "success": true, "token": "m_…", "message": "Token issued successfully." }
-```
-
-### List tokens
-
-Filter by `?project=owner/repo`. Returns hashed tokens and metadata
-(`created_at`, `last_used`), never the raw token.
-
-```bash
-curl "https://migas.example.org/api/admin/list-tokens?project=nipreps/fmriprep" \
-  -H "Authorization: Bearer $MASTER_TOKEN"
-```
-
-### Revoke a token
-
-Deletes a token by its hashed value (from `list-tokens`). Master tokens can't be
-revoked here.
-
-```bash
-curl -X POST https://migas.example.org/api/admin/revoke-token \
-  -H "Authorization: Bearer $MASTER_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"token": "<hashed-token>"}'
-```
-
----
-
-## 13. Upgrades
+## 10. Upgrades
 
 To update a running instance:
 
