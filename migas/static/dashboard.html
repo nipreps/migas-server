@@ -14,7 +14,7 @@
                 <select id="project-select" class="project-name" onchange="updateDashboard()"></select>
             </div>
             <div class="nav-controls">
-                <a href="#" class="logout-link" onclick="logout(event)">Logout</a>
+                <a href="#" class="logout-link" onclick="_logout(event)">Logout</a>
             </div>
         </header>
         <div class="filter-row">
@@ -58,7 +58,7 @@
             <input type="date" id="custom-start" class="date-input">
             <span class="filter-label">to</span>
             <input type="date" id="custom-end" class="date-input">
-            <button class="btn-reset" onclick="applyCustomRange()">Apply</button>
+            <button class="btn-reset" onclick="_applyCustomRange()">Apply</button>
         </div>
         <div class="dashboard-grid">
             <div class="card" id="status-card">
@@ -75,10 +75,10 @@
                     <span id="range-indicator" class="card-title-meta"></span>
                     <div class="usage-controls">
                         <label class="lock-label">
-                            <input type="checkbox" id="lock-yaxis-checkbox" onchange="toggleLockYAxis()">
+                            <input type="checkbox" id="lock-yaxis-checkbox" onchange="_toggleLockYAxis()">
                             Lock Y-Axis
                         </label>
-                        <button id="reset-zoom-btn" class="btn-reset hidden" onclick="resetZoom()">Reset View</button>
+                        <button id="reset-zoom-btn" class="btn-reset hidden" onclick="_resetZoom()">Reset View</button>
                     </div>
                 </div>
                 <div class="card-subtitle">
