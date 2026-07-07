@@ -1,8 +1,32 @@
 """POST /api/breadcrumb — telemetry ingestion endpoint."""
 
+import pytest
 from fastapi.testclient import TestClient
 
+from migas.server.api.models import BreadcrumbRequest
 from ..conftest import TEST_PROJECT
+
+
+@pytest.mark.parametrize('field', ['project_version', 'language_version'])
+@pytest.mark.parametrize(
+    'value, valid',
+    [
+        ('1.0.0', True),
+        ('2.0.0rc1', True),
+        ('0.8.1.dev17+gcaf8859', True),
+        ('1.2.3-4-gabcdef', True),
+        ('v1.0.0_custom', True),
+        ('<iframe onload=alert(1)>', False),
+        ("');eval(name)//", False),
+        ('<script>x</script>', False),
+        ('has spaces', False),
+        ('1.0"onerror=x', False),
+        ('', False),
+    ],
+)
+def test_versions(field: str, value: str, valid: bool):
+    model = BreadcrumbRequest(**{'project': 'o/r', 'project_version': '1.0.0', field: value})
+    assert getattr(model, field) == (value if valid else 'unknown')
 
 
 class TestBreadcrumb:
