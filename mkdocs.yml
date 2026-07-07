@@ -1,6 +1,6 @@
 site_name: migas-server
 site_description: Telemetry server for NiPreps projects
-site_url: https://nipreps.github.io/migas-server/
+site_url: https://nipreps.org/migas-server/
 repo_url: https://github.com/nipreps/migas-server
 repo_name: nipreps/migas-server
 edit_uri: edit/main/docs/
