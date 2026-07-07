@@ -31,7 +31,10 @@
     <script>
     function setStatus(msg, type) {
         const status = document.getElementById("status");
-        status.innerHTML = `<span class="status-badge ${type}">${msg}</span>`;
+        const badge = document.createElement("span");
+        badge.className = `status-badge ${type}`;
+        badge.textContent = msg;
+        status.replaceChildren(badge);
         status.style.display = "block";
     }
 
