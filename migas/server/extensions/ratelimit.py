@@ -1,9 +1,12 @@
+import logging
 import os
 import time
 
 from fastapi import Request
 
 from ..connections import get_redis_connection
+
+logger = logging.getLogger('migas')
 
 
 class RateLimitError(Exception):
@@ -39,7 +42,7 @@ async def check_rate_limit(request: Request, window: int = None, max_requests: i
     if window is None:
         window = int(os.getenv('MIGAS_REQUEST_WINDOW', '60'))
     if max_requests is None:
-        max_requests = int(os.getenv('MIGAS_MAX_REQUESTS_PER_WINDOW', '100'))
+        max_requests = int(os.getenv('MIGAS_MAX_REQUESTS_PER_WINDOW', '1000'))
 
     if (cache := await get_redis_connection()) is None:
         return
@@ -58,5 +61,8 @@ async def check_rate_limit(request: Request, window: int = None, max_requests: i
         res = await pipe.execute()
 
     timestamps = res[1]
-    if len(timestamps) > max_requests:
+    if len(timestamps) >= max_requests:
+        logger.warning(
+            f'Rate limit exceeded for {host}: {len(timestamps)} requests in {window}s window'
+        )
         raise RateLimitExceededError()
