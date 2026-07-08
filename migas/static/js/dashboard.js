@@ -432,44 +432,65 @@ function updateVersionToggles(data) {
 	const isDropdownSelected =
 		selectedVersion && moreVersions.includes(selectedVersion);
 
-	const radioHTML = [
+	const container = document.getElementById("version-toggle-group");
+	container.replaceChildren();
+
+	const radios = [
 		{
 			value: "all",
 			id: "v-all",
 			label: "All Versions",
 			checked: !selectedVersion,
-			onChange: "setVersionFilter(null)",
 		},
 		...mainVersions.map((v) => ({
 			value: v,
 			id: `v-${v.replace(/\./g, "-")}`,
 			label: v,
 			checked: selectedVersion === v,
-			onChange: `setVersionFilter('${v}')`,
 		})),
-	]
-		.map(
-			({ value, id, label, checked, onChange }) =>
-				`<input type="radio" name="v-filter" value="${value}" id="${id}" ${checked ? "checked" : ""} onchange="${onChange}">
-         <label for="${id}">${label}</label>`,
-		)
-		.join("");
+	];
 
-	const dropdownHTML =
-		moreVersions.length > 0
-			? `<select class="version-select" id="more-versions-select" onchange="setVersionFilter(this.value)">
-             <option value="" ${!isDropdownSelected ? "selected" : ""} disabled>More…</option>
-             ${moreVersions
-								.map(
-									(v) =>
-										`<option value="${v}" ${selectedVersion === v ? "selected" : ""}>${v}</option>`,
-								)
-								.join("")}
-           </select>`
-			: "";
+	for (const { value, id, label, checked } of radios) {
+		const input = document.createElement("input");
+		input.type = "radio";
+		input.name = "v-filter";
+		input.value = value;
+		input.id = id;
+		input.checked = checked;
+		input.addEventListener("change", () =>
+			setVersionFilter(value === "all" ? null : value),
+		);
 
-	document.getElementById("version-toggle-group").innerHTML =
-		radioHTML + dropdownHTML;
+		const lbl = document.createElement("label");
+		lbl.htmlFor = id;
+		lbl.textContent = label;
+
+		container.append(input, lbl);
+	}
+
+	if (moreVersions.length > 0) {
+		const select = document.createElement("select");
+		select.className = "version-select";
+		select.id = "more-versions-select";
+		select.addEventListener("change", () => setVersionFilter(select.value));
+
+		const placeholder = document.createElement("option");
+		placeholder.value = "";
+		placeholder.disabled = true;
+		placeholder.selected = !isDropdownSelected;
+		placeholder.textContent = "More…";
+		select.append(placeholder);
+
+		for (const v of moreVersions) {
+			const opt = document.createElement("option");
+			opt.value = v;
+			opt.textContent = v;
+			opt.selected = selectedVersion === v;
+			select.append(opt);
+		}
+
+		container.append(select);
+	}
 }
 
 function setVersionFilter(version) {
