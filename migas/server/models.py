@@ -1,5 +1,5 @@
 from sqlalchemy import Column, ForeignKey, Index, MetaData, UniqueConstraint, desc
-from sqlalchemy.dialects.postgresql import ENUM, UUID
+from sqlalchemy.dialects.postgresql import ENUM, UUID, JSONB
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.sql import func
 from sqlalchemy.types import BOOLEAN, INTEGER, TIMESTAMP, String, CHAR, DOUBLE_PRECISION
@@ -59,6 +59,7 @@ class Crumb(Base):
     error_type = Column(String)
     error_desc = Column(String)
     is_ci = Column(BOOLEAN, nullable=False)
+    params = Column(JSONB, nullable=True)
 
 
 projects = Projects.__table__

@@ -40,6 +40,7 @@ class TestBreadcrumb:
                 'project_version': '1.0.0',
                 'language': 'python',
                 'language_version': '3.12',
+                'params': {'iam': 'anewparam'}
             },
         )
         assert res.status_code == 202
@@ -53,6 +54,7 @@ class TestBreadcrumb:
                 'project_version': '1.0.0',
                 'language': 'python',
                 'language_version': '3.12',
+                'params': {'iam': 'anewparam'}
             },
         )
         assert res.status_code == 200

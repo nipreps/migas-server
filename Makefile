@@ -1,4 +1,4 @@
-.PHONY: docker-build compose-up compose-down freeze release-gcp
+.PHONY: docker-build compose-up compose-down freeze release-gcp server-test
 
 BUILDTYPE=latest
 DEPLOYSERVER=uvicorn
@@ -21,3 +21,7 @@ freeze:
 release-gcp:
 	@echo "Releasing on GCP"
 	./deploy/gcp/release-gcp.sh
+
+test:
+	@echo "Running server migas/server tests with docker and geoloc"
+	@cd migas/server/tests/ && pytest --with-docker --with-geoloc

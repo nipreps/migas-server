@@ -76,7 +76,7 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - ./mounts/db:/var/lib/postgresql/data/
+      - ${MIGAS_POSTGRES_DATA_DIR:-./mounts/db}:/var/lib/postgresql/data/
       - ./deploy/docker/init.sql:/docker-entrypoint-initdb.d/init.sql
     environment:
       POSTGRES_USER: "postgres"
