@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.9.0] - 2026-07-10
+
+### Documentation
+- **Improved Documentation**: Added documentation for devs wishing to host their own migas server.
+
+### Enhancements
+- **Higher Rate Limit**: Raised the default request allowance from 100 to 1000 per 60s window (`MIGAS_MAX_REQUESTS_PER_WINDOW`).
+- **Usage Response Caching**: Cache the assembled `/api/usage` response with a short TTL to reduce recomputation on repeat loads.
+- **Visualization Query**: Optimized the viz data query with prefiltering and a lateral per-session lookup.
+
+### Bug Fixes
+- **Input Hardening**: Coerce non-string telemetry inputs via `SafeStr` and unsafe version strings to `"unknown"`.
+- **XSS Prevention**: Render dynamic dashboard values via the DOM API instead of `innerHTML`.
+- **Dashboard Buttons**: Fixed non-working dashboard buttons and related typos. (With thanks to @bendhouseart!)
+
+---
+*For a full list of changes, see the [commit history](https://github.com/nipreps/migas-server/compare/0.8.0...0.9.0).*
+
 ## [0.8.0] - 2026-04-23
 
 ### Enhancements
