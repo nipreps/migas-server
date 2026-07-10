@@ -73,7 +73,7 @@ jobs:
             --region=us-central1 \
             --image="${{ steps.check-image.outputs.exists == 'true' && format('gcr.io/{0}/migas-server@{1}', secrets.PROJECT_ID, steps.check-image.outputs.digest) || env.GCR_TAG }}" \
             --platform=managed \
-            --min-instances=1 \
+            --min=1 \
             --max-instances=3 \
             --ingress=all \
             --allow-unauthenticated \

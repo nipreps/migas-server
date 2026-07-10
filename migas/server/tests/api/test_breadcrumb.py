@@ -1,5 +1,7 @@
 """POST /api/breadcrumb — telemetry ingestion endpoint."""
 
+from uuid import uuid4
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -46,7 +48,10 @@ class TestBreadcrumb:
         assert res.status_code == 202
         assert res.json()['success'] is True
 
-    def test_success_wait(self, client: TestClient):
+    @pytest.mark.anyio
+    async def test_success_wait(self, client: TestClient, db):
+        user_id = str(uuid4())
+        session_id = str(uuid4())
         res = client.post(
             self.url + '?wait=true',
             json={
@@ -54,11 +59,23 @@ class TestBreadcrumb:
                 'project_version': '1.0.0',
                 'language': 'python',
                 'language_version': '3.12',
-                'params': {'iam': 'anewparam'}
+                'params': {'iam': 'anewparam'},
+                'ctx': {
+                    'user_id': user_id,
+                    'session_id': session_id,
+                    'platform': 'Linux-x86_64',
+                    'container': 'docker',
+                },
+                'proc': {'status': 'C'},
             },
         )
         assert res.status_code == 200
         assert res.json()['success'] is True
+
+        user = await db.get_user(user_id)
+        assert user is not None, 'ingest did not populate the users table'
+        assert user['platform'] == 'Linux-x86_64'
+        assert user['container'] == 'docker'
 
     def test_failure_wait(self, client: TestClient, monkeypatch):
         from migas.server.api import routes

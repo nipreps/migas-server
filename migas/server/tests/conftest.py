@@ -4,9 +4,10 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, patch, MagicMock
 
 import pytest
+from fastapi import Request
 from fastapi.testclient import TestClient
 
 # Import modules to ensure they can be patched
@@ -160,6 +161,24 @@ def auth_header(token: str) -> dict[str, str]:
 def master_token() -> str:
     """Raw master token seeded by deploy/docker/init.sql."""
     return 'my_test_token'
+
+
+@pytest.fixture
+def mock_request():
+    """Factory for a fake `Request`, for unit-testing code that reads request.client/headers
+    without going through the full FastAPI `client` fixture."""
+
+    def _make(host: str | None = None, headers: dict | None = None) -> Request:
+        request = MagicMock(spec=Request)
+        if host:
+            request.client = MagicMock()
+            request.client.host = host
+        else:
+            request.client = None
+        request.headers = headers or {}
+        return request
+
+    return _make
 
 
 queries = {
@@ -326,6 +345,25 @@ class DBSeeder:
 
         raw = await create_token(project)
         return {'Authorization': f'Bearer {raw}'}
+
+    async def get_user(self, user_id: str) -> dict | None:
+        """Read a row from the `users` table, or None if absent."""
+        from sqlalchemy import select
+
+        from ..connections import gen_session
+        from ..models import User
+
+        async with gen_session() as session:
+            row = (
+                await session.execute(select(User).where(User.user_id == user_id))
+            ).scalar_one_or_none()
+            if row is not None:
+                return {
+                    'user_id': str(row.user_id),
+                    'user_type': row.user_type,
+                    'platform': row.platform,
+                    'container': row.container,
+                }
 
 
 @pytest.fixture
