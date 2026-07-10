@@ -171,7 +171,7 @@ gcloud run deploy migas-server \
   --region=$REGION \
   --image=gcr.io/$PROJECT_ID/migas-server:<version> \
   --platform=managed \
-  --min-instances=1 --max-instances=3 \
+  --min=1 --max-instances=3 \
   --ingress=all --allow-unauthenticated \
   --set-cloudsql-instances=$GCP_SQL_CONNECTION \
   --memory=512Mi --cpu=1 --cpu-throttling \
@@ -208,16 +208,25 @@ With it you can register projects and issue scoped tokens — see
 
 ## 8. Post-release cost management
 
-Each Cloud Run revision keeps the `min-instances` it was deployed with, so an old
-revision deployed with `--min-instances=1` keeps a warm, billable container even
-at 0% traffic. Once a release looks healthy:
+The deploy above uses **service-level** minimum instances (`--min=1`), which
+Cloud Run divides among revisions *in proportion to the traffic they serve*. When
+a new release takes 100% of traffic, the previous revision drops to 0 instances on
+its own — it stays available as a rollback candidate at no idle cost, and you never
+pay for two warm containers once traffic has cut over. No per-release cleanup is
+needed.
+
+> [!IMPORTANT]
+> This is different from **revision-level** `--min-instances`, which bakes an
+> *immutable* warm-instance count into each revision and keeps billing even at 0%
+> traffic. There is no `gcloud run revisions update` to change it — revision-level
+> minimums can only be dropped by deleting the revision. See
+> [Cloud Run — minimum instances](https://cloud.google.com/run/docs/configuring/min-instances).
+
+If you have older revisions deployed *before* switching to `--min` (i.e. with
+`--min-instances=1`), delete them once to stop their idle billing — keep the current
+serving revision plus one prior for rollback:
 
 ```bash
 gcloud run revisions list --service=migas-server --region=$REGION
-
-# Stop idle billing on old revisions (keeps them as rollback candidates):
-gcloud run revisions update <old-revision> --min-instances=0 --region=$REGION
-
-# Delete revisions older than your last 1–2 rollback candidates:
-gcloud run revisions delete <very-old-revision> --region=$REGION
+gcloud run revisions delete <old-revision> --region=$REGION
 ```

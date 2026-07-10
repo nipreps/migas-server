@@ -86,7 +86,7 @@ DEPLOY_CMD="gcloud run deploy $CLOUD_RUN_SERVICE_NAME \
     --region=$GCP_REGION \
     --image=$GCR_TAG \
     --platform=managed \
-    --min-instances=1 \
+    --min=1 \
     --max-instances=2 \
     --ingress=all \
     --allow-unauthenticated \
