@@ -217,6 +217,25 @@ class DBSeeder:
         raw = await create_token(project)
         return {'Authorization': f'Bearer {raw}'}
 
+    async def get_user(self, user_id: str) -> dict | None:
+        """Read a row from the `users` table, or None if absent."""
+        from sqlalchemy import select
+
+        from ..connections import gen_session
+        from ..models import User
+
+        async with gen_session() as session:
+            row = (
+                await session.execute(select(User).where(User.user_id == user_id))
+            ).scalar_one_or_none()
+            if row is not None:
+                return {
+                    'user_id': str(row.user_id),
+                    'user_type': row.user_type,
+                    'platform': row.platform,
+                    'container': row.container,
+                }
+
 
 @pytest.fixture
 def db(client) -> DBSeeder:
