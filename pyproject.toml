@@ -67,6 +67,11 @@ prod = [
 [project.scripts]
 migas-server = "migas.server.cli:main"
 
+[tool.coverage.run]
+omit = [
+    "migas/server/tests/conftest.py",
+]
+
 [tool.hatch.version]
 source = "vcs"
 
