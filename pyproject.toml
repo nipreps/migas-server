@@ -98,6 +98,7 @@ markers = [
 
 [tool.ruff]
 line-length = 99
+exclude = ["alembic/versions"]
 
 [tool.ruff.format]
 quote-style = "single"

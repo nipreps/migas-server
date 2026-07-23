@@ -5,6 +5,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, field_validator
 from ..types import Status, User, Container
+from typing import Any
 
 # dash last so it is a literal, not a range
 _VERSION_RE = re.compile(r'^[A-Za-z0-9._+-]+$')
@@ -37,7 +38,7 @@ class BreadcrumbRequest(BaseModel):
     language_version: str = '0.0.0'
     ctx: ContextPayload = ContextPayload()
     proc: ProcessPayload = ProcessPayload()
-
+    params: dict[str, Any] | None = None
     _check_versions = field_validator('project_version', 'language_version')(_validate_version)
 
 

@@ -45,6 +45,7 @@ async def insert_crumb(
     error_desc: str | None,
     is_ci: bool,
     session: AsyncSession | None = None,
+    params: dict | None = None
 ) -> None:
     """Add to crumbs table"""
     async with gen_session(session) as session:
@@ -63,6 +64,7 @@ async def insert_crumb(
                 'error_type': error_type,
                 'error_desc': error_desc,
                 'is_ci': is_ci,
+                'params': params
             },
         )
 
@@ -171,6 +173,7 @@ async def ingest_project(project: Project, ip: str | None = None) -> None:
             error_type=data['process']['error_type'],
             error_desc=data['process']['error_desc'],
             is_ci=data['context']['is_ci'],
+            params=data.get('params'),
             session=session,
         )
 

@@ -42,7 +42,8 @@ CREATE TABLE IF NOT EXISTS migas.crumbs (
     status_desc TEXT,
     error_type TEXT,
     error_desc TEXT,
-    is_ci BOOLEAN NOT NULL
+    is_ci BOOLEAN NOT NULL,
+    params JSONB
 );
 
 CREATE INDEX IF NOT EXISTS ix_crumbs_project ON migas.crumbs (project);
