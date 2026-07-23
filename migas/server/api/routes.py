@@ -250,6 +250,7 @@ async def add_breadcrumb(
         timestamp=now(),
         context=context,
         process=process,
+        params=body.params
     )
 
     ip = request.client.host if request.client else None

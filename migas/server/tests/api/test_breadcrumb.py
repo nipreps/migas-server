@@ -42,6 +42,7 @@ class TestBreadcrumb:
                 'project_version': '1.0.0',
                 'language': 'python',
                 'language_version': '3.12',
+                'params': {'iam': 'anewparam'}
             },
         )
         assert res.status_code == 202
@@ -58,6 +59,7 @@ class TestBreadcrumb:
                 'project_version': '1.0.0',
                 'language': 'python',
                 'language_version': '3.12',
+                'params': {'iam': 'anewparam'},
                 'ctx': {
                     'user_id': user_id,
                     'session_id': session_id,
@@ -122,3 +124,36 @@ class TestBreadcrumb:
         )
         assert res.status_code == 400
         assert 'not registered' in res.json()['detail']
+
+    @pytest.mark.anyio
+    async def test_retrieve_params(self, client: TestClient):
+        from sqlalchemy import select
+        from migas.server.connections import gen_session
+        from migas.server.models import Crumb
+
+        session_id = str(uuid4())
+        expected_params = {'iam': 'atestparam'}
+        res = client.post(
+            self.url + '?wait=true',
+            json={
+                'project': TEST_PROJECT,
+                'project_version': '1.2.3',
+                'language': 'python',
+                'language_version': '3.12',
+                'params': expected_params,
+                'ctx': {
+                    'session_id': session_id
+                }
+            },
+        )
+
+        assert res.status_code == 200
+        assert res.json()['success'] is True
+
+        async with gen_session() as session:
+            result = await session.execute(
+                select(Crumb.params).where(Crumb.session_id == session_id)
+            )
+            stored_params = result.scalar_one()
+
+        assert stored_params == expected_params

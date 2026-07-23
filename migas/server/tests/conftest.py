@@ -1,9 +1,12 @@
 import os
-import pytest
+import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch, MagicMock
+
+import pytest
 from fastapi import Request
 from fastapi.testclient import TestClient
 
@@ -21,6 +24,132 @@ USER_C = '00000000-0000-0000-0000-00000000000c'
 SESSION_1 = '11111111-1111-1111-1111-111111111111'
 SESSION_2 = '22222222-2222-2222-2222-222222222222'
 SESSION_3 = '33333333-3333-3333-3333-333333333333'
+
+# collect this as we're starting to execute scripts relative to
+# this file for optional fixtures
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
+# hardcoded for testing, seems okay for now as these tests are 
+# optional and shouldn't be triggered unless provide with explicit flags
+# may want to add to pytest options in the future
+DOCKER_TEST_ENV = {
+    'MIGAS_REDIS_URI': 'redis://localhost:6380',
+    'DATABASE_URL': 'postgresql+asyncpg://postgres:crumbs@localhost:5433/migas',
+}
+
+
+def restore_env(original_values: dict[str, str | None]) -> None:
+    for key, value in original_values.items():
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
+
+# Add pytest options for runnning tests with docker provided Postgres and Redis
+# as well as enabling geolocation tests/db
+def pytest_addoption(parser):
+    docker = parser.getgroup('docker')
+    docker.addoption(
+        '--with-docker',
+        action='store_true',
+        default=False,
+        help='Start local Docker Compose Redis/Postgres services and configure test env vars.',
+    )
+    docker.addoption(
+        '--docker-postgres-data-dir',
+        action='store',
+        default=None,
+        help='Set MIGAS_POSTGRES_DATA_DIR while starting Docker Compose services.',
+    )
+    geoloc = parser.getgroup('geoloc')
+    geoloc.addoption(
+        '--with-geoloc',
+        action='store_true',
+        default=False,
+        help='Download local geolocation databases and configure geolocation env vars.',
+    )
+
+
+@pytest.fixture(scope='session', autouse=True)
+def docker_services_for_tests(request) -> Iterator[None]:
+    """
+    Stands up postgres and redis via docker compose and sets optional postgres data directory
+    if provided for reusability or even more ephemeral testing with temporary directories.
+    """
+    if not request.config.getoption('--with-docker'):
+        yield
+        return
+
+    # Collect original env vars so we leave no trace
+    original_values = {key: os.getenv(key) for key in DOCKER_TEST_ENV}
+    os.environ.update(DOCKER_TEST_ENV)
+
+    compose_env = os.environ.copy()
+    if data_dir := request.config.getoption('--docker-postgres-data-dir'):
+        compose_env['MIGAS_POSTGRES_DATA_DIR'] = data_dir
+
+    compose_started = False
+    try:
+        subprocess.run(
+            ['docker', 'compose', 'up', '-d', '--wait', 'database', 'hotmem'],
+            cwd=PROJECT_ROOT,
+            env=compose_env,
+            check=True,
+        )
+        compose_started = True
+        yield
+    except subprocess.CalledProcessError:
+        if compose_started:
+            subprocess.run(
+                ['docker', 'compose', 'down', '-v'],
+                cwd=PROJECT_ROOT,
+                check=True,
+            )
+    finally:
+        if compose_started:
+            subprocess.run(
+                ['docker', 'compose', 'down', '-v'],
+                cwd=PROJECT_ROOT,
+                check=True,
+            )
+        # just like we found things
+        restore_env(original_values)
+
+
+@pytest.fixture(scope='session', autouse=True)
+def geoloc_dbs_for_tests(request) -> Iterator[None]:
+    """
+    Runs the geolocation database download script and sets the environment variables
+    for the geolocation tests when the --with-geoloc option is provided.
+    """
+    if not request.config.getoption('--with-geoloc'):
+        yield
+        return
+
+    # Run the provided download script, handles existing db by itself so we run
+    # it every time
+    geodb_dir = PROJECT_ROOT / 'geodb'
+    subprocess.run(
+        [sys.executable, 'scripts/download_geodbs.py', str(geodb_dir)],
+        cwd=PROJECT_ROOT,
+        check=True,
+    )
+
+    # geoloc tests are skipped without these, adding enabling them here makes
+    # for more complete testing
+    geoloc_env = {
+        'MIGAS_GEOLOC': '1',
+        'MIGAS_GEOLOC_DIR': str(geodb_dir),
+    }
+    original_values = {key: os.getenv(key) for key in geoloc_env}
+    os.environ.update(geoloc_env)
+
+    try:
+        yield
+    finally:
+        # once again, leave no trace 
+        restore_env(original_values)
+
 
 
 def auth_header(token: str) -> dict[str, str]:
