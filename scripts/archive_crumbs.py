@@ -73,6 +73,35 @@ PARQUET_SCHEMA = pa.schema(
     ]
 )
 
+# Columns cast to text on export so the archive is portable; rebuild_crumbs.py
+# casts them back. Add an entry when a new typed column joins the schema.
+COLUMN_CASTS = {'session_id': 'text', 'user_id': 'text', 'status': 'text'}
+
+
+def _select_columns() -> str:
+    """SELECT list derived from PARQUET_SCHEMA, so the schema is the only place
+    to edit when the crumbs table gains a column."""
+    return ', '.join(
+        f'{name}::{COLUMN_CASTS[name]}' if name in COLUMN_CASTS else name
+        for name in PARQUET_SCHEMA.names
+    )
+
+
+async def assert_schema_covers_table(conn):
+    """Fail loudly if migas.crumbs has columns the archive schema would drop."""
+    rows = await conn.fetch(
+        'SELECT column_name FROM information_schema.columns '
+        "WHERE table_schema = 'migas' AND table_name = 'crumbs'"
+    )
+    missing = {r['column_name'] for r in rows} - set(PARQUET_SCHEMA.names)
+    if missing:
+        raise SystemExit(
+            f'migas.crumbs has columns not in the archive schema: {sorted(missing)}. '
+            'Add them to PARQUET_SCHEMA (and COLUMN_CASTS if text-encoded) before '
+            'archiving, or those columns would be silently lost.'
+        )
+
+
 # Load environment
 env_file = os.getenv('MIGAS_ENV_FILE', '.env')
 load_dotenv(env_file)
@@ -100,6 +129,7 @@ async def get_frozen_cutoff(conn) -> datetime | None:
 
 async def archive_crumbs(before_date: datetime | None, dry_run: bool, delete: bool):
     conn = await async_creator()
+    await assert_schema_covers_table(conn)
     if before_date is None:
         before_date = await get_frozen_cutoff(conn)
         if before_date is None:
@@ -168,11 +198,8 @@ async def archive_crumbs(before_date: datetime | None, dry_run: bool, delete: bo
 
                     async with conn.transaction():
                         cur = await conn.cursor(
-                            """
-                            SELECT
-                                idx, project, version, language, language_version, timestamp,
-                                session_id::text, user_id::text, status::text, status_desc,
-                                error_type, error_desc, is_ci
+                            f"""
+                            SELECT {_select_columns()}
                             FROM migas.crumbs
                             WHERE project = $1 AND timestamp < $2
                             ORDER BY timestamp ASC
