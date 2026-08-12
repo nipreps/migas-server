@@ -86,6 +86,7 @@ version-file = "migas/server/_version.py"
 # different copies of every module, breaking monkeypatch/DI overrides.
 addopts = "--import-mode=importlib"
 consider_namespace_packages = true
+testpaths = ["migas"]
 markers = [
     "network: tests that require real network connectivity",
     "geoloc: tests that require real geolocation databases",
