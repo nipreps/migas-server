@@ -1,4 +1,4 @@
-FROM python:3.13-slim
+FROM python:3.14-slim
 ARG BUILDTYPE=test-latest
 ARG DEPLOYSERVER=uvicorn
 ARG VERSION="0.0.0dev"
@@ -11,7 +11,7 @@ ENV YARL_NO_EXTENSIONS=1 \
     PATH="/src/.venv/bin:$PATH" \
     MIGAS_GEOLOC_DIR=/tmp
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.13.7 /uv /bin/uv
 
 # Build uv sync flags from BUILDTYPE
 RUN if [ "$BUILDTYPE" = "release" ]; then \

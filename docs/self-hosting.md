@@ -40,7 +40,7 @@ It can also use MaxMind-format geolocation databases (see
 
 **Host requirements:**
 
-- Python **3.10+** (3.13 is what the official image ships; any 3.10+ works)
+- Python **3.13+** (3.14 is what the official image ships; any 3.13+ works)
 - [`uv`](https://docs.astral.sh/uv/) for dependency management
 - Network access from the host to your Postgres and Redis
 - A reverse proxy (e.g. nginx) if you want TLS termination — recommended
