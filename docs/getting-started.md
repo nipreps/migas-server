@@ -24,10 +24,10 @@ and trying out the API.
 
 - **Docker** with the **Compose** plugin (`docker compose …`)
 - **make**
-- **hatch** — the build reads the version from `hatch version`. If you don't
-  have it: `uv tool install hatch` (or `pipx install hatch`).
+- **[uv](https://docs.astral.sh/uv/)** — the build computes the version from git
+  tags with `uvx --with hatch-vcs hatch version` (uv fetches hatch on demand).
 
-Everything runs in containers; no local Python, Postgres, or Redis needed.
+Everything else runs in containers; no local Python, Postgres, or Redis needed.
 
 ---
 
@@ -41,9 +41,9 @@ make compose-up
 
 This runs two steps (see the [Makefile](https://github.com/nipreps/migas-server/blob/main/Makefile)):
 
-1. `docker build` — builds the `migas-server:latest` image.
-2. `docker compose up --detach` — starts the server, Postgres, and Redis in the
-   background.
+1. `docker compose build` — builds the `migas-server:latest` image.
+2. `docker compose up --detach --wait` — starts the server, Postgres, and Redis in
+   the background.
 
 The first build takes a few minutes; subsequent runs are cached.
 
@@ -169,8 +169,9 @@ so adjust the **left** number only (e.g. `"9090:8080"` to serve the API on
 `localhost:9090`). Leave the container port unchanged, then re-run
 `make compose-up` to apply.
 
-**`hatch: command not found` during `make compose-up`.** The build needs `hatch`
-to compute the version. Install it with `uv tool install hatch` and retry.
+**`unable to compute version` during `make compose-up`.** The build uses `uv` to
+compute the version from git tags. Install [uv](https://docs.astral.sh/uv/), and
+make sure you're in a git checkout with tags (`git fetch --tags`).
 
 **Database changes not taking effect.** `init.sql` only runs the first time the
 Postgres data directory is created. After schema changes, recreate the volume as
