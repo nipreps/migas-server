@@ -54,7 +54,7 @@ def mock_request():
 
 queries = {
     'add_project': f'mutation {{ add_project(p: {{project: "{TEST_PROJECT}", project_version: "0.5.0", language: "python", language_version: "3.12"}}) }}',
-    'add_breadcrumb': f'mutation {{ add_breadcrumb(project: "{TEST_PROJECT}", project_version: "1.0.0", proc: {{status: C}}) }}',
+    'add_breadcrumb': f'mutation {{ add_breadcrumb(project: "{TEST_PROJECT}", project_version: "1.0.0", language: "python", language_version: "3.12", ctx: {{}}, proc: {{status: C}}) {{ success message }} }}',
     'get_usage': f'query {{ get_usage(project: "{TEST_PROJECT}") }}',
     'get_projects': 'query { get_projects }',
 }

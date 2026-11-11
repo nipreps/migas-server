@@ -122,7 +122,6 @@ class Mutation:
             status_desc=proc.status_desc,
             error_type=proc.error_type,
             error_desc=proc.error_desc,
-            params=proc.params,
         )
 
         project = Project(
