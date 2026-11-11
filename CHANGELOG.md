@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.10.0] - 2026-11-11
+
+> **Database migration required.** Apply it with `alembic upgrade head` **before** deploying this release:
+> the server writes the new `crumbs.params` column on every breadcrumb, and ingestion fails without it.
+> The migration only adds a nullable column, so the previous release keeps working against the upgraded schema.
+
+### Enhancements
+- **Process Parameters**: Breadcrumbs accept an optional JSON `proc.params` object, stored in a new `crumbs.params` JSONB column. Available via `POST /api/breadcrumb` only, not GraphQL. (With thanks to @bendhouseart!)
+
+### Bug Fixes
+- **GraphQL Log Extraction**: Handle argument-less fields in the GraphQL AST fallback, which `graphql-core` 3.3 represents as `None` rather than an empty list.
+
+### Maintenance & Infrastructure
+- **Dependency Upgrades**: Bumped locked dependencies, including `starlette` (1.10.0), `python-multipart` (0.0.33), `strawberry-graphql` (0.341.2), `graphql-core` (3.3.2), `aiohttp` (3.14.5), `urllib3` (2.8.0), `mako` (1.4.3), `anyio`, `certifi`, `dnspython`, `idna`, `multidict` and `pydantic-settings`. `fastapi` moves to 0.162.2 to allow the newer `starlette`.
+- **Python 3.13+**: Raised the minimum to Python 3.13, following [SPEC 0](https://scientific-python.org/specs/spec-0000/); the official image now runs Python 3.14.
+- **Pinned Build Tooling**: The image pins `uv` instead of tracking `latest`; local compose services move to current Postgres 14 and Redis 7 patch releases.
+- **Client Compatibility CI**: New workflow checks that released migas-py clients (0.3.0, 0.4.0) and migas-py `main` still work against the server.
+- **Local Stack**: `make compose-up` now rebuilds the image compose actually runs (dependency changes previously never reached the local stack), and needs only `uv` instead of a local `hatch`.
+
+---
+*For a full list of changes, see the [commit history](https://github.com/nipreps/migas-server/compare/0.9.0...0.10.0).*
+
 ## [0.9.0] - 2026-07-10
 
 ### Documentation
