@@ -37,7 +37,7 @@ def _extract_from_ast(document, field: str, nested_key: str | None = None) -> st
         if not isinstance(defn, OperationDefinitionNode):
             continue
         for selection in defn.selection_set.selections:
-            for arg in selection.arguments:
+            for arg in selection.arguments or ():
                 if arg.name.value == field:
                     if isinstance(arg.value, (StringValueNode, EnumValueNode)):
                         return arg.value.value

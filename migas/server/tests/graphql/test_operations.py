@@ -34,6 +34,13 @@ def test_graphql_add_project(variant: str, client: TestClient) -> None:
         assert k in output
 
 
+def test_graphql_add_breadcrumb(client: TestClient) -> None:
+    res = client.post('/graphql', json={'query': queries['add_breadcrumb']})
+    assert res.status_code == 200
+    assert 'errors' not in res.json()
+    assert res.json()['data']['add_breadcrumb']['success'] is True
+
+
 def test_graphql_big_request(client: TestClient) -> None:
     res = client.post(
         '/graphql', json={'query': queries['add_project'].replace('python', 'x' * 5000)}
